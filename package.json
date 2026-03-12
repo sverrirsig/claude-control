@@ -1,26 +1,56 @@
 {
-  "name": "claude-control-init",
+  "name": "claude-control",
   "version": "0.1.0",
-  "private": true,
+  "description": "Desktop dashboard for monitoring and managing multiple Claude Code sessions",
+  "author": "sverrirsig",
+  "license": "MIT",
+  "main": "electron/main.js",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "electron:dev": "concurrently --kill-others \"next dev -p 3200\" \"wait-on http://localhost:3200 && electron .\"",
+    "electron:build": "next build && node scripts/prepare-build.js && electron-builder --mac",
+    "electron:pack": "next build && node scripts/prepare-build.js && electron-builder --mac --dir"
   },
   "dependencies": {
+    "next": "14.2.35",
     "react": "^18",
     "react-dom": "^18",
-    "next": "14.2.35"
+    "swr": "^2.4.1"
   },
   "devDependencies": {
-    "typescript": "^5",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "concurrently": "^9.2.1",
+    "electron": "^41.0.0",
+    "electron-builder": "^26.8.1",
+    "eslint": "^8",
+    "eslint-config-next": "14.2.35",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
-    "eslint": "^8",
-    "eslint-config-next": "14.2.35"
+    "typescript": "^5",
+    "wait-on": "^9.0.4"
+  },
+  "build": {
+    "appId": "com.claude-control.app",
+    "productName": "Claude Control",
+    "directories": {
+      "output": "dist"
+    },
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "icon": "public/icon.png",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "files": [
+      "electron/**/*"
+    ],
+    "afterPack": "./scripts/after-pack.js"
   }
 }

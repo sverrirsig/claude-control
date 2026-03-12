@@ -1,0 +1,203 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { ClaudeSession, SessionStatus } from "@/lib/types";
+import { StatusBadge } from "./StatusBadge";
+import { GitSummary } from "./GitSummary";
+import { OutputPreview } from "./OutputPreview";
+import { TaskSummaryView } from "./TaskSummaryView";
+import { QuickActions } from "./QuickActions";
+
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const seconds = Math.floor(diff / 1000);
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+const cardStyles: Record<SessionStatus, { border: string; glow: string; accent: string }> = {
+  working: {
+    border: "border-emerald-500/20 hover:border-emerald-500/40",
+    glow: "glow-green",
+    accent: "from-emerald-500/[0.07] to-transparent",
+  },
+  idle: {
+    border: "border-amber-500/15 hover:border-amber-500/30",
+    glow: "glow-yellow",
+    accent: "from-amber-500/[0.05] to-transparent",
+  },
+  waiting: {
+    border: "border-blue-500/20 hover:border-blue-500/40",
+    glow: "glow-blue",
+    accent: "from-blue-500/[0.07] to-transparent",
+  },
+  errored: {
+    border: "border-red-500/20 hover:border-red-500/40",
+    glow: "glow-red",
+    accent: "from-red-500/[0.07] to-transparent",
+  },
+  finished: {
+    border: "border-zinc-700/30 hover:border-zinc-600/50",
+    glow: "glow-zinc",
+    accent: "from-zinc-500/[0.03] to-transparent",
+  },
+};
+
+export function SessionCard({ session, targetScreen, pulse }: { session: ClaudeSession; targetScreen?: number | null; pulse?: boolean }) {
+  const styles = cardStyles[session.status];
+  const [cleanupState, setCleanupState] = useState<"idle" | "confirm" | "cleaning" | "done">("idle");
+
+  const canCleanup = session.isWorktree && (session.status === "idle" || session.status === "waiting" || session.status === "finished");
+
+  async function handleCleanup(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (cleanupState === "idle") {
+      setCleanupState("confirm");
+      // Auto-reset after 4 seconds if not confirmed
+      setTimeout(() => setCleanupState((s) => s === "confirm" ? "idle" : s), 4000);
+      return;
+    }
+
+    if (cleanupState === "confirm") {
+      setCleanupState("cleaning");
+      try {
+        const res = await fetch("/api/sessions/cleanup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            pid: session.pid,
+            workingDirectory: session.workingDirectory,
+          }),
+        });
+        if (res.ok) {
+          setCleanupState("done");
+        } else {
+          setCleanupState("idle");
+        }
+      } catch {
+        setCleanupState("idle");
+      }
+    }
+  }
+
+  function cancelCleanup(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setCleanupState("idle");
+  }
+
+  if (cleanupState === "done") {
+    return (
+      <div className="relative block rounded-xl border border-zinc-800/20 bg-[#0a0a0f]/40 p-5 card-fade-out">
+        <div className="flex flex-col items-center justify-center py-8 text-zinc-600">
+          <svg className="w-8 h-8 mb-2 text-emerald-500/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span className="text-sm">Cleaned up</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative">
+      <Link
+        href={`/session/${encodeURIComponent(session.id)}`}
+        className={`group relative block rounded-xl border bg-[#0a0a0f]/80 backdrop-blur-sm p-5 card-hover ${styles.border} ${styles.glow} ${pulse ? "attention-pulse" : ""} ${cleanupState === "cleaning" ? "opacity-50 pointer-events-none" : ""}`}
+      >
+        {/* Gradient accent at top */}
+        <div className={`absolute inset-x-0 top-0 h-24 rounded-t-xl bg-gradient-to-b ${styles.accent} pointer-events-none`} />
+
+        <div className="relative">
+          {/* Header */}
+          <div className="flex items-start justify-between mb-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold text-[15px] text-zinc-100 truncate group-hover:text-white transition-colors">
+                  {session.repoName || "Unknown"}
+                </h3>
+                {session.isWorktree && (
+                  <span className="shrink-0 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider rounded bg-violet-500/10 border border-violet-500/20 text-violet-400">
+                    worktree
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-zinc-600 truncate font-[family-name:var(--font-geist-mono)] mt-0.5">
+                {session.workingDirectory.split("/").slice(-3).join("/")}
+              </p>
+            </div>
+            <StatusBadge status={session.status} />
+          </div>
+
+          {/* Git info */}
+          {session.git && (
+            <div className="mb-3">
+              <GitSummary git={session.git} />
+            </div>
+          )}
+
+          {/* Divider */}
+          <div className="h-px bg-white/[0.04] mb-3" />
+
+          {/* Task summary or output preview */}
+          <div className="mb-4 min-h-[3rem]">
+            {session.taskSummary ? (
+              <TaskSummaryView task={session.taskSummary} />
+            ) : (
+              <OutputPreview preview={session.preview} />
+            )}
+          </div>
+
+          {/* Time ago */}
+          <div className="mb-3">
+            <span className="text-[11px] text-zinc-600 font-[family-name:var(--font-geist-mono)]">
+              {timeAgo(session.lastActivity)}
+            </span>
+          </div>
+
+          {/* Confirmation bar — slides in over the actions */}
+          {cleanupState === "confirm" ? (
+            <div className="flex items-center gap-2 cleanup-slide-in">
+              <span className="text-xs text-zinc-400 flex-1">Remove worktree and session?</span>
+              <button
+                onClick={cancelCleanup}
+                className="px-3 py-1.5 rounded-lg text-xs text-zinc-500 hover:text-zinc-300 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.07] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCleanup}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium text-red-400 hover:text-red-300 bg-red-500/[0.08] hover:bg-red-500/[0.18] border border-red-500/[0.15] hover:border-red-500/[0.30] transition-colors"
+              >
+                Confirm
+              </button>
+            </div>
+          ) : cleanupState === "cleaning" ? (
+            <div className="flex items-center justify-center gap-2 h-8">
+              <span className="w-3.5 h-3.5 rounded-full border-2 border-zinc-700 border-t-zinc-400 animate-spin" />
+              <span className="text-xs text-zinc-500">Cleaning up...</span>
+            </div>
+          ) : (
+            /* Actions — full width */
+            <QuickActions
+              path={session.workingDirectory}
+              pid={session.pid}
+              targetScreen={targetScreen}
+              status={session.status}
+              branch={session.branch}
+              prUrl={session.prUrl}
+              onCleanup={canCleanup ? handleCleanup : undefined}
+            />
+          )}
+        </div>
+      </Link>
+    </div>
+  );
+}
