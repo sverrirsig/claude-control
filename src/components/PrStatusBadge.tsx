@@ -21,10 +21,14 @@ function checksTooltip(pr: PrStatus): string {
   if (pr.mergeable === "CONFLICTING") parts.push("Has conflicts");
   if (pr.mergeStateStatus === "BLOCKED") parts.push("Merge blocked");
 
+  if (pr.state === "MERGED") return "PR merged";
+  if (pr.state === "CLOSED") return "PR closed";
   return parts.join(" · ") || "PR open";
 }
 
 function overallColor(pr: PrStatus): string {
+  if (pr.state === "MERGED") return "purple";
+  if (pr.state === "CLOSED") return "red";
   if (pr.checks === "failing" || pr.mergeable === "CONFLICTING") return "red";
   if (pr.checks === "pending") return "amber";
   if (pr.unresolvedThreads > 0 || pr.mergeStateStatus === "BEHIND" || pr.mergeStateStatus === "BLOCKED") return "amber";
@@ -40,8 +44,38 @@ export function PrStatusBadge({ pr }: { pr: PrStatus }) {
     green: "border-emerald-500/[0.15] bg-emerald-500/[0.06]",
     red: "border-red-500/[0.15] bg-red-500/[0.06]",
     amber: "border-amber-500/[0.12] bg-amber-500/[0.05]",
+    purple: "border-violet-500/[0.15] bg-violet-500/[0.06]",
     zinc: "border-white/[0.08] bg-white/[0.03]",
   };
+
+  // Merged or closed — show a simple badge
+  if (pr.state === "MERGED") {
+    return (
+      <div
+        className={`has-tooltip inline-flex items-center gap-1 px-2 py-1 rounded-md border text-[10px] ${borderColors.purple}`}
+        data-tip="PR merged"
+      >
+        <svg className="w-3 h-3 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+        </svg>
+        <span className="font-medium text-violet-400">Merged</span>
+      </div>
+    );
+  }
+
+  if (pr.state === "CLOSED") {
+    return (
+      <div
+        className={`has-tooltip inline-flex items-center gap-1 px-2 py-1 rounded-md border text-[10px] ${borderColors.red}`}
+        data-tip="PR closed"
+      >
+        <svg className="w-3 h-3 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+        <span className="font-medium text-red-400">Closed</span>
+      </div>
+    );
+  }
 
   const items: React.ReactNode[] = [];
 

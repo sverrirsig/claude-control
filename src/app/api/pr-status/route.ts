@@ -58,7 +58,7 @@ async function fetchPrStatus(prUrl: string, cwd: string): Promise<PrStatus | nul
         "gh",
         [
           "pr", "view", prUrl,
-          "--json", "url,statusCheckRollup,reviewDecision,mergeable,mergeStateStatus",
+          "--json", "url,state,statusCheckRollup,reviewDecision,mergeable,mergeStateStatus",
         ],
         { cwd, timeout: 10000 }
       ),
@@ -99,6 +99,7 @@ async function fetchPrStatus(prUrl: string, cwd: string): Promise<PrStatus | nul
 
     return {
       url: data.url ?? prUrl,
+      state: data.state ?? "OPEN",
       checks,
       reviewDecision: data.reviewDecision || null,
       mergeable: data.mergeable ?? "UNKNOWN",
