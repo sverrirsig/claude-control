@@ -17,16 +17,12 @@ export function TaskSummaryView({ task }: { task: TaskSummary }) {
       }}
       className={task.description ? "cursor-pointer" : ""}
     >
-      <div className="flex items-start gap-2">
+      <h4 className="text-xs font-medium text-zinc-300 line-clamp-2 leading-relaxed">
         {task.ticketId && (
-          <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-mono font-medium rounded bg-blue-500/10 border border-blue-500/20 text-blue-400">
-            {task.ticketId}
-          </span>
+          <span className="text-zinc-500 mr-1.5">{task.ticketId}</span>
         )}
-        <h4 className="text-xs font-medium text-zinc-300 line-clamp-2 leading-relaxed">
-          {task.title}
-        </h4>
-      </div>
+        {task.title}
+      </h4>
       {task.description && (
         <p
           className={`mt-1.5 text-[11px] text-zinc-500 leading-relaxed transition-all duration-200 ${
@@ -35,11 +31,6 @@ export function TaskSummaryView({ task }: { task: TaskSummary }) {
         >
           {task.description}
         </p>
-      )}
-      {task.description && !expanded && (
-        <span className="text-[10px] text-zinc-600 mt-1 inline-block">
-          Click to expand
-        </span>
       )}
     </div>
   );

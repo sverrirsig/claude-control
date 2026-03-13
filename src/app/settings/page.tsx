@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { ScreenPicker } from "@/components/ScreenPicker";
 
 interface OptionDef {
   id: string;
@@ -60,6 +61,12 @@ export default function SettingsPage() {
   const [data, setData] = useState<SettingsData | null>(null);
   const [saved, setSaved] = useState(false);
   const [addingDir, setAddingDir] = useState(false);
+  const [targetScreen, setTargetScreen] = useState<number | null>(null);
+
+  useEffect(() => {
+    const s = localStorage.getItem("targetScreen");
+    if (s !== null) setTargetScreen(s === "" ? null : parseInt(s, 10));
+  }, []);
 
   useEffect(() => {
     fetch("/api/settings")
@@ -167,6 +174,26 @@ export default function SettingsPage() {
             options={data.options.browsers}
             onChange={(browser) => save({ browser })}
           />
+        </div>
+      </section>
+
+      {/* Display section */}
+      <section className="mb-10">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-3">Display</h2>
+        <div className="rounded-xl border border-white/[0.06] bg-[#0a0a0f]/80 px-5 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-zinc-200">Target Screen</h3>
+              <p className="text-xs text-zinc-500 mt-0.5">Which screen to open apps on when using quick actions</p>
+            </div>
+            <ScreenPicker
+              targetScreen={targetScreen}
+              onChange={(screen) => {
+                setTargetScreen(screen);
+                localStorage.setItem("targetScreen", screen === null ? "" : String(screen));
+              }}
+            />
+          </div>
         </div>
       </section>
 

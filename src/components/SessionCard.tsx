@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
-import { ClaudeSession, SessionStatus } from "@/lib/types";
+import { ClaudeSession, SessionStatus, PrStatus } from "@/lib/types";
 import { StatusBadge } from "./StatusBadge";
 import { GitSummary } from "./GitSummary";
 import { OutputPreview } from "./OutputPreview";
 import { TaskSummaryView } from "./TaskSummaryView";
+import { PrStatusBadge } from "./PrStatusBadge";
 import { QuickActions } from "./QuickActions";
 import { QuickReply } from "./QuickReply";
 
@@ -49,7 +49,7 @@ const cardStyles: Record<SessionStatus, { border: string; glow: string; accent: 
   },
 };
 
-export function SessionCard({ session, targetScreen, pulse, selected, shortcutNumber }: { session: ClaudeSession; targetScreen?: number | null; pulse?: boolean; selected?: boolean; shortcutNumber?: number }) {
+export function SessionCard({ session, targetScreen, pulse, selected, shortcutNumber, actionFeedback, prStatus, onSelect }: { session: ClaudeSession; targetScreen?: number | null; pulse?: boolean; selected?: boolean; shortcutNumber?: number; actionFeedback?: { label: string; color: string } | null; prStatus?: PrStatus | null; onSelect?: () => void }) {
   // Track which prompt was acted on so we can suppress re-showing the same stale prompt
   const [actedOn, setActedOn] = useState<{ key: string; action: "approve" | "reject" | "reply" } | null>(null);
 
@@ -126,25 +126,40 @@ export function SessionCard({ session, targetScreen, pulse, selected, shortcutNu
 
   return (
     <div className="relative">
-      <Link
-        href={`/session/${encodeURIComponent(session.id)}`}
-        className={`group relative block rounded-xl border bg-[#0a0a0f]/80 backdrop-blur-sm p-5 card-hover ${styles.border} ${styles.glow} ${pulse ? "attention-pulse" : ""} ${selected ? "ring-1 ring-blue-500/50 border-blue-500/30" : ""} ${cleanupState === "cleaning" ? "opacity-50 pointer-events-none" : ""}`}
+      <div
+        onClick={onSelect}
+        className={`group relative flex flex-col rounded-xl border bg-[#0a0a0f]/80 backdrop-blur-sm p-5 card-hover cursor-pointer ${selected ? "ring-2 ring-blue-400 border-blue-400/50 shadow-[0_0_30px_rgba(96,165,250,0.25),0_0_60px_rgba(96,165,250,0.10)] scale-[1.02]" : styles.border} ${!selected ? styles.glow : ""} ${pulse ? "attention-pulse" : ""} ${cleanupState === "cleaning" ? "opacity-50 pointer-events-none" : ""}`}
       >
         {/* Gradient accent at top */}
-        <div className={`absolute inset-x-0 top-0 h-24 rounded-t-xl bg-gradient-to-b ${styles.accent} pointer-events-none`} />
+        <div className={`absolute inset-x-0 top-0 h-24 rounded-t-xl bg-gradient-to-b ${selected ? "from-blue-500/[0.12] to-transparent" : styles.accent} pointer-events-none transition-colors duration-150`} />
 
-        <div className="relative">
+        {/* Action feedback flash */}
+        {actionFeedback && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-black/60 backdrop-blur-sm action-flash pointer-events-none">
+            <span className={`text-sm font-semibold px-3 py-1.5 rounded-lg ${
+              actionFeedback.color === "emerald" ? "text-emerald-300 bg-emerald-500/20" :
+              actionFeedback.color === "red" ? "text-red-300 bg-red-500/20" :
+              "text-blue-300 bg-blue-500/20"
+            }`}>
+              {actionFeedback.label}
+            </span>
+          </div>
+        )}
+
+        <div className="relative flex flex-col">
           {/* Header */}
           <div className="flex items-start justify-between mb-3">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 {shortcutNumber !== undefined && (
-                  <span className={`shrink-0 w-5 h-5 flex items-center justify-center rounded text-[10px] font-bold font-[family-name:var(--font-geist-mono)] transition-colors ${selected ? "bg-blue-500/20 border border-blue-500/30 text-blue-300" : "bg-white/[0.04] border border-white/[0.06] text-zinc-600"}`}>
+                  <span className={`shrink-0 flex items-center justify-center rounded font-bold font-[family-name:var(--font-geist-mono)] transition-all duration-150 ${selected ? "w-6 h-6 text-[11px] bg-blue-500 text-white shadow-[0_0_12px_rgba(96,165,250,0.5)]" : "w-5 h-5 text-[10px] bg-white/[0.04] border border-white/[0.06] text-zinc-600"}`}>
                     {shortcutNumber}
                   </span>
                 )}
                 <h3 className="font-semibold text-[15px] text-zinc-100 truncate group-hover:text-white transition-colors">
-                  {session.repoName || "Unknown"}
+                  {session.isWorktree && session.parentRepo
+                    ? session.parentRepo.split("/").filter(Boolean).pop() || session.repoName
+                    : session.repoName || "Unknown"}
                 </h3>
                 {session.isWorktree && (
                   <span className="shrink-0 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider rounded bg-violet-500/10 border border-violet-500/20 text-violet-400">
@@ -153,16 +168,17 @@ export function SessionCard({ session, targetScreen, pulse, selected, shortcutNu
                 )}
               </div>
               <p className="text-[11px] text-zinc-600 truncate font-[family-name:var(--font-geist-mono)] mt-0.5">
-                {session.workingDirectory.split("/").slice(-3).join("/")}
+                {session.workingDirectory.replace(/.*\/([^/]+\/[^/]+)$/, "$1")}
               </p>
             </div>
             <StatusBadge status={displayStatus} />
           </div>
 
-          {/* Git info */}
-          {session.git && (
-            <div className="mb-3">
-              <GitSummary git={session.git} />
+          {/* Git info + PR status */}
+          {(session.git || prStatus) && (
+            <div className="mb-3 flex items-center gap-2 flex-wrap">
+              {session.git && <GitSummary git={session.git} />}
+              {prStatus && <PrStatusBadge pr={prStatus} />}
             </div>
           )}
 
@@ -170,7 +186,7 @@ export function SessionCard({ session, targetScreen, pulse, selected, shortcutNu
           <div className="h-px bg-white/[0.04] mb-3" />
 
           {/* Task summary or output preview */}
-          <div className="mb-4 min-h-[3rem]">
+          <div className="mb-4 min-h-[3rem] flex-1">
             {session.taskSummary ? (
               <TaskSummaryView task={session.taskSummary} />
             ) : (
@@ -232,7 +248,7 @@ export function SessionCard({ session, targetScreen, pulse, selected, shortcutNu
             />
           )}
         </div>
-      </Link>
+      </div>
     </div>
   );
 }

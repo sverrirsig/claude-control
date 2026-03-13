@@ -44,6 +44,20 @@ export interface TaskSummary {
   ticketUrl: string | null;
 }
 
+export type PrChecks = "passing" | "failing" | "pending" | "none";
+export type PrReviewDecision = "APPROVED" | "CHANGES_REQUESTED" | "REVIEW_REQUIRED" | null;
+
+export interface PrStatus {
+  url: string;
+  checks: PrChecks;
+  reviewDecision: PrReviewDecision;
+  mergeable: "MERGEABLE" | "CONFLICTING" | "UNKNOWN";
+  mergeStateStatus: "BEHIND" | "BLOCKED" | "CLEAN" | "DIRTY" | "HAS_HOOKS" | "UNKNOWN" | "UNSTABLE";
+  checksDetail?: { total: number; passing: number; failing: number; pending: number };
+  unresolvedThreads: number;
+  commentCount: number;
+}
+
 export interface SessionDetail extends ClaudeSession {
   conversation: ConversationMessage[];
   gitDiff: string | null;

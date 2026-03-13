@@ -1,11 +1,17 @@
 "use client";
 
-import { ClaudeSession, SessionGroup } from "@/lib/types";
+import { ClaudeSession, PrStatus } from "@/lib/types";
 import { SessionCard } from "./SessionCard";
 
 import { groupSessions } from "@/lib/group-sessions";
 
-export function SessionGrid({ sessions, targetScreen, freshlyChanged, selectedIndex, onNewSessionInRepo }: { sessions: ClaudeSession[]; targetScreen?: number | null; freshlyChanged?: Set<string>; selectedIndex?: number | null; onNewSessionInRepo?: (repoPath: string, repoName: string) => void }) {
+function prettifyName(name: string): string {
+  return name
+    .replace(/[-_]+/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+export function SessionGrid({ sessions, targetScreen, freshlyChanged, selectedIndex, onSelectIndex, actionFeedback, prStatuses, onNewSessionInRepo }: { sessions: ClaudeSession[]; targetScreen?: number | null; freshlyChanged?: Set<string>; selectedIndex?: number | null; onSelectIndex?: (idx: number | null) => void; actionFeedback?: { label: string; color: string } | null; prStatuses?: Record<string, PrStatus | null>; onNewSessionInRepo?: (repoPath: string, repoName: string) => void }) {
   if (sessions.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-32">
@@ -37,7 +43,8 @@ export function SessionGrid({ sessions, targetScreen, freshlyChanged, selectedIn
   const renderCard = (session: ClaudeSession) => {
     const key = `${session.id}-${session.pid}`;
     const idx = flatIndexMap.get(key) ?? -1;
-    const isSelected = selectedIndex !== null && selectedIndex !== undefined && idx === selectedIndex;
+    const hasSelection = selectedIndex !== null && selectedIndex !== undefined;
+    const isSelected = hasSelection && idx === selectedIndex;
     return (
       <SessionCard
         key={key}
@@ -46,6 +53,9 @@ export function SessionGrid({ sessions, targetScreen, freshlyChanged, selectedIn
         pulse={freshlyChanged?.has(session.id)}
         selected={isSelected}
         shortcutNumber={idx < 9 ? idx + 1 : undefined}
+        actionFeedback={isSelected ? actionFeedback : undefined}
+        prStatus={session.prUrl ? prStatuses?.[session.prUrl] ?? undefined : undefined}
+        onSelect={() => onSelectIndex?.(isSelected ? null : idx)}
       />
     );
   };
@@ -53,7 +63,7 @@ export function SessionGrid({ sessions, targetScreen, freshlyChanged, selectedIn
   // If there's only one group with one session, skip the grouping chrome
   if (groups.length === 1 && groups[0].sessions.length === 1) {
     return (
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 items-start">
         {sessions.map(renderCard)}
       </div>
     );
@@ -69,7 +79,7 @@ export function SessionGrid({ sessions, targetScreen, freshlyChanged, selectedIn
               <svg className="w-4 h-4 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
               </svg>
-              <h2 className="text-sm font-semibold text-zinc-300">{group.repoName}</h2>
+              <h2 className="text-sm font-semibold text-zinc-300">{prettifyName(group.repoName)}</h2>
             </div>
             <span className="text-[11px] text-zinc-600 font-[family-name:var(--font-geist-mono)]">
               {group.sessions.length} session{group.sessions.length !== 1 ? "s" : ""}
@@ -77,8 +87,8 @@ export function SessionGrid({ sessions, targetScreen, freshlyChanged, selectedIn
             {onNewSessionInRepo && (
               <button
                 onClick={() => onNewSessionInRepo(group.repoPath, group.repoName)}
-                className="flex items-center justify-center w-5 h-5 rounded-md text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
-                title={`New session in ${group.repoName}`}
+                className="has-tooltip flex items-center justify-center w-5 h-5 rounded-md text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
+                data-tip={`New session`}
               >
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -89,7 +99,7 @@ export function SessionGrid({ sessions, targetScreen, freshlyChanged, selectedIn
           </div>
 
           {/* Sessions in this group */}
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 items-start">
             {group.sessions.map(renderCard)}
           </div>
         </div>

@@ -32,6 +32,14 @@ export function NewSessionModal({ repoPath, repoName, onClose }: Props) {
   const branchRef = useRef<HTMLInputElement>(null);
   const isRepoMode = !repoPath;
 
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") { e.preventDefault(); onClose(); }
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [onClose]);
+
   function fetchRepos() {
     setReposLoading(true);
     fetch("/api/repos")

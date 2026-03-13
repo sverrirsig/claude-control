@@ -7,17 +7,17 @@ const iconBtnClass =
 
 function IconButton({
   onClick,
-  title,
+  tip,
   className,
   children,
 }: {
   onClick: (e: React.MouseEvent) => void;
-  title: string;
+  tip: string;
   className?: string;
   children: React.ReactNode;
 }) {
   return (
-    <button onClick={onClick} className={className || iconBtnClass} title={title}>
+    <button onClick={onClick} className={`has-tooltip ${className || iconBtnClass}`} data-tip={tip}>
       {children}
     </button>
   );
@@ -111,7 +111,7 @@ export function QuickActions({
       {prUrl ? (
         <IconButton
           onClick={openPrUrl}
-          title="Open pull request"
+          tip="Open pull request"
           className="flex-1 flex items-center justify-center h-8 rounded-lg bg-emerald-500/[0.10] hover:bg-emerald-500/[0.22] border border-emerald-500/[0.20] hover:border-emerald-500/[0.40] text-emerald-400 hover:text-emerald-300 transition-all duration-150"
         >
           {prIcon}
@@ -119,7 +119,7 @@ export function QuickActions({
       ) : showPRButton ? (
         <IconButton
           onClick={sendCreatePR}
-          title={prSending ? "Sent /create-pr!" : "Send /create-pr to this session"}
+          tip={prSending ? "Sent!" : "Create PR"}
           className={`flex-1 flex items-center justify-center h-8 rounded-lg border transition-all duration-150 ${
             prSending
               ? "bg-emerald-500/[0.10] border-emerald-500/[0.20] text-emerald-400"
@@ -131,23 +131,23 @@ export function QuickActions({
       ) : null}
 
       {pid && (
-        <IconButton onClick={(e) => openAction(e, "iterm")} title="Focus iTerm tab" className={`flex-1 ${iconBtnClass}`}>
+        <IconButton onClick={(e) => openAction(e, "iterm")} tip="iTerm" className={`flex-1 ${iconBtnClass}`}>
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" />
           </svg>
         </IconButton>
       )}
-      <IconButton onClick={(e) => openAction(e, "editor")} title="Open in editor" className={`flex-1 ${iconBtnClass}`}>
+      <IconButton onClick={(e) => openAction(e, "editor")} tip="Editor" className={`flex-1 ${iconBtnClass}`}>
         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" />
         </svg>
       </IconButton>
-      <IconButton onClick={(e) => openAction(e, "git-gui")} title="Open in Git GUI" className={`flex-1 ${iconBtnClass}`}>
+      <IconButton onClick={(e) => openAction(e, "git-gui")} tip="Git GUI" className={`flex-1 ${iconBtnClass}`}>
         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M6 3v12m0 0a3 3 0 103 3H15a3 3 0 100-3H9a3 3 0 01-3-3zm0 0a3 3 0 103-3 3 3 0 00-3 3z" />
         </svg>
       </IconButton>
-      <IconButton onClick={(e) => openAction(e, "finder")} title="Open in Finder" className={`flex-1 ${iconBtnClass}`}>
+      <IconButton onClick={(e) => openAction(e, "finder")} tip="Finder" className={`flex-1 ${iconBtnClass}`}>
         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
         </svg>
@@ -155,7 +155,7 @@ export function QuickActions({
       {onCleanup && (
         <IconButton
           onClick={onCleanup}
-          title="Clean up worktree"
+          tip="Clean up"
           className={`flex-1 flex items-center justify-center h-8 rounded-lg bg-white/[0.03] hover:bg-red-500/[0.12] border border-white/[0.05] hover:border-red-500/[0.25] text-zinc-600 hover:text-red-400 transition-all duration-150`}
         >
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>

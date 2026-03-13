@@ -107,6 +107,44 @@ body {
   animation-delay: 0.8s;
 }
 
+/* Action feedback flash on selected card */
+@keyframes action-flash {
+  0% { opacity: 0; }
+  15% { opacity: 1; }
+  75% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.action-flash {
+  animation: action-flash 1.2s ease-out forwards;
+}
+
+/* Custom fast tooltips */
+.has-tooltip {
+  position: relative;
+}
+.has-tooltip::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%) scale(0.95);
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: #27272a;
+  border: 1px solid rgba(255,255,255,0.08);
+  color: #a1a1aa;
+  font-size: 11px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.1s, transform 0.1s;
+  z-index: 50;
+}
+.has-tooltip:hover::after {
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
+}
+
 /* Gradient text */
 .text-gradient {
   background: linear-gradient(135deg, #e4e4e7 0%, #a1a1aa 100%);

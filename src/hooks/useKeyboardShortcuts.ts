@@ -8,10 +8,13 @@ import { mutate } from "swr";
 interface UseKeyboardShortcutsOptions {
   sessions: ClaudeSession[];
   targetScreen?: number | null;
+  onNewGlobal?: () => void;
+  onNewInRepo?: (repoPath: string, repoName: string) => void;
 }
 
-export function useKeyboardShortcuts({ sessions, targetScreen }: UseKeyboardShortcutsOptions) {
+export function useKeyboardShortcuts({ sessions, targetScreen, onNewGlobal, onNewInRepo }: UseKeyboardShortcutsOptions) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [actionFeedback, setActionFeedback] = useState<{ label: string; color: string } | null>(null);
 
   // Use the same grouped+flattened order as the grid renders
   const orderedSessions = useMemo(() => flattenGroupedSessions(sessions), [sessions]);
@@ -24,6 +27,11 @@ export function useKeyboardShortcuts({ sessions, targetScreen }: UseKeyboardShor
   }, [orderedSessions.length, selectedIndex]);
 
   const selectedSession = selectedIndex !== null ? orderedSessions[selectedIndex] ?? null : null;
+
+  const flash = useCallback((label: string, color: string = "blue") => {
+    setActionFeedback({ label, color });
+    setTimeout(() => setActionFeedback(null), 1200);
+  }, []);
 
   const openAction = useCallback(
     async (action: string, session: ClaudeSession) => {
@@ -65,6 +73,22 @@ export function useKeyboardShortcuts({ sessions, targetScreen }: UseKeyboardShor
       // Don't capture when typing in inputs
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+
+      // Cmd+N / Cmd+Shift+N: new session
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "n") {
+        e.preventDefault();
+        if (e.shiftKey) {
+          onNewGlobal?.();
+        } else if (selectedSession) {
+          const repoPath = selectedSession.parentRepo || selectedSession.workingDirectory;
+          const repoName = repoPath.split("/").filter(Boolean).pop() || repoPath;
+          onNewInRepo?.(repoPath, repoName);
+        } else {
+          onNewGlobal?.();
+        }
+        return;
+      }
+
       if (e.metaKey || e.ctrlKey || e.altKey) return;
 
       // Number keys 1-9: select session
@@ -92,45 +116,42 @@ export function useKeyboardShortcuts({ sessions, targetScreen }: UseKeyboardShor
           if (selectedSession.pid) {
             e.preventDefault();
             openAction("iterm", selectedSession);
+            flash("iTerm");
           }
           break;
         case "e":
           e.preventDefault();
           openAction("editor", selectedSession);
+          flash("Editor");
           break;
         case "g":
           e.preventDefault();
           openAction("git-gui", selectedSession);
+          flash("Git GUI");
           break;
         case "f":
           e.preventDefault();
           openAction("finder", selectedSession);
+          flash("Finder");
           break;
         case "a":
-          // Approve: send Enter keystroke if waiting with pending tool use
           if (selectedSession.status === "waiting" && selectedSession.pid && selectedSession.preview.hasPendingToolUse) {
             e.preventDefault();
             sendKeystroke(selectedSession.pid, "return");
+            flash("Approved", "emerald");
           }
           break;
         case "x":
-          // Reject: send Escape keystroke if waiting with pending tool use
           if (selectedSession.status === "waiting" && selectedSession.pid && selectedSession.preview.hasPendingToolUse) {
             e.preventDefault();
             sendKeystroke(selectedSession.pid, "escape");
-          }
-          break;
-        case "o":
-          // Open session detail
-          if (selectedSession) {
-            e.preventDefault();
-            window.location.href = `/session/${encodeURIComponent(selectedSession.id)}`;
+            flash("Rejected", "red");
           }
           break;
         case "p":
-          // Open PR if exists
           if (selectedSession.prUrl) {
             e.preventDefault();
+            flash("PR");
             fetch("/api/actions/open", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -143,7 +164,7 @@ export function useKeyboardShortcuts({ sessions, targetScreen }: UseKeyboardShor
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [orderedSessions, selectedSession, openAction, sendKeystroke]);
+  }, [orderedSessions, selectedSession, openAction, sendKeystroke, flash, onNewGlobal, onNewInRepo]);
 
-  return { selectedIndex, setSelectedIndex, selectedSession };
+  return { selectedIndex, setSelectedIndex, selectedSession, actionFeedback };
 }

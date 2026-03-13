@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useSessions } from "@/hooks/useSessions";
 import { useNotificationSound } from "@/hooks/useNotificationSound";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { usePrStatus } from "@/hooks/usePrStatus";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { SessionGrid } from "@/components/SessionGrid";
 import { NewSessionModal } from "@/components/NewSessionModal";
@@ -15,7 +16,22 @@ export default function Dashboard() {
   const [targetScreen, setTargetScreen] = useState<number | null>(null);
   const [freshlyChanged, setFreshlyChanged] = useState<Set<string>>(new Set());
   const [modal, setModal] = useState<{ repoPath?: string; repoName?: string } | null>(null);
-  const { selectedIndex, selectedSession } = useKeyboardShortcuts({ sessions, targetScreen });
+
+  const handleNewGlobal = useCallback(() => {
+    setModal({});
+  }, []);
+
+  const handleNewInRepo = useCallback((repoPath: string, repoName: string) => {
+    setModal({ repoPath, repoName });
+  }, []);
+
+  const { selectedIndex, setSelectedIndex, selectedSession, actionFeedback } = useKeyboardShortcuts({
+    sessions,
+    targetScreen,
+    onNewGlobal: handleNewGlobal,
+    onNewInRepo: handleNewInRepo,
+  });
+  const prStatuses = usePrStatus(sessions);
 
   // Track confirmed statuses (only update after a status has been stable for 2 polls)
   const rawStatuses = useRef<Map<string, SessionStatus>>(new Map());
@@ -68,25 +84,10 @@ export default function Dashboard() {
     }
   }, [sessions, playChime]);
 
-  const handleScreenChange = (screen: number | null) => {
-    setTargetScreen(screen);
-    localStorage.setItem("targetScreen", screen === null ? "" : String(screen));
-  };
-
-  const handleNewGlobal = useCallback(() => {
-    setModal({});
-  }, []);
-
-  const handleNewInRepo = useCallback((repoPath: string, repoName: string) => {
-    setModal({ repoPath, repoName });
-  }, []);
-
   return (
     <>
       <DashboardHeader
         sessionCount={sessions.length}
-        targetScreen={targetScreen}
-        onScreenChange={handleScreenChange}
         onNewSession={handleNewGlobal}
       />
 
@@ -113,11 +114,14 @@ export default function Dashboard() {
         targetScreen={targetScreen}
         freshlyChanged={freshlyChanged}
         selectedIndex={selectedIndex}
+        onSelectIndex={setSelectedIndex}
+        actionFeedback={actionFeedback}
+        prStatuses={prStatuses}
         onNewSessionInRepo={handleNewInRepo}
       />
 
       {sessions.length > 0 && (
-        <KeyboardHints selectedSession={selectedSession} />
+        <KeyboardHints selectedSession={selectedSession} actionFeedback={actionFeedback} />
       )}
 
       {modal && (
