@@ -21,11 +21,13 @@ When you're running several Claude Code instances across different repos and wor
 - **Task context** — Extracts Linear issue titles and descriptions from MCP tool results to show what each session is working on
 - **Conversation preview** — Shows the last assistant message, active tool, and user prompt for each session
 - **Approve/reject from dashboard** — Approve or reject tool-use permission prompts directly from the dashboard without switching to the terminal
-- **Keyboard shortcuts** — Number keys (1-9) to select sessions, Tab/Shift+Tab to cycle, A/X to approve/reject, Enter to focus iTerm, E/G/F/P for editor/git/finder/PR
+- **Keyboard shortcuts** — Number keys (1-9) to select sessions, Tab/Shift+Tab to cycle, A/X to approve/reject, Enter to focus terminal, E/G/F/P for editor/git/finder/PR
 - **Desktop notifications** — Native macOS notifications when sessions finish working or need attention (configurable)
 - **Notification sounds** — Subtle two-tone chime on status transitions (configurable)
-- **Quick actions** — One-click buttons to focus the iTerm tab, open your editor, git GUI, Finder, or PR link for any session
-- **Configurable tools** — Choose your preferred code editor (VS Code, Cursor, Zed, etc.), git GUI (Fork, Sublime Merge, etc.), and browser (Chrome, Arc, Safari, etc.)
+- **Quick actions** — One-click buttons to focus the terminal tab, open your editor, git GUI, Finder, or PR link for any session
+- **Multiple terminal support** — Works with iTerm2, Terminal.app, Ghostty, kitty, WezTerm, and Alacritty
+- **tmux integration** — Run sessions inside tmux for background operation; approve/reject without terminal focus via `send-keys`
+- **Configurable tools** — Choose your preferred terminal, code editor (VS Code, Cursor, Zed, etc.), git GUI (Fork, Sublime Merge, etc.), and browser (Chrome, Arc, Safari, etc.)
 - **New session creation** — Create new Claude Code sessions with git worktree support, repo browsing, and custom initial prompts
 - **PR workflow** — Send `/create-pr` to idle sessions and see PR links once created
 - **Worktree cleanup** — Remove worktrees, branches, and kill sessions with a two-step confirmation flow
@@ -33,10 +35,11 @@ When you're running several Claude Code instances across different repos and wor
 
 ## Requirements
 
-- **macOS** (uses AppleScript for iTerm integration, native folder picker, etc.)
+- **macOS** (uses AppleScript for terminal integration, native folder picker, etc.)
 - **Node.js** >= 18 (LTS 24 recommended — see `.node-version`)
 - [**Claude Code CLI**](https://docs.anthropic.com/en/docs/claude-code) installed and running
-- [**iTerm2**](https://iterm2.com/) (for terminal focus and session creation features)
+- A supported terminal: [iTerm2](https://iterm2.com/) (default), Terminal.app, [Ghostty](https://ghostty.org/), [kitty](https://sw.kovidgoyal.net/kitty/), [WezTerm](https://wezfurlong.org/wezterm/), or [Alacritty](https://alacritty.org/)
+- [**tmux**](https://github.com/tmux/tmux) for tmux integration (optional)
 - [**GitHub CLI**](https://cli.github.com/) (`gh`) for PR detection (optional)
 
 A `.node-version` file is included for version managers like [fnm](https://github.com/Schniz/fnm) and [nvm](https://github.com/nvm-sh/nvm). With auto-switching enabled, both will pick up the correct version when you `cd` into the project. Otherwise, run `fnm use` or `nvm use`.
@@ -164,7 +167,6 @@ PRs welcome! To get started, clone the repo and run `npm run electron:dev` — t
 
 Some areas that could use work:
 - Linux/Windows support (currently macOS-only due to AppleScript usage)
-- Support for other terminals beyond iTerm2
 - Session history and cost/token tracking
 - See [IDEAS.md](IDEAS.md) for more feature ideas
 
