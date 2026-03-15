@@ -28,7 +28,7 @@ interface Props {
 export function NewSessionModal({ repoPath, repoName, onClose }: Props) {
   const [branchName, setBranchName] = useState("");
   const [baseBranch, setBaseBranch] = useState("dev");
-  const [prompt, setPrompt] = useState("Implement the Linear issue referenced in the branch name");
+  const [prompt, setPrompt] = useState<string | null>(null);
   const [repos, setRepos] = useState<RepoInfo[]>([]);
   const [selectedRepo, setSelectedRepo] = useState<string>(repoPath || "");
   const [selectedRepoName, setSelectedRepoName] = useState<string>(repoName || "");
@@ -70,6 +70,16 @@ export function NewSessionModal({ repoPath, repoName, onClose }: Props) {
   useEffect(() => {
     if (isRepoMode) fetchRepos();
   }, [isRepoMode]);
+
+  // Load configured initial prompt from settings
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((data) => {
+        setPrompt(data.config?.initialPrompt ?? "");
+      })
+      .catch(() => setPrompt(""));
+  }, []);
 
   // Focus branch input when in repo-scoped mode
   useEffect(() => {
@@ -173,7 +183,7 @@ export function NewSessionModal({ repoPath, repoName, onClose }: Props) {
           repoPath: targetRepo,
           branchName: branchName.trim() || undefined,
           baseBranch: branchName.trim() ? baseBranch.trim() || undefined : undefined,
-          prompt: prompt.trim() || undefined,
+          prompt: (prompt ?? "").trim() || undefined,
           tmuxSession: selectedTmuxSession || undefined,
         }),
       });
@@ -407,12 +417,12 @@ export function NewSessionModal({ repoPath, repoName, onClose }: Props) {
                 Initial prompt <span className="text-zinc-600">(optional)</span>
               </label>
               <textarea
-                rows={3}
+                rows={6}
                 placeholder="e.g. Fix the login timeout bug"
-                value={prompt}
+                value={prompt ?? ""}
                 onChange={(e) => setPrompt(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter" && e.metaKey) handleCreate(); }}
-                className="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-600 transition-colors resize-y min-h-[4.5rem]"
+                className="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-600 transition-colors resize-y min-h-[8rem]"
               />
             </div>
           )}

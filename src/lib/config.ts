@@ -17,7 +17,11 @@ export interface AppConfig {
   terminalOpenIn: TerminalOpenIn;
   terminalUseTmux: boolean;
   terminalTmuxMode: "per-project" | "choose";
+  initialPrompt: string;
+  showKeyboardHints: boolean;
 }
+
+export const DEFAULT_INITIAL_PROMPT = "Read the CLAUDE.md, then use /start-linear-ticket to fetch context for the ticket referenced in the branch name and implement it. Think step-by-step: first understand the codebase and ticket requirements, then plan your approach, then implement with tests.";
 
 export const EDITOR_OPTIONS = [
   { id: "none", label: "None", command: "", appName: "", processName: "" },
@@ -77,6 +81,8 @@ const DEFAULT_CONFIG: AppConfig = {
   terminalOpenIn: "tab",
   terminalUseTmux: false,
   terminalTmuxMode: "per-project",
+  initialPrompt: DEFAULT_INITIAL_PROMPT,
+  showKeyboardHints: true,
 };
 
 export async function loadConfig(): Promise<AppConfig> {

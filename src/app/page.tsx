@@ -13,6 +13,7 @@ import { SessionGrid } from "@/components/SessionGrid";
 import { NewSessionModal } from "@/components/NewSessionModal";
 import { KeyboardHints } from "@/components/KeyboardHints";
 import { SessionStatus } from "@/lib/types";
+import Link from "next/link";
 
 export default function Dashboard() {
   const { sessions, isLoading, error } = useSessions();
@@ -20,6 +21,8 @@ export default function Dashboard() {
   const [freshlyChanged, setFreshlyChanged] = useState<Set<string>>(new Set());
   const [modal, setModal] = useState<{ repoPath?: string; repoName?: string } | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [showKeyboardHints, setShowKeyboardHints] = useState(true);
+  const [dismissToast, setDismissToast] = useState(false);
   // Optimistic approve/reject state: sessionId → { action, timestamp }
   const [actedSessions, setActedSessions] = useState<Record<string, { action: "approve" | "reject"; at: number }>>({});
 
@@ -95,6 +98,8 @@ export default function Dashboard() {
     if (saved !== null) setTargetScreen(saved === "" ? null : parseInt(saved, 10));
     const savedView = localStorage.getItem("viewMode");
     if (savedView === "grid" || savedView === "list") setViewMode(savedView);
+    const savedHints = localStorage.getItem("showKeyboardHints");
+    if (savedHints === "false") setShowKeyboardHints(false);
   }, []);
 
   const handleViewModeChange = useCallback((mode: ViewMode) => {
@@ -188,8 +193,35 @@ export default function Dashboard() {
         onApproveReject={handleApproveReject}
       />
 
-      {sessions.length > 0 && (
-        <KeyboardHints selectedSession={selectedSession} actionFeedback={actionFeedback} />
+      {sessions.length > 0 && showKeyboardHints && (
+        <KeyboardHints
+          selectedSession={selectedSession}
+          actionFeedback={actionFeedback}
+          onDismiss={() => {
+            setShowKeyboardHints(false);
+            localStorage.setItem("showKeyboardHints", "false");
+            fetch("/api/settings", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ showKeyboardHints: false }),
+            }).catch(() => {});
+            setDismissToast(true);
+            setTimeout(() => setDismissToast(false), 4000);
+          }}
+        />
+      )}
+
+      {dismissToast && (
+        <div className="fixed bottom-0 inset-x-0 z-40 pointer-events-none">
+          <div className="max-w-7xl mx-auto px-6 pb-4">
+            <div className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-[#0a0a0f]/90 backdrop-blur-md border border-white/[0.06] pointer-events-auto text-xs text-zinc-500">
+              Keyboard hints hidden. Re-enable in{" "}
+              <Link href="/settings" className="text-blue-400 hover:text-blue-300 underline underline-offset-2 transition-colors">
+                Settings
+              </Link>
+            </div>
+          </div>
+        </div>
       )}
 
       {modal && (

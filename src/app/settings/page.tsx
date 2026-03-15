@@ -25,6 +25,8 @@ interface SettingsData {
     terminalOpenIn: string;
     terminalUseTmux: boolean;
     terminalTmuxMode: string;
+    initialPrompt: string;
+    showKeyboardHints: boolean;
   };
   options: {
     editors: AppOptionDef[];
@@ -268,8 +270,8 @@ export default function SettingsPage() {
       {/* Display section */}
       <section className="mb-10">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-3">Display</h2>
-        <div className="rounded-xl border border-white/[0.06] bg-[#0a0a0f]/80 px-5 py-4">
-          <div className="flex items-center justify-between">
+        <div className="rounded-xl border border-white/[0.06] bg-[#0a0a0f]/80 px-5">
+          <div className="flex items-center justify-between py-4 border-b border-white/[0.04]">
             <div>
               <h3 className="text-sm font-medium text-zinc-200">Target Screen</h3>
               <p className="text-xs text-zinc-500 mt-0.5">Which screen to open apps on when using quick actions</p>
@@ -280,6 +282,33 @@ export default function SettingsPage() {
                 setTargetScreen(screen);
                 localStorage.setItem("targetScreen", screen === null ? "" : String(screen));
               }}
+            />
+          </div>
+          <Toggle
+            label="Keyboard Shortcuts Bar"
+            description="Show the hotkey hints bar at the bottom of the dashboard"
+            enabled={data.config.showKeyboardHints ?? true}
+            onChange={(showKeyboardHints) => {
+              save({ showKeyboardHints } as Partial<SettingsData["config"]>);
+              localStorage.setItem("showKeyboardHints", String(showKeyboardHints));
+            }}
+          />
+        </div>
+      </section>
+
+      {/* Session defaults section */}
+      <section className="mb-10">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-3">Session Defaults</h2>
+        <div className="rounded-xl border border-white/[0.06] bg-[#0a0a0f]/80 px-5 py-4">
+          <div>
+            <h3 className="text-sm font-medium text-zinc-200">Initial Prompt</h3>
+            <p className="text-xs text-zinc-500 mt-0.5 mb-2">Default prompt used when creating new sessions with a branch name</p>
+            <textarea
+              rows={4}
+              value={data.config.initialPrompt ?? ""}
+              onChange={(e) => save({ initialPrompt: e.target.value })}
+              placeholder="e.g. Read the CLAUDE.md and implement the ticket..."
+              className="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-700/50 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-600 transition-colors resize-y min-h-[5rem]"
             />
           </div>
         </div>

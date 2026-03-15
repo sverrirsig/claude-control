@@ -82,6 +82,8 @@ export async function PUT(request: Request) {
       terminalOpenIn: body.terminalOpenIn ?? current.terminalOpenIn,
       terminalUseTmux: body.terminalUseTmux ?? current.terminalUseTmux,
       terminalTmuxMode: body.terminalTmuxMode ?? current.terminalTmuxMode,
+      initialPrompt: body.initialPrompt !== undefined ? body.initialPrompt : current.initialPrompt,
+      showKeyboardHints: body.showKeyboardHints !== undefined ? body.showKeyboardHints : current.showKeyboardHints,
     };
 
     await saveConfig(updated);
