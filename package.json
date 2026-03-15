@@ -13,7 +13,9 @@
     "typecheck": "tsc --noEmit",
     "electron:dev": "concurrently --kill-others \"next dev -p 3200\" \"wait-on http://localhost:3200 && electron .\"",
     "electron:build": "next build && node scripts/prepare-build.js && electron-builder --mac --publish never",
-    "electron:pack": "next build && node scripts/prepare-build.js && electron-builder --mac --dir"
+    "electron:pack": "next build && node scripts/prepare-build.js && electron-builder --mac --dir",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "next": "14.2.35",
@@ -33,6 +35,7 @@
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
     "typescript": "^5",
+    "vitest": "^4.1.0",
     "wait-on": "^9.0.4"
   },
   "build": {
