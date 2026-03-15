@@ -1,4 +1,4 @@
-import { readFile, stat } from "fs/promises";
+import { readFile, stat, open } from "fs/promises";
 import { ConversationMessage, ConversationPreview, TaskSummary } from "./types";
 import { JSONL_TAIL_LINES } from "./constants";
 
@@ -27,18 +27,26 @@ export async function getJsonlMtime(jsonlPath: string): Promise<Date | null> {
 
 export async function readJsonlHead(jsonlPath: string, lines = 30): Promise<JsonlLine[]> {
   try {
-    const content = await readFile(jsonlPath, "utf-8");
-    const allLines = content.trim().split("\n").filter(Boolean);
-    const headLines = allLines.slice(0, lines);
-    const parsed: JsonlLine[] = [];
-    for (const line of headLines) {
-      try {
-        parsed.push(JSON.parse(line));
-      } catch {
-        // skip
+    const chunkSize = lines * 2048;
+    const fh = await open(jsonlPath, "r");
+    try {
+      const buf = Buffer.alloc(Math.min(chunkSize, (await fh.stat()).size));
+      const { bytesRead } = await fh.read(buf, 0, buf.length, 0);
+      const text = buf.toString("utf-8", 0, bytesRead);
+      const allLines = text.split("\n").filter(Boolean);
+      const headLines = allLines.slice(0, lines);
+      const parsed: JsonlLine[] = [];
+      for (const line of headLines) {
+        try {
+          parsed.push(JSON.parse(line));
+        } catch {
+          // skip
+        }
       }
+      return parsed;
+    } finally {
+      await fh.close();
     }
-    return parsed;
   } catch {
     return [];
   }
@@ -46,18 +54,29 @@ export async function readJsonlHead(jsonlPath: string, lines = 30): Promise<Json
 
 export async function readJsonlTail(jsonlPath: string, lines = JSONL_TAIL_LINES): Promise<JsonlLine[]> {
   try {
-    const content = await readFile(jsonlPath, "utf-8");
-    const allLines = content.trim().split("\n").filter(Boolean);
-    const tailLines = allLines.slice(-lines);
-    const parsed: JsonlLine[] = [];
-    for (const line of tailLines) {
-      try {
-        parsed.push(JSON.parse(line));
-      } catch {
-        // skip malformed lines
+    const fh = await open(jsonlPath, "r");
+    try {
+      const fileSize = (await fh.stat()).size;
+      const chunkSize = Math.min(lines * 10240, fileSize);
+      const offset = Math.max(0, fileSize - chunkSize);
+      const buf = Buffer.alloc(chunkSize);
+      const { bytesRead } = await fh.read(buf, 0, chunkSize, offset);
+      const text = buf.toString("utf-8", 0, bytesRead);
+      const allLines = text.split("\n").filter(Boolean);
+      const trimmedLines = offset > 0 ? allLines.slice(1) : allLines;
+      const tailLines = trimmedLines.slice(-lines);
+      const parsed: JsonlLine[] = [];
+      for (const line of tailLines) {
+        try {
+          parsed.push(JSON.parse(line));
+        } catch {
+          // skip malformed lines
+        }
       }
+      return parsed;
+    } finally {
+      await fh.close();
     }
-    return parsed;
   } catch {
     return [];
   }

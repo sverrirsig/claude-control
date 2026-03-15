@@ -68,14 +68,14 @@ function SettingRow<T extends OptionDef>({
 }) {
   return (
     <div className="flex items-center justify-between py-4 border-b border-white/[0.04]">
-      <div>
+      <div className="flex-1 min-w-0 mr-4">
         <h3 className="text-sm font-medium text-zinc-200">{label}</h3>
         <p className="text-xs text-zinc-500 mt-0.5">{description}</p>
       </div>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="bg-zinc-900 border border-zinc-700/50 rounded-lg px-3 py-1.5 text-sm text-zinc-200 focus:outline-none focus:border-zinc-600 min-w-[180px]"
+        className="shrink-0 bg-zinc-900 border border-zinc-700/50 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-zinc-600 w-[200px]"
       >
         {options.map((opt) => {
           const installed = "installed" in opt ? (opt as AppOptionDef).installed : true;

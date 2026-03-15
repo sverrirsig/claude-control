@@ -218,7 +218,26 @@ export function matchTerminal(
   comm: string
 ): Pick<TerminalInfo, "app" | "appName" | "processName"> | null {
   const basename = comm.includes("/") ? comm.split("/").pop() || comm : comm;
-  return KNOWN_TERMINALS[basename.toLowerCase()] ?? null;
+  const lower = basename.toLowerCase();
+
+  // Direct match
+  const direct = KNOWN_TERMINALS[lower];
+  if (direct) return direct;
+
+  // Fuzzy match for versioned/server processes (e.g. "iTermServer-3.5.14" → iterm)
+  for (const [key, value] of Object.entries(KNOWN_TERMINALS)) {
+    if (lower.startsWith(key) || lower.includes(key)) return value;
+  }
+
+  // Match by app bundle path (e.g. "/Applications/iTerm.app/..." → iterm)
+  const lowerComm = comm.toLowerCase();
+  if (lowerComm.includes("iterm")) return KNOWN_TERMINALS["iterm2"];
+  if (lowerComm.includes("ghostty")) return KNOWN_TERMINALS["ghostty"];
+  if (lowerComm.includes("kitty")) return KNOWN_TERMINALS["kitty"];
+  if (lowerComm.includes("wezterm")) return KNOWN_TERMINALS["wezterm-gui"] ?? KNOWN_TERMINALS["wezterm"];
+  if (lowerComm.includes("alacritty")) return KNOWN_TERMINALS["alacritty"];
+
+  return null;
 }
 
 /**

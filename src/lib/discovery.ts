@@ -46,90 +46,91 @@ async function findLatestJsonl(projectDir: string): Promise<string | null> {
   }
 }
 
-export async function discoverSessions(): Promise<ClaudeSession[]> {
-  const pids = await findClaudePids();
-  const sessions: ClaudeSession[] = [];
+async function buildSession(info: NonNullable<Awaited<ReturnType<typeof getProcessInfo>>>): Promise<ClaudeSession | null> {
+  if (!info.workingDirectory) return null;
 
-  const processInfos = await Promise.all(pids.map((pid) => getProcessInfo(pid)));
+  const projectDir = workingDirToProjectDir(info.workingDirectory);
+  const jsonlPath = await findLatestJsonl(projectDir);
 
-  for (const info of processInfos) {
-    if (!info || !info.workingDirectory) continue;
+  let sessionId = `pid-${info.pid}`;
+  let startedAt: string | null = null;
+  let branch: string | null = null;
+  let preview: ConversationPreview = { lastUserMessage: null, lastAssistantText: null, lastToolName: null, lastToolInput: null, messageCount: 0 };
+  let hasError = false;
+  let askingForInput = false;
+  let pendingToolUse = false;
+  let mtime: Date | null = null;
+  let lastActivity = new Date().toISOString();
+  let taskSummary: ClaudeSession["taskSummary"] = null;
 
-    const projectDir = workingDirToProjectDir(info.workingDirectory);
-    const jsonlPath = await findLatestJsonl(projectDir);
+  const [jsonlResult, git, mainWorktreePath] = await Promise.all([
+    jsonlPath
+      ? Promise.all([readJsonlTail(jsonlPath), readJsonlHead(jsonlPath), getJsonlMtime(jsonlPath)])
+      : Promise.resolve(null),
+    getGitSummary(info.workingDirectory),
+    getMainWorktreePath(info.workingDirectory),
+  ]);
 
-    let sessionId = `pid-${info.pid}`;
-    let startedAt: string | null = null;
-    let branch: string | null = null;
-    let preview: ConversationPreview = { lastUserMessage: null, lastAssistantText: null, lastToolName: null, lastToolInput: null, messageCount: 0 };
-    let hasError = false;
-    let askingForInput = false;
-    let pendingToolUse = false;
-    let mtime: Date | null = null;
-    let lastActivity = new Date().toISOString();
-
-    let taskSummary: ClaudeSession["taskSummary"] = null;
-
-    if (jsonlPath) {
-      const [lines, headLines] = await Promise.all([
-        readJsonlTail(jsonlPath),
-        readJsonlHead(jsonlPath),
-      ]);
-      mtime = await getJsonlMtime(jsonlPath);
-      sessionId = extractSessionId(lines) || sessionId;
-      startedAt = extractStartedAt(lines);
-      branch = extractBranch(lines);
-      preview = extractPreview(lines);
-      hasError = lastMessageHasError(lines);
-      askingForInput = isAskingForInput(lines);
-      pendingToolUse = hasPendingToolUse(lines);
-      taskSummary = extractTaskSummary(headLines);
-      if (mtime) lastActivity = mtime.toISOString();
-    }
-
-    const [git, mainWorktreePath] = await Promise.all([
-      getGitSummary(info.workingDirectory),
-      getMainWorktreePath(info.workingDirectory),
-    ]);
-
-    const resolvedBranch = git?.branch ?? branch;
-
-    // Check for open PR (only if we have a branch name)
-    const prUrl = resolvedBranch ? await getPrUrl(info.workingDirectory, resolvedBranch) : null;
-
-    const isWorktree = mainWorktreePath !== null && mainWorktreePath !== info.workingDirectory;
-    const parentRepo = isWorktree ? mainWorktreePath : null;
-
-    const status = classifyStatus({
-      pid: info.pid,
-      jsonlMtime: mtime,
-      cpuPercent: info.cpuPercent,
-      hasError,
-      isAskingForInput: askingForInput,
-      hasPendingToolUse: pendingToolUse,
-    });
-
-    sessions.push({
-      id: sessionId,
-      pid: info.pid,
-      workingDirectory: info.workingDirectory,
-      repoName: repoNameFromPath(info.workingDirectory),
-      parentRepo,
-      isWorktree,
-      branch: resolvedBranch,
-      status,
-      lastActivity,
-      startedAt,
-      git,
-      preview,
-      hasPendingToolUse: pendingToolUse,
-      taskSummary,
-      jsonlPath,
-      prUrl,
-    });
+  if (jsonlResult) {
+    const [lines, headLines, jsonlMtime] = jsonlResult;
+    mtime = jsonlMtime;
+    sessionId = extractSessionId(lines) || sessionId;
+    startedAt = extractStartedAt(lines);
+    branch = extractBranch(lines);
+    preview = extractPreview(lines);
+    hasError = lastMessageHasError(lines);
+    askingForInput = isAskingForInput(lines);
+    pendingToolUse = hasPendingToolUse(lines);
+    taskSummary = extractTaskSummary(headLines);
+    if (mtime) lastActivity = mtime.toISOString();
   }
 
-  return sessions;
+  const resolvedBranch = git?.branch ?? branch;
+  const prUrl = resolvedBranch ? await getPrUrl(info.workingDirectory, resolvedBranch) : null;
+
+  const isWorktree = mainWorktreePath !== null && mainWorktreePath !== info.workingDirectory;
+  const parentRepo = isWorktree ? mainWorktreePath : null;
+
+  const status = classifyStatus({
+    pid: info.pid,
+    jsonlMtime: mtime,
+    cpuPercent: info.cpuPercent,
+    hasError,
+    isAskingForInput: askingForInput,
+    hasPendingToolUse: pendingToolUse,
+  });
+
+  return {
+    id: sessionId,
+    pid: info.pid,
+    workingDirectory: info.workingDirectory,
+    repoName: repoNameFromPath(info.workingDirectory),
+    parentRepo,
+    isWorktree,
+    branch: resolvedBranch,
+    status,
+    lastActivity,
+    startedAt,
+    git,
+    preview,
+    hasPendingToolUse: pendingToolUse,
+    taskSummary,
+    jsonlPath,
+    prUrl,
+  };
+}
+
+export async function discoverSessions(): Promise<ClaudeSession[]> {
+  const pids = await findClaudePids();
+  const processInfos = await Promise.all(pids.map((pid) => getProcessInfo(pid)));
+
+  const results = await Promise.all(
+    processInfos
+      .filter((info): info is NonNullable<typeof info> => info !== null)
+      .map((info) => buildSession(info))
+  );
+
+  return results.filter((s): s is ClaudeSession => s !== null);
 }
 
 export async function getSessionDetail(sessionId: string): Promise<SessionDetail | null> {
