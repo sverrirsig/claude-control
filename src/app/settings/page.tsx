@@ -9,6 +9,12 @@ interface OptionDef {
   label: string;
 }
 
+interface TmuxSession {
+  name: string;
+  windows: number;
+  attached: boolean;
+}
+
 interface SettingsData {
   config: {
     codeDirectories: string[];
@@ -17,11 +23,17 @@ interface SettingsData {
     browser: string;
     notifications: boolean;
     notificationSound: boolean;
+    terminalApp: string;
+    terminalOpenIn: string;
+    terminalUseTmux: boolean;
+    terminalTmuxSession: string;
   };
   options: {
     editors: OptionDef[];
     gitGuis: OptionDef[];
     browsers: OptionDef[];
+    terminalApps: OptionDef[];
+    terminalOpenIn: OptionDef[];
   };
 }
 
@@ -71,6 +83,50 @@ function SettingRow({
             {opt.label}
           </option>
         ))}
+      </select>
+    </div>
+  );
+}
+
+function TmuxSessionPicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (val: string) => void;
+}) {
+  const [sessions, setSessions] = useState<TmuxSession[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/tmux/sessions")
+      .then((r) => r.json())
+      .then((data) => setSessions(data.sessions ?? []))
+      .catch(() => setSessions([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <div className="flex items-center justify-between py-4 border-b border-white/[0.04]">
+      <div>
+        <h3 className="text-sm font-medium text-zinc-200">Tmux Session</h3>
+        <p className="text-xs text-zinc-500 mt-0.5">Attach new windows to an existing session, or create one each time</p>
+      </div>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="bg-zinc-900 border border-zinc-700/50 rounded-lg px-3 py-1.5 text-sm text-zinc-200 focus:outline-none focus:border-zinc-600 min-w-[180px]"
+      >
+        <option value="">New session each time</option>
+        {loading ? (
+          <option disabled>Loading...</option>
+        ) : (
+          sessions.map((s) => (
+            <option key={s.name} value={s.name}>
+              {s.name} ({s.windows} win{s.windows !== 1 ? "s" : ""}{s.attached ? ", attached" : ""})
+            </option>
+          ))
+        )}
       </select>
     </div>
   );
@@ -193,6 +249,39 @@ export default function SettingsPage() {
             options={data.options.browsers}
             onChange={(browser) => save({ browser })}
           />
+        </div>
+      </section>
+
+      {/* Terminal section */}
+      <section className="mb-10">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-3">Terminal</h2>
+        <div className="rounded-xl border border-white/[0.06] bg-[#0a0a0f]/80 px-5">
+          <SettingRow
+            label="Terminal App"
+            description="Which terminal to use for focusing sessions and creating new ones"
+            value={data.config.terminalApp}
+            options={data.options.terminalApps}
+            onChange={(terminalApp) => save({ terminalApp })}
+          />
+          <SettingRow
+            label="Open In"
+            description="Open new sessions in a tab or window"
+            value={data.config.terminalOpenIn}
+            options={data.options.terminalOpenIn}
+            onChange={(terminalOpenIn) => save({ terminalOpenIn })}
+          />
+          <Toggle
+            label="Use tmux"
+            description="Run claude sessions inside tmux for background operation and send-keys support"
+            enabled={data.config.terminalUseTmux ?? false}
+            onChange={(terminalUseTmux) => save({ terminalUseTmux } as Partial<SettingsData["config"]>)}
+          />
+          {data.config.terminalUseTmux && (
+            <TmuxSessionPicker
+              value={data.config.terminalTmuxSession ?? ""}
+              onChange={(terminalTmuxSession) => save({ terminalTmuxSession })}
+            />
+          )}
         </div>
       </section>
 
