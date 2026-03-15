@@ -1,6 +1,6 @@
 "use client";
 
-import { ClaudeSession, SessionStatus, PrStatus } from "@/lib/types";
+import { ClaudeSession, SessionStatus, PrStatus, statusLabels } from "@/lib/types";
 import { PrStatusBadge } from "./PrStatusBadge";
 
 const statusColors: Record<SessionStatus, { dot: string; text: string }> = {
@@ -9,14 +9,6 @@ const statusColors: Record<SessionStatus, { dot: string; text: string }> = {
   waiting: { dot: "bg-blue-500", text: "text-blue-400" },
   errored: { dot: "bg-red-500", text: "text-red-400" },
   finished: { dot: "bg-zinc-600", text: "text-zinc-500" },
-};
-
-const statusLabels: Record<SessionStatus, string> = {
-  working: "Working",
-  idle: "Idle",
-  waiting: "Waiting",
-  errored: "Errored",
-  finished: "Finished",
 };
 
 export function SessionRow({

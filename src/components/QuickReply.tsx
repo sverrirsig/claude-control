@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { mutate } from "swr";
+import { refreshAfterAction, sendKeystrokeAction } from "@/lib/actions";
 
 export function QuickReply({
   pid,
@@ -30,24 +30,11 @@ export function QuickReply({
     e.stopPropagation();
   };
 
-  const refreshAfterAction = () => {
-    // Burst revalidations to catch the state change quickly
-    for (const ms of [300, 700, 1200, 2000, 3000]) {
-      setTimeout(() => mutate("/api/sessions"), ms);
-    }
-  };
-
   const sendKeystroke = async (keystroke: string, label: string) => {
     setSending(label);
-    // Set optimistic state immediately — before the async API call
     onActed?.(label === "approve" ? "approve" : "reject");
     try {
-      await fetch("/api/actions/open", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "send-keystroke", pid, keystroke }),
-      });
-      refreshAfterAction();
+      await sendKeystrokeAction(pid, keystroke);
     } catch (err) {
       console.error("Failed to send keystroke:", err);
     }

@@ -1,12 +1,11 @@
 "use client";
 
-import { ClaudeSession, PrStatus } from "@/lib/types";
+import { ClaudeSession, PrStatus, ViewMode } from "@/lib/types";
 import { SessionCard } from "./SessionCard";
 import { SessionRow } from "./SessionRow";
-import { ViewMode } from "./DashboardHeader";
+import { sendKeystrokeAction } from "@/lib/actions";
 
 import { groupSessions } from "@/lib/group-sessions";
-import { mutate } from "swr";
 
 function prettifyName(name: string): string {
   return name
@@ -59,14 +58,7 @@ export function SessionGrid({ sessions, viewMode, targetScreen, freshlyChanged, 
   const sendKeystrokeForRow = async (pid: number, keystroke: string, sessionId: string, action: "approve" | "reject") => {
     onApproveReject?.(sessionId, action);
     try {
-      await fetch("/api/actions/open", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "send-keystroke", pid, keystroke }),
-      });
-      for (const ms of [300, 700, 1200, 2000, 3000]) {
-        setTimeout(() => mutate("/api/sessions"), ms);
-      }
+      await sendKeystrokeAction(pid, keystroke);
     } catch (err) {
       console.error("Keystroke failed:", err);
     }
@@ -109,19 +101,16 @@ export function SessionGrid({ sessions, viewMode, targetScreen, freshlyChanged, 
     );
   };
 
-  const renderItem = viewMode === "list" ? renderRow : renderCard;
+  const renderSessions = (items: ClaudeSession[]) =>
+    viewMode === "list" ? (
+      <div className="space-y-1">{items.map(renderRow)}</div>
+    ) : (
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 items-start">{items.map(renderCard)}</div>
+    );
 
   // If there's only one group with one session, skip the grouping chrome
   if (groups.length === 1 && groups[0].sessions.length === 1) {
-    return viewMode === "list" ? (
-      <div className="space-y-1">
-        {sessions.map(renderRow)}
-      </div>
-    ) : (
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 items-start">
-        {sessions.map(renderCard)}
-      </div>
-    );
+    return renderSessions(sessions);
   }
 
   return (
@@ -153,16 +142,7 @@ export function SessionGrid({ sessions, viewMode, targetScreen, freshlyChanged, 
             <div className="flex-1 h-px bg-zinc-800/50" />
           </div>
 
-          {/* Sessions in this group */}
-          {viewMode === "list" ? (
-            <div className="space-y-1">
-              {group.sessions.map(renderRow)}
-            </div>
-          ) : (
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 items-start">
-              {group.sessions.map(renderCard)}
-            </div>
-          )}
+          {renderSessions(group.sessions)}
         </div>
       ))}
     </div>

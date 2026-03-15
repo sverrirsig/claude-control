@@ -1,4 +1,14 @@
+export type ViewMode = "grid" | "list";
+
 export type SessionStatus = "working" | "idle" | "waiting" | "errored" | "finished";
+
+export const statusLabels: Record<SessionStatus, string> = {
+  working: "Working",
+  idle: "Idle",
+  waiting: "Waiting",
+  errored: "Error",
+  finished: "Finished",
+};
 
 export interface ClaudeSession {
   id: string;

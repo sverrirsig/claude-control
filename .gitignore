@@ -1,7 +1,12 @@
+# Dependencies
 node_modules/
-.next/
-*.tsbuildinfo
+
+# Build output
 dist/
 next-app-dist/
-.claude/
+.next/
+*.tsbuildinfo
+
+# Temporary / local
+tmp/
 .DS_Store

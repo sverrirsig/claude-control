@@ -1,7 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-
-export type ViewMode = "grid" | "list";
+import { ViewMode } from "@/lib/types";
 
 interface Props {
   sessionCount: number;
