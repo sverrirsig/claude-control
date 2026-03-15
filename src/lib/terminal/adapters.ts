@@ -1,6 +1,7 @@
 import { execFile } from "child_process";
 import { promisify } from "util";
 import type { TerminalInfo, TerminalApp } from "./types";
+import { detectTmuxClients, buildProcessTree, findTerminalInTree } from "./detect";
 
 const execFileAsync = promisify(execFile);
 
@@ -263,6 +264,10 @@ function shellEscape(s: string): string {
   return s.replace(/'/g, "'\\''");
 }
 
+function shellEscapeDouble(s: string): string {
+  return s.replace(/["$`\\]/g, "\\$&");
+}
+
 export async function createSession(opts: CreateSessionOpts): Promise<void> {
   const { terminalApp, openIn, useTmux, tmuxSession, cwd, prompt } = opts;
 
@@ -278,6 +283,23 @@ export async function createSession(opts: CreateSessionOpts): Promise<void> {
   if (useTmux && tmuxSession) {
     try {
       await execFileAsync("tmux", ["new-window", "-t", tmuxSession, cmd], { timeout: 10000 });
+      // Focus the terminal tab that has the tmux client for this session
+      try {
+        const [clients, tree] = await Promise.all([detectTmuxClients(), buildProcessTree()]);
+        const client = clients.find((c) => c.sessionName === tmuxSession);
+        if (client) {
+          const termApp = findTerminalInTree(client.pid, tree);
+          // Don't set inTmux — we just want to focus the terminal tab by
+          // the client TTY. tmux already switched to the new window.
+          await focusSession({
+            ...termApp,
+            inTmux: false,
+            tty: client.tty,
+          });
+        }
+      } catch (err) {
+        console.error("focus after new-window failed:", err);
+      }
       return;
     } catch {
       // Session doesn't exist — fall through to open a terminal with new-session
@@ -289,7 +311,8 @@ export async function createSession(opts: CreateSessionOpts): Promise<void> {
   if (useTmux) {
     // Named session that needs creating, or unnamed fallback
     const sessionName = tmuxSession || `claude-${Date.now().toString(36).slice(-4)}`;
-    effectiveCommand = `tmux new-session -s '${shellEscape(sessionName)}' '${shellEscape(cmd)}'`;
+    effectiveCommand = `tmux new-session -s '${shellEscape(sessionName)}' "${shellEscapeDouble(cmd)}"`;
+
   } else {
     effectiveCommand = cmd;
   }
@@ -357,7 +380,7 @@ export async function listTmuxSessions(): Promise<
   try {
     const { stdout } = await execFileAsync(
       "tmux",
-      ["list-sessions", "-F", "#{session_name} #{session_windows} #{session_attached}"],
+      ["list-sessions", "-F", "#{session_name}\t#{session_windows}\t#{session_attached}"],
       { timeout: 5000 }
     );
     return stdout
@@ -365,7 +388,7 @@ export async function listTmuxSessions(): Promise<
       .split("\n")
       .filter(Boolean)
       .map((line) => {
-        const parts = line.split(" ");
+        const parts = line.split("\t");
         return {
           name: parts[0],
           windows: parseInt(parts[1] ?? "0", 10),

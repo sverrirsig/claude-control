@@ -89,8 +89,9 @@ export function NewSessionModal({ repoPath, repoName, onClose }: Props) {
         };
         setTerminalConfig(cfg);
 
-        // If tmux enabled and mode is "choose", fetch live sessions
+        // If tmux enabled and mode is "choose", fetch live sessions and pre-fill project name
         if (cfg.terminalUseTmux && cfg.terminalTmuxMode === "choose") {
+          if (repoName) setSelectedTmuxSession(repoName);
           setTmuxSessionsLoading(true);
           fetch("/api/tmux/sessions")
             .then((r) => r.json())
@@ -100,7 +101,7 @@ export function NewSessionModal({ repoPath, repoName, onClose }: Props) {
         }
       })
       .catch(() => setTerminalConfig(null));
-  }, []);
+  }, [repoName]);
 
   const filteredRepos = repos.filter(
     (r) =>
@@ -173,7 +174,7 @@ export function NewSessionModal({ repoPath, repoName, onClose }: Props) {
           branchName: branchName.trim() || undefined,
           baseBranch: branchName.trim() ? baseBranch.trim() || undefined : undefined,
           prompt: prompt.trim() || undefined,
-          tmuxSession: selectedTmuxSession || (terminalConfig?.terminalUseTmux ? (repoName || selectedRepoName || undefined) : undefined),
+          tmuxSession: selectedTmuxSession || undefined,
         }),
       });
 
@@ -319,6 +320,9 @@ export function NewSessionModal({ repoPath, repoName, onClose }: Props) {
                         onClick={() => {
                           setSelectedRepo(repo.path);
                           setSelectedRepoName(repo.name);
+                          if (terminalConfig?.terminalUseTmux && terminalConfig.terminalTmuxMode === "choose" && !selectedTmuxSession) {
+                            setSelectedTmuxSession(repo.name);
+                          }
                           setPickerOpen(false);
                           setRepoFilter("");
                           setTimeout(() => branchRef.current?.focus(), 50);

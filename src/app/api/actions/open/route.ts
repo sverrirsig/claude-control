@@ -105,10 +105,10 @@ export async function POST(request: Request) {
       }
       case "editor": {
         const config = await loadConfig();
-        if (config.editor === "none") {
+        const editorDef = EDITOR_OPTIONS.find((e) => e.id === config.editor);
+        if (!editorDef || !editorDef.command) {
           return NextResponse.json({ error: "No editor configured" }, { status: 400 });
         }
-        const editorDef = EDITOR_OPTIONS.find((e) => e.id === config.editor) ?? EDITOR_OPTIONS[1];
         await execFileAsync(editorDef.command, [path!]);
         if (targetScreen !== undefined) {
           await new Promise((r) => setTimeout(r, 800));
@@ -125,10 +125,10 @@ export async function POST(request: Request) {
         break;
       case "git-gui": {
         const gitConfig = await loadConfig();
-        if (gitConfig.gitGui === "none") {
+        const guiDef = GIT_GUI_OPTIONS.find((g) => g.id === gitConfig.gitGui);
+        if (!guiDef || !guiDef.appName) {
           return NextResponse.json({ error: "No git GUI configured" }, { status: 400 });
         }
-        const guiDef = GIT_GUI_OPTIONS.find((g) => g.id === gitConfig.gitGui) ?? GIT_GUI_OPTIONS[1];
         await execFileAsync("open", ["-a", guiDef.appName, path!]);
         if (targetScreen !== undefined) {
           await new Promise((r) => setTimeout(r, 800));

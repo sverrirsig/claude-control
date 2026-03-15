@@ -134,12 +134,12 @@ export async function detectAllTmuxPanes(): Promise<Map<string, TmuxPaneInfo>> {
   try {
     const { stdout } = await execFileAsync(
       "tmux",
-      ["list-panes", "-a", "-F", "#{pane_tty} #{pane_id} #{session_name} #{window_index} #{pane_index}"],
+      ["list-panes", "-a", "-F", "#{pane_tty}\t#{pane_id}\t#{session_name}\t#{window_index}\t#{pane_index}"],
       { timeout: 5000 }
     );
     const panes = new Map<string, TmuxPaneInfo>();
     for (const line of stdout.split("\n")) {
-      const parts = line.trim().split(/\s+/);
+      const parts = line.trim().split("\t");
       if (parts.length < 5) continue;
       const [rawTty, paneId, sessionName, winIdx, paneIdx] = parts;
       const tty = normalizeTty(rawTty);
@@ -167,12 +167,12 @@ export async function detectTmuxClients(): Promise<TmuxClientInfo[]> {
   try {
     const { stdout } = await execFileAsync(
       "tmux",
-      ["list-clients", "-F", "#{client_tty} #{client_pid} #{client_session}"],
+      ["list-clients", "-F", "#{client_tty}\t#{client_pid}\t#{client_session}"],
       { timeout: 5000 }
     );
     const clients: TmuxClientInfo[] = [];
     for (const line of stdout.split("\n")) {
-      const parts = line.trim().split(/\s+/);
+      const parts = line.trim().split("\t");
       if (parts.length < 3) continue;
       const pid = parseInt(parts[1], 10);
       if (!isNaN(pid)) {
