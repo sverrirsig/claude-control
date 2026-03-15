@@ -20,7 +20,7 @@ function Hint({ keys, label }: { keys: string; label: string }) {
 }
 
 export function KeyboardHints({ selectedSession, actionFeedback }: { selectedSession: ClaudeSession | null; actionFeedback?: { label: string; color: string } | null }) {
-  const isWaiting = selectedSession?.status === "waiting" && selectedSession?.preview.hasPendingToolUse;
+  const isWaiting = selectedSession?.status === "waiting" && selectedSession?.hasPendingToolUse;
 
   return (
     <div className="fixed bottom-0 inset-x-0 z-40 pointer-events-none">

@@ -2,7 +2,7 @@ import { CLAUDE_PROJECTS_DIR } from "./constants";
 import { join } from "path";
 
 export function workingDirToEscapedPath(workingDir: string): string {
-  return workingDir.replace(/\//g, "-").replace(/^-/, "-");
+  return workingDir.replace(/\//g, "-");
 }
 
 export function escapedPathToProjectDir(escaped: string): string {

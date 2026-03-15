@@ -161,7 +161,7 @@ export function extractPreview(lines: JsonlLine[]): ConversationPreview {
     }
   }
 
-  return { lastUserMessage, lastAssistantText, lastToolName, lastToolInput, messageCount, hasPendingToolUse: false };
+  return { lastUserMessage, lastAssistantText, lastToolName, lastToolInput, messageCount };
 }
 
 export function linesToConversation(lines: JsonlLine[]): ConversationMessage[] {

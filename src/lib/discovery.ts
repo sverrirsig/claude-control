@@ -61,7 +61,7 @@ export async function discoverSessions(): Promise<ClaudeSession[]> {
     let sessionId = `pid-${info.pid}`;
     let startedAt: string | null = null;
     let branch: string | null = null;
-    let preview: ConversationPreview = { lastUserMessage: null, lastAssistantText: null, lastToolName: null, lastToolInput: null, messageCount: 0, hasPendingToolUse: false };
+    let preview: ConversationPreview = { lastUserMessage: null, lastAssistantText: null, lastToolName: null, lastToolInput: null, messageCount: 0 };
     let hasError = false;
     let askingForInput = false;
     let pendingToolUse = false;
@@ -83,7 +83,6 @@ export async function discoverSessions(): Promise<ClaudeSession[]> {
       hasError = lastMessageHasError(lines);
       askingForInput = isAskingForInput(lines);
       pendingToolUse = hasPendingToolUse(lines);
-      preview = { ...preview, hasPendingToolUse: pendingToolUse };
       taskSummary = extractTaskSummary(headLines);
       if (mtime) lastActivity = mtime.toISOString();
     }
@@ -123,6 +122,7 @@ export async function discoverSessions(): Promise<ClaudeSession[]> {
       startedAt,
       git,
       preview,
+      hasPendingToolUse: pendingToolUse,
       taskSummary,
       jsonlPath,
       prUrl,

@@ -34,10 +34,12 @@ When you're running several Claude Code instances across different repos and wor
 ## Requirements
 
 - **macOS** (uses AppleScript for iTerm integration, native folder picker, etc.)
-- **Node.js** >= 18
+- **Node.js** >= 18 (LTS 24 recommended — see `.node-version`)
 - [**Claude Code CLI**](https://docs.anthropic.com/en/docs/claude-code) installed and running
 - [**iTerm2**](https://iterm2.com/) (for terminal focus and session creation features)
 - [**GitHub CLI**](https://cli.github.com/) (`gh`) for PR detection (optional)
+
+A `.node-version` file is included for version managers like [fnm](https://github.com/Schniz/fnm) and [nvm](https://github.com/nvm-sh/nvm). With auto-switching enabled, both will pick up the correct version when you `cd` into the project. Otherwise, run `fnm use` or `nvm use`.
 
 ## Install from DMG
 
@@ -76,7 +78,10 @@ The development server runs on port 3200. The Electron shell loads it automatica
 | `npm run electron:pack` | Production build → unpacked app in `dist/` |
 | `npm run dev` | Next.js dev server only (no Electron shell) |
 | `npm run build` | Next.js production build only |
+| `npm run test` | Run unit tests (Vitest) |
+| `npm run test:watch` | Run tests in watch mode |
 | `npm run lint` | Run ESLint |
+| `npm run typecheck` | Run TypeScript type checking |
 
 ## How it works
 

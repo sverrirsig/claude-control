@@ -190,7 +190,7 @@ export function SessionCard({ session, targetScreen, pulse, selected, shortcutNu
               lastAssistantText={session.preview.lastAssistantText}
               lastToolName={session.preview.lastToolName}
               lastToolInput={session.preview.lastToolInput}
-              hasPendingToolUse={session.preview.hasPendingToolUse}
+              hasPendingToolUse={session.hasPendingToolUse}
               onActed={(action) => { if (action !== "reply") onApproveReject?.(action); }}
             />
           )}

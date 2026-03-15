@@ -3,7 +3,7 @@
 import { useEffect, useCallback, useState, useMemo } from "react";
 import { ClaudeSession } from "@/lib/types";
 import { flattenGroupedSessions } from "@/lib/group-sessions";
-import { mutate } from "swr";
+import { sendKeystrokeAction } from "@/lib/actions";
 
 interface UseKeyboardShortcutsOptions {
   sessions: ClaudeSession[];
@@ -56,14 +56,7 @@ export function useKeyboardShortcuts({ sessions, targetScreen, onNewGlobal, onNe
 
   const sendKeystroke = useCallback(async (pid: number, keystroke: string) => {
     try {
-      await fetch("/api/actions/open", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "send-keystroke", pid, keystroke }),
-      });
-      for (const ms of [300, 700, 1200, 2000, 3000]) {
-        setTimeout(() => mutate("/api/sessions"), ms);
-      }
+      await sendKeystrokeAction(pid, keystroke);
     } catch (err) {
       console.error("Keystroke failed:", err);
     }
@@ -176,7 +169,7 @@ export function useKeyboardShortcuts({ sessions, targetScreen, onNewGlobal, onNe
           flash("Finder");
           break;
         case "a":
-          if (selectedSession.status === "waiting" && selectedSession.pid && selectedSession.preview.hasPendingToolUse) {
+          if (selectedSession.status === "waiting" && selectedSession.pid && selectedSession.hasPendingToolUse) {
             e.preventDefault();
             onApproveReject?.(selectedSession.id, "approve");
             sendKeystroke(selectedSession.pid, "return");
@@ -184,7 +177,7 @@ export function useKeyboardShortcuts({ sessions, targetScreen, onNewGlobal, onNe
           }
           break;
         case "x":
-          if (selectedSession.status === "waiting" && selectedSession.pid && selectedSession.preview.hasPendingToolUse) {
+          if (selectedSession.status === "waiting" && selectedSession.pid && selectedSession.hasPendingToolUse) {
             e.preventDefault();
             onApproveReject?.(selectedSession.id, "reject");
             sendKeystroke(selectedSession.pid, "escape");
