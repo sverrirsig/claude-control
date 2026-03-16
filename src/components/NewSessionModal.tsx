@@ -71,14 +71,14 @@ export function NewSessionModal({ repoPath, repoName, onClose }: Props) {
     if (isRepoMode) fetchRepos();
   }, [isRepoMode]);
 
-  // Load configured initial prompt from settings
+  // Load configured initial prompt from settings — only if user hasn't typed yet
   useEffect(() => {
     fetch("/api/settings")
       .then((r) => r.json())
       .then((data) => {
-        setPrompt(data.config?.initialPrompt ?? "");
+        setPrompt((prev) => prev === null ? (data.config?.initialPrompt ?? "") : prev);
       })
-      .catch(() => setPrompt(""));
+      .catch(() => setPrompt((prev) => prev === null ? "" : prev));
   }, []);
 
   // Focus branch input when in repo-scoped mode

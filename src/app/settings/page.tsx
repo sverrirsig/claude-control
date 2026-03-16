@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { ScreenPicker } from "@/components/ScreenPicker";
 
@@ -97,6 +97,8 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [addingDir, setAddingDir] = useState(false);
   const [targetScreen, setTargetScreen] = useState<number | null>(null);
+  const [promptDraft, setPromptDraft] = useState<string | null>(null);
+  const promptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const s = localStorage.getItem("targetScreen");
@@ -106,7 +108,10 @@ export default function SettingsPage() {
   useEffect(() => {
     fetch("/api/settings")
       .then((r) => r.json())
-      .then(setData)
+      .then((d: SettingsData) => {
+        setData(d);
+        setPromptDraft(d.config.initialPrompt ?? "");
+      })
       .catch(console.error);
   }, []);
 
@@ -128,6 +133,22 @@ export default function SettingsPage() {
       console.error("Failed to save:", err);
     }
   };
+
+  const savePromptDebounced = useCallback((value: string) => {
+    setPromptDraft(value);
+    if (promptTimerRef.current) clearTimeout(promptTimerRef.current);
+    promptTimerRef.current = setTimeout(() => {
+      save({ initialPrompt: value });
+    }, 500);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
+
+  // Flush pending prompt save on unmount
+  useEffect(() => {
+    return () => {
+      if (promptTimerRef.current) clearTimeout(promptTimerRef.current);
+    };
+  }, []);
 
   const addDirectory = async () => {
     setAddingDir(true);
@@ -305,8 +326,8 @@ export default function SettingsPage() {
             <p className="text-xs text-zinc-500 mt-0.5 mb-2">Default prompt used when creating new sessions with a branch name</p>
             <textarea
               rows={4}
-              value={data.config.initialPrompt ?? ""}
-              onChange={(e) => save({ initialPrompt: e.target.value })}
+              value={promptDraft ?? ""}
+              onChange={(e) => savePromptDebounced(e.target.value)}
               placeholder="e.g. Read the CLAUDE.md and implement the ticket..."
               className="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-700/50 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-600 transition-colors resize-y min-h-[5rem]"
             />
