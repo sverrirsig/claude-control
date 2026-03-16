@@ -1,5 +1,5 @@
 import { readFile, stat, open } from "fs/promises";
-import { ConversationMessage, ConversationPreview, TaskSummary } from "./types";
+import { ConversationMessage, ConversationPreview, TaskSummary, ToolInfo } from "./types";
 import { JSONL_TAIL_LINES } from "./constants";
 
 interface JsonlLine {
@@ -121,11 +121,48 @@ export function extractBranch(lines: JsonlLine[]): string | null {
   return null;
 }
 
+/**
+ * Detect system-injected messages in user turns.
+ * Claude Code injects XML-tagged content (<system-reminder>, <local-command-caveat>,
+ * <command-name>, etc.) that shouldn't appear in the dashboard preview.
+ */
+function isSystemMessage(text: string): boolean {
+  const trimmed = text.trim();
+  return /^<[a-zA-Z]/.test(trimmed);
+}
+
+/**
+ * Strip XML tags from text that may contain mixed user + system content.
+ * Returns null if nothing meaningful remains after stripping.
+ */
+function stripXmlTags(text: string): string | null {
+  // Remove matched tag pairs with content, then any remaining/orphan tags
+  const stripped = text
+    .replace(/<([a-zA-Z][a-zA-Z0-9-]*)(?:\s[^>]*)?>[\s\S]*?<\/\1>/g, "")
+    .replace(/<[^>]+>/g, "")
+    .trim();
+  return stripped.length > 0 ? stripped : null;
+}
+
+function detectCommandWarnings(name: string, input?: Record<string, unknown>): string[] {
+  if (name !== "Bash" || !input || typeof input.command !== "string") return [];
+  const cmd = input.command;
+  const warnings: string[] = [];
+  if (/\$\(/.test(cmd)) warnings.push("Command contains $() command substitution");
+  if (/`[^`]+`/.test(cmd)) warnings.push("Command contains backtick substitution");
+  if (/\|\s*(sudo|bash|sh|zsh)\b/.test(cmd)) warnings.push("Pipes to shell interpreter");
+  if (/\brm\s+(-\w*r|-\w*f)/.test(cmd)) warnings.push("Recursive or forced file deletion");
+  if (/\bsudo\b/.test(cmd)) warnings.push("Runs with elevated privileges");
+  if (/--force|--hard/.test(cmd)) warnings.push("Uses force/hard flag");
+  if (/\beval\b/.test(cmd)) warnings.push("Uses eval");
+  return warnings;
+}
+
 function summarizeToolInput(name: string, input?: Record<string, unknown>): string | null {
   if (!input) return null;
   switch (name) {
     case "Bash":
-      return typeof input.command === "string" ? input.command.slice(0, 200) : null;
+      return typeof input.command === "string" ? input.command : null;
     case "Edit":
     case "Read":
     case "Write":
@@ -137,7 +174,7 @@ function summarizeToolInput(name: string, input?: Record<string, unknown>): stri
     case "Skill":
       return typeof input.skill === "string" ? input.skill : null;
     case "Agent":
-      return typeof input.description === "string" ? input.description : (typeof input.prompt === "string" ? input.prompt.slice(0, 200) : null);
+      return typeof input.description === "string" ? input.description : (typeof input.prompt === "string" ? input.prompt : null);
     default: {
       // Fallback: show the first short string value from the input
       for (const val of Object.values(input)) {
@@ -153,8 +190,8 @@ function summarizeToolInput(name: string, input?: Record<string, unknown>): stri
 export function extractPreview(lines: JsonlLine[]): ConversationPreview {
   let lastUserMessage: string | null = null;
   let lastAssistantText: string | null = null;
-  let lastToolName: string | null = null;
-  let lastToolInput: string | null = null;
+  let assistantIsNewer = false;
+  let lastTools: ToolInfo[] = [];
   let messageCount = 0;
 
   for (const line of lines) {
@@ -162,25 +199,55 @@ export function extractPreview(lines: JsonlLine[]): ConversationPreview {
     if (!line.message) continue;
 
     if (line.type === "user" && typeof line.message.content === "string") {
-      lastUserMessage = line.message.content.slice(0, 200);
+      const text = line.message.content.trim();
+
+      // Detect /clear command — reset preview state
+      if (text === "/clear" || text.includes("<command-name>/clear</command-name>")) {
+        lastUserMessage = null;
+        lastAssistantText = null;
+        assistantIsNewer = false;
+        lastTools = [];
+        messageCount = 0;
+        continue;
+      }
+
+      // Skip pure system-injected messages (XML tags)
+      if (isSystemMessage(text)) {
+        // Try to extract meaningful content from mixed messages
+        const cleaned = stripXmlTags(text);
+        if (cleaned) {
+          lastUserMessage = cleaned.slice(0, 200);
+          assistantIsNewer = false;
+          messageCount++;
+        }
+        continue;
+      }
+
+      lastUserMessage = text.slice(0, 200);
+      assistantIsNewer = false;
       messageCount++;
     } else if (line.type === "assistant" && Array.isArray(line.message.content)) {
       messageCount++;
-      lastToolName = null;
-      lastToolInput = null;
+      const turnTools: ToolInfo[] = [];
       for (const block of line.message.content) {
         if (block.type === "text" && block.text) {
           lastAssistantText = block.text.slice(0, 200);
         }
         if (block.type === "tool_use" && block.name) {
-          lastToolName = block.name;
-          lastToolInput = summarizeToolInput(block.name, block.input);
+          turnTools.push({
+            name: block.name,
+            input: summarizeToolInput(block.name, block.input),
+            description: block.input && typeof block.input.description === "string" ? block.input.description : null,
+            warnings: detectCommandWarnings(block.name, block.input),
+          });
         }
       }
+      lastTools = turnTools;
+      assistantIsNewer = true;
     }
   }
 
-  return { lastUserMessage, lastAssistantText, lastToolName, lastToolInput, messageCount };
+  return { lastUserMessage, lastAssistantText, assistantIsNewer, lastTools, messageCount };
 }
 
 export function linesToConversation(lines: JsonlLine[]): ConversationMessage[] {
@@ -191,6 +258,10 @@ export function linesToConversation(lines: JsonlLine[]): ConversationMessage[] {
     if (!line.message) continue;
 
     if (line.type === "user" && typeof line.message.content === "string") {
+      const rawText = line.message.content.trim();
+      // Skip system-injected messages (XML tags like <system-reminder>)
+      if (isSystemMessage(rawText)) continue;
+
       messages.push({
         type: "user",
         timestamp: line.timestamp || "",
@@ -240,14 +311,6 @@ export function lastMessageHasError(lines: JsonlLine[]): boolean {
 }
 
 /**
- * Checks if the last assistant message is genuinely asking for a decision or permission
- * mid-task. This excludes generic greetings and open-ended "how can I help" responses.
- *
- * "Waiting" means Claude has done work and now needs user input to continue —
- * e.g. asking which approach to take, requesting confirmation before a destructive action,
- * or asking for clarification on requirements.
- */
-/**
  * Checks if the last assistant message issued a tool_use but no tool_result
  * has come back yet. This means the CLI is waiting for the user to approve
  * the tool execution (permission prompt).
@@ -270,6 +333,10 @@ export function hasPendingToolUse(lines: JsonlLine[]): boolean {
   return false;
 }
 
+/**
+ * Checks if the last assistant message is genuinely asking for a decision or
+ * permission mid-task. Excludes generic greetings and "how can I help" responses.
+ */
 export function isAskingForInput(lines: JsonlLine[]): boolean {
   // Find the last assistant message and count how many assistant turns preceded it
   let lastAssistant: JsonlLine | null = null;
@@ -363,6 +430,7 @@ export function extractTaskSummary(headLines: JsonlLine[]): TaskSummary | null {
             let desc = data.description || null;
             if (desc) {
               desc = desc.replace(/\\n/g, "\n").replace(/\n+/g, " · ").replace(/^\s*\*\s*/g, "").replace(/\s*\*\s*/g, " · ").trim();
+              if (desc.length > 300) desc = desc.slice(0, 297) + "...";
             }
             return {
               title: data.title,
@@ -384,15 +452,24 @@ export function extractTaskSummary(headLines: JsonlLine[]): TaskSummary | null {
     if (line.type !== "user" || !line.message) continue;
     const content = line.message.content;
     if (typeof content !== "string") continue;
-    const text = content.trim();
+    let text = content.trim();
     if (!text) continue;
+
+    // Skip system-injected messages; try stripping XML tags for mixed content
+    if (isSystemMessage(text)) {
+      const cleaned = stripXmlTags(text);
+      if (!cleaned) continue;
+      text = cleaned;
+    }
 
     const generic = /^(implement|start|work on|fix|do)\s+(the\s+)?(linear|referenced|ticket)/i;
     if (generic.test(text) && text.length < 100) continue;
 
     const textLines = text.split("\n").filter((l: string) => l.trim());
-    const title = textLines[0].replace(/^#+\s*/, "").slice(0, 120);
-    const description = textLines.length > 1 ? textLines.slice(1).join(" ").slice(0, 300) : null;
+    const rawTitle = textLines[0].replace(/^#+\s*/, "");
+    const title = rawTitle.length > 120 ? rawTitle.slice(0, 117) + "..." : rawTitle;
+    const rawDesc = textLines.length > 1 ? textLines.slice(1).join(" ") : null;
+    const description = rawDesc ? (rawDesc.length > 300 ? rawDesc.slice(0, 297) + "..." : rawDesc) : null;
 
     return {
       title,

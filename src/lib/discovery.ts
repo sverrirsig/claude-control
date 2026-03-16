@@ -55,7 +55,7 @@ async function buildSession(info: NonNullable<Awaited<ReturnType<typeof getProce
   let sessionId = `pid-${info.pid}`;
   let startedAt: string | null = null;
   let branch: string | null = null;
-  let preview: ConversationPreview = { lastUserMessage: null, lastAssistantText: null, lastToolName: null, lastToolInput: null, messageCount: 0 };
+  let preview: ConversationPreview = { lastUserMessage: null, lastAssistantText: null, assistantIsNewer: false, lastTools: [], messageCount: 0 };
   let hasError = false;
   let askingForInput = false;
   let pendingToolUse = false;

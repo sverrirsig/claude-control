@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { classifyStatus } from "./status-classifier";
-import { WORKING_THRESHOLD_MS } from "./constants";
+import { APPROVAL_SETTLE_MS, WORKING_THRESHOLD_MS } from "./constants";
 
 function makeInput(overrides: Partial<{
   pid: number | null;
@@ -93,10 +93,28 @@ describe("classifyStatus", () => {
     }))).toBe("idle");
   });
 
-  it("returns waiting when pending tool use", () => {
+  it("returns waiting when pending tool use with stale mtime", () => {
     vi.setSystemTime(new Date("2026-01-01T00:01:00.000Z"));
     expect(classifyStatus(makeInput({
       jsonlMtime: new Date("2026-01-01T00:00:00.000Z"),
+      hasPendingToolUse: true,
+    }))).toBe("waiting");
+  });
+
+  it("returns working when pending tool use with fresh mtime (auto-approved)", () => {
+    const base = new Date("2026-01-01T00:00:00.000Z");
+    vi.setSystemTime(new Date(base.getTime() + APPROVAL_SETTLE_MS - 1000));
+    expect(classifyStatus(makeInput({
+      jsonlMtime: base,
+      hasPendingToolUse: true,
+    }))).toBe("working");
+  });
+
+  it("returns waiting when pending tool use with mtime past settle threshold", () => {
+    const base = new Date("2026-01-01T00:00:00.000Z");
+    vi.setSystemTime(new Date(base.getTime() + APPROVAL_SETTLE_MS + 1000));
+    expect(classifyStatus(makeInput({
+      jsonlMtime: base,
       hasPendingToolUse: true,
     }))).toBe("waiting");
   });

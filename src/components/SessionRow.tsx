@@ -119,14 +119,14 @@ export function SessionRow({
       {/* Pending tool context + Approve/Reject for waiting sessions */}
       {isWaiting && session.hasPendingToolUse && onApproveReject && (
         <div className="shrink-0 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-          {session.preview.lastToolName && (
+          {session.preview.lastTools.length > 0 && (
             <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-blue-500/[0.06] border border-blue-500/[0.12] max-w-[320px]">
               <span className="shrink-0 px-1.5 py-0.5 rounded bg-violet-500/15 border border-violet-500/20 text-violet-300 font-mono text-[10px] font-medium">
-                {session.preview.lastToolName}
+                {session.preview.lastTools[0].name}
               </span>
-              {session.preview.lastToolInput && (
+              {session.preview.lastTools[0].input && (
                 <span className="text-[10px] text-zinc-400 font-mono truncate">
-                  {session.preview.lastToolInput}
+                  {session.preview.lastTools[0].input}
                 </span>
               )}
             </div>

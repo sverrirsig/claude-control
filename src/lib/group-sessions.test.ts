@@ -15,7 +15,7 @@ function makeSession(overrides: Partial<ClaudeSession> = {}): ClaudeSession {
     lastActivity: "2026-01-01T00:00:00Z",
     startedAt: "2026-01-01T00:00:00Z",
     git: null,
-    preview: { lastUserMessage: null, lastAssistantText: null, lastToolName: null, lastToolInput: null, messageCount: 0 },
+    preview: { lastUserMessage: null, lastAssistantText: null, assistantIsNewer: false, lastTools: [], messageCount: 0 },
     hasPendingToolUse: false,
     taskSummary: null,
     jsonlPath: null,

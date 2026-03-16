@@ -178,7 +178,7 @@ export function SessionCard({ session, targetScreen, pulse, selected, shortcutNu
             {session.taskSummary ? (
               <TaskSummaryView task={session.taskSummary} />
             ) : (
-              <OutputPreview preview={session.preview} />
+              <OutputPreview preview={session.preview} status={session.status} />
             )}
           </div>
 
@@ -188,8 +188,7 @@ export function SessionCard({ session, targetScreen, pulse, selected, shortcutNu
               pid={session.pid!}
               path={session.workingDirectory}
               lastAssistantText={session.preview.lastAssistantText}
-              lastToolName={session.preview.lastToolName}
-              lastToolInput={session.preview.lastToolInput}
+              lastTools={session.preview.lastTools}
               hasPendingToolUse={session.hasPendingToolUse}
               onActed={(action) => { if (action !== "reply") onApproveReject?.(action); }}
             />

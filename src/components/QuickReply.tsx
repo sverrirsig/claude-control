@@ -2,26 +2,26 @@
 
 import { useState, useRef } from "react";
 import { refreshAfterAction, sendKeystrokeAction } from "@/lib/actions";
+import type { ToolInfo } from "@/lib/types";
 
 export function QuickReply({
   pid,
   path,
   lastAssistantText,
-  lastToolName,
-  lastToolInput,
+  lastTools,
   hasPendingToolUse,
   onActed,
 }: {
   pid: number;
   path: string;
   lastAssistantText: string | null;
-  lastToolName: string | null;
-  lastToolInput: string | null;
+  lastTools: ToolInfo[];
   hasPendingToolUse: boolean;
   onActed?: (action: "approve" | "reject" | "reply") => void;
 }) {
   const [sending, setSending] = useState<string | null>(null);
   const [showReply, setShowReply] = useState(false);
+  const [toolExpanded, setToolExpanded] = useState(false);
   const [message, setMessage] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -66,17 +66,39 @@ export function QuickReply({
   return (
     <div onClick={stopProp} onMouseDown={stopProp} className="mt-3 cleanup-slide-in">
       {/* Show what's pending */}
-      {isPermissionPrompt && lastToolName ? (
-        <div className="mb-2.5 px-2.5 py-2 rounded-lg bg-blue-500/[0.06] border border-blue-500/[0.12]">
-          <div className="flex items-center gap-1.5 mb-1">
-            <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-violet-500/15 border border-violet-500/20 text-violet-300 font-mono text-[10px] font-medium">
-              {lastToolName}
+      {isPermissionPrompt && lastTools.length > 0 ? (
+        <div
+          className="mb-2.5 px-2.5 py-2 rounded-lg bg-blue-500/[0.06] border border-blue-500/[0.12] cursor-pointer hover:bg-blue-500/[0.10] transition-colors"
+          onClick={(e) => { stopProp(e); setToolExpanded(!toolExpanded); }}
+        >
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded bg-violet-500/15 border border-violet-500/20 text-violet-300 font-mono text-[10px] font-medium">
+              {lastTools[0].name}
             </span>
+            {!toolExpanded && (lastTools[0].description || lastTools[0].input) && (
+              <span className={`text-[11px] text-zinc-400 truncate ${lastTools[0].description ? "" : "font-mono"}`}>
+                {lastTools[0].description || lastTools[0].input}
+              </span>
+            )}
           </div>
-          {lastToolInput && (
-            <p className="text-[11px] text-zinc-400 font-mono truncate leading-relaxed">
-              {lastToolInput}
-            </p>
+          {toolExpanded && (lastTools[0].description || lastTools[0].input || lastTools[0].warnings.length > 0) && (
+            <div className="mt-1.5 space-y-1.5">
+              {lastTools[0].description && (
+                <p className="text-[11px] text-zinc-300 leading-relaxed">
+                  {lastTools[0].description}
+                </p>
+              )}
+              {lastTools[0].input && (
+                <p className="text-[11px] text-zinc-400 font-mono leading-relaxed whitespace-pre-wrap break-all">
+                  {lastTools[0].input}
+                </p>
+              )}
+              {lastTools[0].warnings.map((warning, i) => (
+                <p key={i} className="text-[11px] text-amber-400/80 font-medium leading-relaxed">
+                  {warning}
+                </p>
+              ))}
+            </div>
           )}
         </div>
       ) : lastAssistantText ? (

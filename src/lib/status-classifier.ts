@@ -1,5 +1,5 @@
 import { SessionStatus } from "./types";
-import { WORKING_THRESHOLD_MS } from "./constants";
+import { APPROVAL_SETTLE_MS, WORKING_THRESHOLD_MS } from "./constants";
 
 interface ClassifyInput {
   pid: number | null;
@@ -26,8 +26,15 @@ export function classifyStatus(input: ClassifyInput): SessionStatus {
   // written the result to JSONL yet — CPU activity proves it's no longer waiting.
   if ((recentWrite && cpuActive) || input.cpuPercent > 15) return "working";
 
-  // Claude issued a tool_use but no result came back → waiting for user to approve.
-  if (input.hasPendingToolUse) return "waiting";
+  // Claude issued a tool_use but no result came back.
+  // If the JSONL was written very recently, the tool is likely being auto-executed
+  // (the tool_use just appeared and the result hasn't been written yet).
+  // Only show "waiting" if the mtime has gone stale, meaning the CLI is actually
+  // paused on a permission prompt.
+  if (input.hasPendingToolUse) {
+    if (age > APPROVAL_SETTLE_MS) return "waiting";
+    return "working";
+  }
 
   // Claude's last message asked a question / requested confirmation → waiting
   if (input.isAskingForInput) return "waiting";

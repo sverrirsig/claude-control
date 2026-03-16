@@ -9,3 +9,4 @@ export const JSONL_TAIL_LINES = 50;
 export const GIT_TIMEOUT_MS = 3000;
 export const IDLE_THRESHOLD_MS = 60 * 1000;
 export const WORKING_THRESHOLD_MS = 10 * 1000;
+export const APPROVAL_SETTLE_MS = 3000;

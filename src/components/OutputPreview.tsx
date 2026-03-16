@@ -1,6 +1,6 @@
-import { ConversationPreview } from "@/lib/types";
+import { ConversationPreview, SessionStatus } from "@/lib/types";
 
-export function OutputPreview({ preview }: { preview: ConversationPreview }) {
+export function OutputPreview({ preview, status }: { preview: ConversationPreview; status?: SessionStatus }) {
   if (preview.messageCount === 0) {
     return (
       <div className="flex items-center gap-2 text-xs text-zinc-600 italic py-2">
@@ -12,22 +12,24 @@ export function OutputPreview({ preview }: { preview: ConversationPreview }) {
     );
   }
 
+  const showTools = preview.lastTools.length > 0 && (status === "working" || status === "waiting");
+
   return (
     <div className="space-y-1.5">
-      {preview.lastToolName && (
-        <div className="flex items-center gap-1.5 text-xs">
-          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-violet-500/10 border border-violet-500/20 text-violet-300 font-mono text-[10px]">
-            {preview.lastToolName}
-          </span>
-        </div>
-      )}
-      {preview.lastAssistantText && (
-        <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed">{preview.lastAssistantText}</p>
-      )}
       {preview.lastUserMessage && (
-        <p className="text-[11px] text-zinc-600 line-clamp-1">
-          <span className="text-zinc-500 font-medium">You:</span> {preview.lastUserMessage}
-        </p>
+        <p className="text-xs text-zinc-300 line-clamp-2 leading-relaxed">{preview.lastUserMessage}</p>
+      )}
+      {preview.assistantIsNewer && preview.lastAssistantText && (
+        <p className="text-[11px] text-zinc-500 line-clamp-1 leading-relaxed">{preview.lastAssistantText}</p>
+      )}
+      {showTools && (
+        <div className="flex items-center gap-1.5 text-xs flex-wrap">
+          {preview.lastTools.map((tool, i) => (
+            <span key={i} className="inline-flex items-center px-1.5 py-0.5 rounded bg-violet-500/10 border border-violet-500/20 text-violet-300 font-mono text-[10px]">
+              {tool.name}
+            </span>
+          ))}
+        </div>
       )}
     </div>
   );

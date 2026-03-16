@@ -38,11 +38,19 @@ export interface GitSummary {
   shortStat: string;
 }
 
+export interface ToolInfo {
+  name: string;
+  input: string | null;
+  description: string | null;
+  warnings: string[];
+}
+
 export interface ConversationPreview {
   lastUserMessage: string | null;
   lastAssistantText: string | null;
-  lastToolName: string | null;
-  lastToolInput: string | null;
+  /** Whether the assistant text came after the last user message */
+  assistantIsNewer: boolean;
+  lastTools: ToolInfo[];
   messageCount: number;
 }
 

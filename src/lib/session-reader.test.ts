@@ -88,30 +88,39 @@ describe("extractPreview", () => {
     expect(preview.messageCount).toBe(2);
   });
 
-  it("extracts tool name and input", () => {
+  it("extracts tool name and input from last assistant turn", () => {
     const lines = [
       userLine("read the file"),
       assistantLine([textBlock("Let me read it."), toolUseBlock("Read", { file_path: "/foo/bar.ts" })]),
     ];
     const preview = extractPreview(lines);
-    expect(preview.lastToolName).toBe("Read");
-    expect(preview.lastToolInput).toBe("/foo/bar.ts");
+    expect(preview.lastTools).toEqual([{ name: "Read", input: "/foo/bar.ts", description: null, warnings: [] }]);
   });
 
-  it("extracts Bash command as tool input", () => {
+  it("extracts multiple tools from parallel tool calls", () => {
     const lines = [
-      assistantLine([toolUseBlock("Bash", { command: "npm test" })]),
+      assistantLine([
+        toolUseBlock("Read", { file_path: "/a.ts" }),
+        toolUseBlock("Read", { file_path: "/b.ts" }),
+        toolUseBlock("Grep", { pattern: "TODO" }),
+      ]),
     ];
     const preview = extractPreview(lines);
-    expect(preview.lastToolName).toBe("Bash");
-    expect(preview.lastToolInput).toBe("npm test");
+    expect(preview.lastTools).toEqual([
+      { name: "Read", input: "/a.ts", description: null, warnings: [] },
+      { name: "Read", input: "/b.ts", description: null, warnings: [] },
+      { name: "Grep", input: "/TODO/", description: null, warnings: [] },
+    ]);
   });
 
-  it("extracts Grep pattern with slashes", () => {
+  it("clears lastTools when assistant has no tool_use", () => {
     const lines = [
-      assistantLine([toolUseBlock("Grep", { pattern: "TODO" })]),
+      assistantLine([textBlock("Let me read..."), toolUseBlock("Read", { file_path: "/x" })]),
+      userLine("tool result"),
+      assistantLine([textBlock("Here's the content.")]),
     ];
-    expect(extractPreview(lines).lastToolInput).toBe("/TODO/");
+    const preview = extractPreview(lines);
+    expect(preview.lastTools).toEqual([]);
   });
 
   it("skips progress and system lines", () => {
@@ -134,6 +143,100 @@ describe("extractPreview", () => {
     expect(preview.messageCount).toBe(0);
     expect(preview.lastUserMessage).toBeNull();
     expect(preview.lastAssistantText).toBeNull();
+  });
+
+  it("marks assistantIsNewer when assistant is last speaker", () => {
+    const lines = [
+      userLine("fix it"),
+      assistantLine([textBlock("Done.")]),
+    ];
+    expect(extractPreview(lines).assistantIsNewer).toBe(true);
+  });
+
+  it("marks assistantIsNewer false when user is last speaker", () => {
+    const lines = [
+      assistantLine([textBlock("Done.")]),
+      userLine("thanks, now do this"),
+    ];
+    expect(extractPreview(lines).assistantIsNewer).toBe(false);
+  });
+
+  it("filters out system-injected XML messages", () => {
+    const lines = [
+      userLine("fix the bug"),
+      assistantLine([textBlock("Done.")]),
+      userLine('<local-command-caveat>Caveat: The messages below were generated...</local-command-caveat>'),
+    ];
+    const preview = extractPreview(lines);
+    expect(preview.lastUserMessage).toBe("fix the bug");
+  });
+
+  it("filters out <system-reminder> messages", () => {
+    const lines = [
+      userLine('<system-reminder>Remember to follow style guidelines</system-reminder>'),
+    ];
+    const preview = extractPreview(lines);
+    expect(preview.lastUserMessage).toBeNull();
+    expect(preview.messageCount).toBe(0);
+  });
+
+  it("resets preview state on /clear command", () => {
+    const lines = [
+      userLine("fix the bug"),
+      assistantLine([textBlock("I fixed it.")]),
+      userLine('<command-name>/clear</command-name>'),
+    ];
+    const preview = extractPreview(lines);
+    expect(preview.lastUserMessage).toBeNull();
+    expect(preview.lastAssistantText).toBeNull();
+    expect(preview.messageCount).toBe(0);
+  });
+
+  it("shows messages after /clear", () => {
+    const lines = [
+      userLine("old message"),
+      assistantLine([textBlock("old reply")]),
+      userLine('<command-name>/clear</command-name>'),
+      userLine("new message"),
+      assistantLine([textBlock("new reply")]),
+    ];
+    const preview = extractPreview(lines);
+    expect(preview.lastUserMessage).toBe("new message");
+    expect(preview.lastAssistantText).toBe("new reply");
+    expect(preview.messageCount).toBe(2);
+  });
+
+  it("detects command substitution warning in Bash tool", () => {
+    const lines = [
+      assistantLine([toolUseBlock("Bash", { command: "echo $(whoami)", description: "Print username" })]),
+    ];
+    const preview = extractPreview(lines);
+    expect(preview.lastTools[0].warnings).toContain("Command contains $() command substitution");
+    expect(preview.lastTools[0].description).toBe("Print username");
+  });
+
+  it("detects multiple warnings", () => {
+    const lines = [
+      assistantLine([toolUseBlock("Bash", { command: "sudo rm -rf /tmp/foo | sh" })]),
+    ];
+    const warnings = extractPreview(lines).lastTools[0].warnings;
+    expect(warnings).toContain("Recursive or forced file deletion");
+    expect(warnings).toContain("Runs with elevated privileges");
+    expect(warnings).toContain("Pipes to shell interpreter");
+  });
+
+  it("returns no warnings for safe commands", () => {
+    const lines = [
+      assistantLine([toolUseBlock("Bash", { command: "npm test" })]),
+    ];
+    expect(extractPreview(lines).lastTools[0].warnings).toEqual([]);
+  });
+
+  it("returns no warnings for non-Bash tools", () => {
+    const lines = [
+      assistantLine([toolUseBlock("Read", { file_path: "/etc/passwd" })]),
+    ];
+    expect(extractPreview(lines).lastTools[0].warnings).toEqual([]);
   });
 });
 
@@ -329,6 +432,18 @@ describe("linesToConversation", () => {
   it("returns empty array for empty input", () => {
     expect(linesToConversation([])).toEqual([]);
   });
+
+  it("filters out system-injected XML user messages", () => {
+    const lines = [
+      { ...userLine("hello"), timestamp: "t1" },
+      { ...userLine('<system-reminder>Be helpful</system-reminder>'), timestamp: "t2" },
+      { ...assistantLine([textBlock("Hi!")]), timestamp: "t3" },
+    ];
+    const msgs = linesToConversation(lines);
+    expect(msgs).toHaveLength(2);
+    expect(msgs[0].text).toBe("hello");
+    expect(msgs[1].text).toBe("Hi!");
+  });
 });
 
 describe("extractTaskSummary", () => {
@@ -387,5 +502,15 @@ describe("extractTaskSummary", () => {
     const lines = [userLine("## Fix the login page")];
     const summary = extractTaskSummary(lines);
     expect(summary!.title).toBe("Fix the login page");
+  });
+
+  it("skips system-injected XML messages for task summary", () => {
+    const lines = [
+      userLine('<system-reminder>You are Claude Code</system-reminder>'),
+      userLine("Build the auth module"),
+    ];
+    const summary = extractTaskSummary(lines);
+    expect(summary).not.toBeNull();
+    expect(summary!.title).toBe("Build the auth module");
   });
 });
