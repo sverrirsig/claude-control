@@ -7,6 +7,7 @@ import type {
   TmuxClientInfo,
   ProcessTreeEntry,
 } from "./types";
+import { PROCESS_TIMEOUT_MS } from "../constants";
 
 const execFileAsync = promisify(execFile);
 
@@ -44,21 +45,23 @@ export function evictStaleTerminalCache(alivePids: Set<number>): void {
 }
 
 /**
- * Build a process tree from a single `ps -eo pid,ppid,comm` call.
- * Returns a Map keyed by PID.
+ * Build a process tree from a single `ps -eo pid,ppid,%cpu,comm` call.
+ * Returns a Map keyed by PID. Includes CPU% so discovery can skip
+ * a second ps call for per-process details.
  */
 export async function buildProcessTree(): Promise<Map<number, ProcessTreeEntry>> {
   try {
-    const { stdout } = await execFileAsync("ps", ["-eo", "pid,ppid,comm"], {
-      timeout: 5000,
+    const { stdout } = await execFileAsync("ps", ["-eo", "pid,ppid,%cpu,comm"], {
+      timeout: PROCESS_TIMEOUT_MS,
     });
     const tree = new Map<number, ProcessTreeEntry>();
     for (const line of stdout.split("\n")) {
-      const match = line.trim().match(/^(\d+)\s+(\d+)\s+(.+)$/);
+      const match = line.trim().match(/^(\d+)\s+(\d+)\s+([\d.]+)\s+(.+)$/);
       if (match) {
         tree.set(parseInt(match[1], 10), {
           ppid: parseInt(match[2], 10),
-          comm: match[3].trim(),
+          cpuPercent: parseFloat(match[3]) || 0,
+          comm: match[4].trim(),
         });
       }
     }
@@ -92,7 +95,7 @@ export async function getTtysForPids(pids: number[]): Promise<Map<number, string
   if (pids.length === 0) return result;
   try {
     const { stdout } = await execFileAsync("ps", ["-o", "pid=,tty=", "-p", pids.join(",")], {
-      timeout: 5000,
+      timeout: PROCESS_TIMEOUT_MS,
     });
     for (const line of stdout.trim().split("\n")) {
       const match = line.trim().match(/^(\d+)\s+(.+)$/);
@@ -114,7 +117,7 @@ export async function getTtysForPids(pids: number[]): Promise<Map<number, string
  */
 export async function getTtyForPid(pid: number): Promise<string> {
   const { stdout } = await execFileAsync("ps", ["-o", "tty=", "-p", String(pid)], {
-    timeout: 5000,
+    timeout: PROCESS_TIMEOUT_MS,
   });
   const tty = stdout.trim();
   if (!tty || tty === "?" || tty === "??") {

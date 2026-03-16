@@ -63,10 +63,10 @@ describe("matchTerminal", () => {
 describe("findTerminalInTree", () => {
   it("walks up to find iTerm2", () => {
     const tree = new Map<number, ProcessTreeEntry>([
-      [100, { ppid: 50, comm: "claude" }],
-      [50, { ppid: 30, comm: "zsh" }],
-      [30, { ppid: 10, comm: "login" }],
-      [10, { ppid: 1, comm: "iTerm2" }],
+      [100, { ppid: 50, comm: "claude", cpuPercent: 0 }],
+      [50, { ppid: 30, comm: "zsh", cpuPercent: 0 }],
+      [30, { ppid: 10, comm: "login", cpuPercent: 0 }],
+      [10, { ppid: 1, comm: "iTerm2", cpuPercent: 0 }],
     ]);
     const result = findTerminalInTree(100, tree);
     expect(result.app).toBe("iterm");
@@ -75,9 +75,9 @@ describe("findTerminalInTree", () => {
 
   it("walks up to find Terminal.app", () => {
     const tree = new Map<number, ProcessTreeEntry>([
-      [200, { ppid: 150, comm: "claude" }],
-      [150, { ppid: 120, comm: "bash" }],
-      [120, { ppid: 1, comm: "Terminal" }],
+      [200, { ppid: 150, comm: "claude", cpuPercent: 0 }],
+      [150, { ppid: 120, comm: "bash", cpuPercent: 0 }],
+      [120, { ppid: 1, comm: "Terminal", cpuPercent: 0 }],
     ]);
     const result = findTerminalInTree(200, tree);
     expect(result.app).toBe("terminal-app");
@@ -85,10 +85,10 @@ describe("findTerminalInTree", () => {
 
   it("returns unknown when no terminal ancestor found", () => {
     const tree = new Map<number, ProcessTreeEntry>([
-      [100, { ppid: 50, comm: "claude" }],
-      [50, { ppid: 30, comm: "zsh" }],
-      [30, { ppid: 10, comm: "login" }],
-      [10, { ppid: 1, comm: "sshd" }],
+      [100, { ppid: 50, comm: "claude", cpuPercent: 0 }],
+      [50, { ppid: 30, comm: "zsh", cpuPercent: 0 }],
+      [30, { ppid: 10, comm: "login", cpuPercent: 0 }],
+      [10, { ppid: 1, comm: "sshd", cpuPercent: 0 }],
     ]);
     const result = findTerminalInTree(100, tree);
     expect(result.app).toBe("unknown");
@@ -96,7 +96,7 @@ describe("findTerminalInTree", () => {
 
   it("handles cycle protection (pid points to itself)", () => {
     const tree = new Map<number, ProcessTreeEntry>([
-      [100, { ppid: 100, comm: "claude" }],
+      [100, { ppid: 100, comm: "claude", cpuPercent: 0 }],
     ]);
     const result = findTerminalInTree(100, tree);
     expect(result.app).toBe("unknown");
@@ -109,9 +109,9 @@ describe("findTerminalInTree", () => {
 
   it("handles full path comm entries", () => {
     const tree = new Map<number, ProcessTreeEntry>([
-      [100, { ppid: 50, comm: "claude" }],
-      [50, { ppid: 10, comm: "/bin/zsh" }],
-      [10, { ppid: 1, comm: "/Applications/Ghostty.app/Contents/MacOS/ghostty" }],
+      [100, { ppid: 50, comm: "claude", cpuPercent: 0 }],
+      [50, { ppid: 10, comm: "/bin/zsh", cpuPercent: 0 }],
+      [10, { ppid: 1, comm: "/Applications/Ghostty.app/Contents/MacOS/ghostty", cpuPercent: 0 }],
     ]);
     const result = findTerminalInTree(100, tree);
     expect(result.app).toBe("ghostty");
@@ -119,9 +119,9 @@ describe("findTerminalInTree", () => {
 
   it("stops at PID 1 without matching", () => {
     const tree = new Map<number, ProcessTreeEntry>([
-      [100, { ppid: 50, comm: "claude" }],
-      [50, { ppid: 1, comm: "zsh" }],
-      [1, { ppid: 0, comm: "launchd" }],
+      [100, { ppid: 50, comm: "claude", cpuPercent: 0 }],
+      [50, { ppid: 1, comm: "zsh", cpuPercent: 0 }],
+      [1, { ppid: 0, comm: "launchd", cpuPercent: 0 }],
     ]);
     const result = findTerminalInTree(100, tree);
     expect(result.app).toBe("unknown");
@@ -131,11 +131,11 @@ describe("findTerminalInTree", () => {
 describe("findClaudePidsFromTree", () => {
   it("extracts claude PIDs", () => {
     const tree = new Map<number, ProcessTreeEntry>([
-      [100, { ppid: 50, comm: "claude" }],
-      [50, { ppid: 10, comm: "zsh" }],
-      [200, { ppid: 150, comm: "claude" }],
-      [150, { ppid: 10, comm: "bash" }],
-      [10, { ppid: 1, comm: "iTerm2" }],
+      [100, { ppid: 50, comm: "claude", cpuPercent: 0 }],
+      [50, { ppid: 10, comm: "zsh", cpuPercent: 0 }],
+      [200, { ppid: 150, comm: "claude", cpuPercent: 0 }],
+      [150, { ppid: 10, comm: "bash", cpuPercent: 0 }],
+      [10, { ppid: 1, comm: "iTerm2", cpuPercent: 0 }],
     ]);
     const pids = findClaudePidsFromTree(tree);
     expect(pids).toContain(100);
@@ -145,15 +145,15 @@ describe("findClaudePidsFromTree", () => {
 
   it("returns empty array when no claude processes", () => {
     const tree = new Map<number, ProcessTreeEntry>([
-      [50, { ppid: 10, comm: "zsh" }],
-      [10, { ppid: 1, comm: "iTerm2" }],
+      [50, { ppid: 10, comm: "zsh", cpuPercent: 0 }],
+      [10, { ppid: 1, comm: "iTerm2", cpuPercent: 0 }],
     ]);
     expect(findClaudePidsFromTree(tree)).toHaveLength(0);
   });
 
   it("does not match partial names like claude-code", () => {
     const tree = new Map<number, ProcessTreeEntry>([
-      [100, { ppid: 50, comm: "claude-code" }],
+      [100, { ppid: 50, comm: "claude-code", cpuPercent: 0 }],
     ]);
     expect(findClaudePidsFromTree(tree)).toHaveLength(0);
   });

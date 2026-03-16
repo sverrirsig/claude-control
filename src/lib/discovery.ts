@@ -1,7 +1,8 @@
 import { readdir, stat } from "fs/promises";
 import { join } from "path";
 import { ClaudeSession, ConversationPreview } from "./types";
-import { findClaudePids, getProcessInfo } from "./process-utils";
+import { ProcessInfo, getAllProcessInfos } from "./process-utils";
+import { buildProcessTree, findClaudePidsFromTree } from "./terminal/detect";
 import { workingDirToProjectDir, repoNameFromPath } from "./paths";
 import {
   readJsonlTail,
@@ -46,7 +47,7 @@ async function findLatestJsonl(projectDir: string): Promise<string | null> {
   }
 }
 
-async function buildSession(info: NonNullable<Awaited<ReturnType<typeof getProcessInfo>>>): Promise<ClaudeSession | null> {
+async function buildSession(info: ProcessInfo): Promise<ClaudeSession | null> {
   if (!info.workingDirectory) return null;
 
   const projectDir = workingDirToProjectDir(info.workingDirectory);
@@ -121,12 +122,15 @@ async function buildSession(info: NonNullable<Awaited<ReturnType<typeof getProce
 }
 
 export async function discoverSessions(): Promise<ClaudeSession[]> {
-  const pids = await findClaudePids();
-  const processInfos = await Promise.all(pids.map((pid) => getProcessInfo(pid)));
+  // Single ps call builds the full tree (pid, ppid, %cpu, comm) —
+  // extract claude PIDs and their CPU% from it, then one lsof for cwds
+  const processTree = await buildProcessTree();
+  const pids = findClaudePidsFromTree(processTree);
+  const processInfos = await getAllProcessInfos(pids, processTree);
 
   const results = await Promise.all(
     processInfos
-      .filter((info): info is NonNullable<typeof info> => info !== null)
+      .filter((info) => info.workingDirectory !== null)
       .map((info) => buildSession(info))
   );
 

@@ -2,8 +2,10 @@ import { execFile } from "child_process";
 import { promisify } from "util";
 import type { TerminalInfo, TerminalApp } from "./types";
 import { detectTmuxClients, buildProcessTree, findTerminalInTree } from "./detect";
+import { PROCESS_TIMEOUT_MS, APPLESCRIPT_FOCUS_DELAY_S } from "../constants";
 
 const execFileAsync = promisify(execFile);
+const OSASCRIPT_TIMEOUT_MS = 10000;
 
 function escapeForAppleScript(text: string): string {
   return text.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
@@ -29,28 +31,18 @@ function mapKeystrokeToSystemEvents(keystroke: string): string {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// focusSession
+// AppleScript template builders — shared across focusSession, sendText,
+// and sendKeystroke to avoid duplicating TTY-matching loops.
 // ────────────────────────────────────────────────────────────────────────────
 
-export async function focusSession(info: TerminalInfo): Promise<void> {
-  // If in tmux, select the correct pane first
-  if (info.inTmux && info.tmux) {
-    const windowTarget = `${info.tmux.sessionName}:${info.tmux.windowIndex}`;
-    await execFileAsync("tmux", ["select-window", "-t", windowTarget], { timeout: 5000 });
-    await execFileAsync("tmux", ["select-pane", "-t", info.tmux.paneId], { timeout: 5000 });
-  }
-
-  // Use tmux client TTY (terminal tab's TTY) when in tmux, otherwise the process's TTY
-  const ttyPath = info.inTmux && info.tmux?.clientTty ? info.tmux.clientTty : info.tty;
-
-  switch (info.app) {
-    case "iterm": {
-      const script = `tell application "iTerm"
+function iTermFocusScript(ttyPath: string): string {
+  const safeTty = escapeForAppleScript(ttyPath);
+  return `tell application "iTerm"
   activate
   repeat with aWindow in windows
     repeat with aTab in tabs of aWindow
       repeat with aSession in sessions of aTab
-        if tty of aSession is "${ttyPath}" then
+        if tty of aSession is "${safeTty}" then
           select aWindow
           select aTab
           select aSession
@@ -60,16 +52,15 @@ export async function focusSession(info: TerminalInfo): Promise<void> {
     end repeat
   end repeat
 end tell`;
-      await execFileAsync("osascript", ["-e", script], { timeout: 10000 });
-      break;
-    }
+}
 
-    case "terminal-app": {
-      const script = `tell application "Terminal"
+function terminalAppFocusScript(ttyPath: string): string {
+  const safeTty = escapeForAppleScript(ttyPath);
+  return `tell application "Terminal"
   activate
   repeat with aWindow in windows
     repeat with aTab in tabs of aWindow
-      if tty of aTab is "${ttyPath}" then
+      if tty of aTab is "${safeTty}" then
         set selected tab of aWindow to aTab
         set index of aWindow to 1
         return
@@ -77,15 +68,53 @@ end tell`;
     end repeat
   end repeat
 end tell`;
-      await execFileAsync("osascript", ["-e", script], { timeout: 10000 });
+}
+
+function systemEventsScript(processName: string, action: string): string {
+  return `tell application "System Events"
+  tell process "${processName}"
+    ${action}
+  end tell
+end tell`;
+}
+
+function withFocusDelay(focusScript: string, actionScript: string): string {
+  return `${focusScript}\ndelay ${APPLESCRIPT_FOCUS_DELAY_S}\n${actionScript}`;
+}
+
+function genericActivateScript(appName: string): string {
+  return `tell application "${appName}" to activate`;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// focusSession
+// ────────────────────────────────────────────────────────────────────────────
+
+export async function focusSession(info: TerminalInfo): Promise<void> {
+  // If in tmux, select the correct pane first
+  if (info.inTmux && info.tmux) {
+    const windowTarget = `${info.tmux.sessionName}:${info.tmux.windowIndex}`;
+    await execFileAsync("tmux", ["select-window", "-t", windowTarget], { timeout: PROCESS_TIMEOUT_MS });
+    await execFileAsync("tmux", ["select-pane", "-t", info.tmux.paneId], { timeout: PROCESS_TIMEOUT_MS });
+  }
+
+  // Use tmux client TTY (terminal tab's TTY) when in tmux, otherwise the process's TTY
+  const ttyPath = info.inTmux && info.tmux?.clientTty ? info.tmux.clientTty : info.tty;
+
+  switch (info.app) {
+    case "iterm":
+      await execFileAsync("osascript", ["-e", iTermFocusScript(ttyPath)], { timeout: OSASCRIPT_TIMEOUT_MS });
       break;
-    }
+
+    case "terminal-app":
+      await execFileAsync("osascript", ["-e", terminalAppFocusScript(ttyPath)], { timeout: OSASCRIPT_TIMEOUT_MS });
+      break;
 
     case "ghostty":
     case "kitty":
     case "wezterm":
     case "alacritty":
-      await execFileAsync("open", ["-a", info.appName], { timeout: 10000 });
+      await execFileAsync("open", ["-a", info.appName], { timeout: OSASCRIPT_TIMEOUT_MS });
       break;
 
     default:
@@ -101,19 +130,21 @@ export async function sendText(info: TerminalInfo, text: string): Promise<void> 
   // tmux: send directly to the pane — works in background without focus
   if (info.inTmux && info.tmux) {
     await execFileAsync("tmux", ["send-keys", "-t", info.tmux.paneId, text, "Enter"], {
-      timeout: 5000,
+      timeout: PROCESS_TIMEOUT_MS,
     });
     return;
   }
 
+  const asEscaped = escapeForAppleScript(text);
+
   switch (info.app) {
     case "iterm": {
-      const asEscaped = escapeForAppleScript(text);
+      const safeTty = escapeForAppleScript(info.tty);
       const script = `tell application "iTerm"
   repeat with aWindow in windows
     repeat with aTab in tabs of aWindow
       repeat with aSession in sessions of aTab
-        if tty of aSession is "${info.tty}" then
+        if tty of aSession is "${safeTty}" then
           tell aSession
             write text "${asEscaped}"
           end tell
@@ -123,25 +154,26 @@ export async function sendText(info: TerminalInfo, text: string): Promise<void> 
     end repeat
   end repeat
 end tell`;
-      await execFileAsync("osascript", ["-e", script], { timeout: 10000 });
+      await execFileAsync("osascript", ["-e", script], { timeout: OSASCRIPT_TIMEOUT_MS });
       break;
     }
 
-    case "terminal-app":
+    case "terminal-app": {
+      // Combined focus + text in a single osascript to avoid Electron focus-steal race
+      const action = systemEventsScript("Terminal", `keystroke "${asEscaped}"\n    keystroke return`);
+      const script = withFocusDelay(terminalAppFocusScript(info.tty), action);
+      await execFileAsync("osascript", ["-e", script], { timeout: OSASCRIPT_TIMEOUT_MS });
+      break;
+    }
+
     case "ghostty":
     case "kitty":
     case "wezterm":
     case "alacritty": {
-      await focusSession(info);
-      const processName = info.app === "terminal-app" ? "Terminal" : info.appName;
-      const asEscaped = escapeForAppleScript(text);
-      const script = `tell application "System Events"
-  tell process "${processName}"
-    keystroke "${asEscaped}"
-    keystroke return
-  end tell
-end tell`;
-      await execFileAsync("osascript", ["-e", script], { timeout: 10000 });
+      // Combined activate + text in a single osascript to avoid Electron focus-steal race
+      const action = systemEventsScript(info.appName, `keystroke "${asEscaped}"\n    keystroke return`);
+      const script = withFocusDelay(genericActivateScript(info.appName), action);
+      await execFileAsync("osascript", ["-e", script], { timeout: OSASCRIPT_TIMEOUT_MS });
       break;
     }
 
@@ -168,7 +200,7 @@ export async function sendKeystroke(info: TerminalInfo, keystroke: string): Prom
     await execFileAsync(
       "tmux",
       ["send-keys", "-t", info.tmux.paneId, tmuxKeyMap[keystroke] ?? keystroke],
-      { timeout: 5000 }
+      { timeout: PROCESS_TIMEOUT_MS }
     );
     return;
   }
@@ -184,11 +216,12 @@ export async function sendKeystroke(info: TerminalInfo, keystroke: string): Prom
 
     const writeCmd = itermWriteMap[keystroke];
     if (writeCmd) {
+      const safeTty = escapeForAppleScript(info.tty);
       const script = `tell application "iTerm"
   repeat with aWindow in windows
     repeat with aTab in tabs of aWindow
       repeat with aSession in sessions of aTab
-        if tty of aSession is "${info.tty}" then
+        if tty of aSession is "${safeTty}" then
           tell aSession
             ${writeCmd}
           end tell
@@ -198,53 +231,35 @@ export async function sendKeystroke(info: TerminalInfo, keystroke: string): Prom
     end repeat
   end repeat
 end tell`;
-      await execFileAsync("osascript", ["-e", script], { timeout: 10000 });
+      await execFileAsync("osascript", ["-e", script], { timeout: OSASCRIPT_TIMEOUT_MS });
       return;
     }
     // Arrow keys fall through to the System Events path below
   }
 
-  // Terminal.app: combined focus + keystroke in a single AppleScript to avoid
-  // Electron focus-steal race between two separate osascript calls
-  if (info.app === "terminal-app") {
-    const asKeystroke = mapKeystrokeToSystemEvents(keystroke);
-    const script = `tell application "Terminal"
-  activate
-  repeat with aWindow in windows
-    repeat with aTab in tabs of aWindow
-      if tty of aTab is "${info.tty}" then
-        set selected tab of aWindow to aTab
-        set index of aWindow to 1
-      end if
-    end repeat
-  end repeat
-end tell
-delay 0.2
-tell application "System Events"
-  tell process "Terminal"
-    ${asKeystroke}
-  end tell
-end tell`;
-    await execFileAsync("osascript", ["-e", script], { timeout: 10000 });
-    return;
-  }
-
-  // All other apps (including iTerm for arrow keys): focus + System Events
+  // All remaining apps: combined focus + keystroke in a single osascript
+  // to avoid Electron focus-steal race between two separate calls
   if (info.app === "unknown") {
     throw new Error("Cannot send keystroke to unknown terminal");
   }
 
   const asKeystroke = mapKeystrokeToSystemEvents(keystroke);
-  await focusSession(info);
-  await new Promise((r) => setTimeout(r, 150));
 
-  const processName = info.app === "iterm" ? "iTerm2" : info.appName;
-  const script = `tell application "System Events"
-  tell process "${processName}"
-    ${asKeystroke}
-  end tell
-end tell`;
-  await execFileAsync("osascript", ["-e", script], { timeout: 5000 });
+  if (info.app === "iterm") {
+    // iTerm arrow keys: native tab-matching focus, then System Events
+    const action = systemEventsScript("iTerm2", asKeystroke);
+    const script = withFocusDelay(iTermFocusScript(info.tty), action);
+    await execFileAsync("osascript", ["-e", script], { timeout: OSASCRIPT_TIMEOUT_MS });
+  } else if (info.app === "terminal-app") {
+    const action = systemEventsScript("Terminal", asKeystroke);
+    const script = withFocusDelay(terminalAppFocusScript(info.tty), action);
+    await execFileAsync("osascript", ["-e", script], { timeout: OSASCRIPT_TIMEOUT_MS });
+  } else {
+    // Ghostty, Kitty, WezTerm, Alacritty: activate + keystroke in one script
+    const action = systemEventsScript(info.appName, asKeystroke);
+    const script = withFocusDelay(genericActivateScript(info.appName), action);
+    await execFileAsync("osascript", ["-e", script], { timeout: OSASCRIPT_TIMEOUT_MS });
+  }
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -282,7 +297,7 @@ export async function createSession(opts: CreateSessionOpts): Promise<void> {
   // Named tmux session: try adding a window to existing session
   if (useTmux && tmuxSession) {
     try {
-      await execFileAsync("tmux", ["new-window", "-t", tmuxSession, cmd], { timeout: 10000 });
+      await execFileAsync("tmux", ["new-window", "-t", tmuxSession, cmd], { timeout: OSASCRIPT_TIMEOUT_MS });
       // Focus the terminal tab that has the tmux client for this session
       try {
         const [clients, tree] = await Promise.all([detectTmuxClients(), buildProcessTree()]);
@@ -338,7 +353,7 @@ end tell`
     write text "${asCmd}"
   end tell
 end tell`;
-      await execFileAsync("osascript", ["-e", script], { timeout: 10000 });
+      await execFileAsync("osascript", ["-e", script], { timeout: OSASCRIPT_TIMEOUT_MS });
       break;
     }
 
@@ -348,21 +363,21 @@ end tell`;
   activate
   do script "${asCmd}"
 end tell`;
-      await execFileAsync("osascript", ["-e", script], { timeout: 10000 });
+      await execFileAsync("osascript", ["-e", script], { timeout: OSASCRIPT_TIMEOUT_MS });
       break;
     }
 
     case "ghostty":
-      await execFileAsync("ghostty", ["-e", "sh", "-c", effectiveCommand], { timeout: 10000 });
+      await execFileAsync("ghostty", ["-e", "sh", "-c", effectiveCommand], { timeout: OSASCRIPT_TIMEOUT_MS });
       break;
     case "kitty":
-      await execFileAsync("kitty", ["sh", "-c", effectiveCommand], { timeout: 10000 });
+      await execFileAsync("kitty", ["sh", "-c", effectiveCommand], { timeout: OSASCRIPT_TIMEOUT_MS });
       break;
     case "wezterm":
-      await execFileAsync("wezterm", ["start", "--", "sh", "-c", effectiveCommand], { timeout: 10000 });
+      await execFileAsync("wezterm", ["start", "--", "sh", "-c", effectiveCommand], { timeout: OSASCRIPT_TIMEOUT_MS });
       break;
     case "alacritty":
-      await execFileAsync("alacritty", ["-e", "sh", "-c", effectiveCommand], { timeout: 10000 });
+      await execFileAsync("alacritty", ["-e", "sh", "-c", effectiveCommand], { timeout: OSASCRIPT_TIMEOUT_MS });
       break;
 
     default:
@@ -381,7 +396,7 @@ export async function listTmuxSessions(): Promise<
     const { stdout } = await execFileAsync(
       "tmux",
       ["list-sessions", "-F", "#{session_name}\t#{session_windows}\t#{session_attached}"],
-      { timeout: 5000 }
+      { timeout: PROCESS_TIMEOUT_MS }
     );
     return stdout
       .trim()

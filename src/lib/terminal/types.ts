@@ -45,4 +45,5 @@ export interface TmuxClientInfo {
 export interface ProcessTreeEntry {
   ppid: number;
   comm: string;
+  cpuPercent: number;
 }
