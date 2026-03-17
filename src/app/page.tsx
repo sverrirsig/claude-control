@@ -179,19 +179,21 @@ export default function Dashboard() {
         </div>
       )}
 
-      <SessionGrid
-        sessions={sessions}
-        viewMode={viewMode}
-        targetScreen={targetScreen}
-        freshlyChanged={freshlyChanged}
-        selectedIndex={selectedIndex}
-        onSelectIndex={setSelectedIndex}
-        actionFeedback={actionFeedback}
-        prStatuses={prStatuses}
-        onNewSessionInRepo={handleNewInRepo}
-        actedSessions={actedSessions}
-        onApproveReject={handleApproveReject}
-      />
+      {!(isLoading && sessions.length === 0) && (
+        <SessionGrid
+          sessions={sessions}
+          viewMode={viewMode}
+          targetScreen={targetScreen}
+          freshlyChanged={freshlyChanged}
+          selectedIndex={selectedIndex}
+          onSelectIndex={setSelectedIndex}
+          actionFeedback={actionFeedback}
+          prStatuses={prStatuses}
+          onNewSessionInRepo={handleNewInRepo}
+          actedSessions={actedSessions}
+          onApproveReject={handleApproveReject}
+        />
+      )}
 
       {sessions.length > 0 && showKeyboardHints && (
         <KeyboardHints
