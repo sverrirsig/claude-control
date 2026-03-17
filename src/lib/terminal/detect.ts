@@ -56,11 +56,11 @@ export async function buildProcessTree(): Promise<Map<number, ProcessTreeEntry>>
     });
     const tree = new Map<number, ProcessTreeEntry>();
     for (const line of stdout.split("\n")) {
-      const match = line.trim().match(/^(\d+)\s+(\d+)\s+([\d.]+)\s+(.+)$/);
+      const match = line.trim().match(/^(\d+)\s+(\d+)\s+([\d.,]+)\s+(.+)$/);
       if (match) {
         tree.set(parseInt(match[1], 10), {
           ppid: parseInt(match[2], 10),
-          cpuPercent: parseFloat(match[3]) || 0,
+          cpuPercent: parseFloat(match[3].replace(",", ".")) || 0,
           comm: match[4].trim(),
         });
       }
