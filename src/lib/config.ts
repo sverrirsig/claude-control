@@ -19,6 +19,7 @@ export interface AppConfig {
   terminalTmuxMode: "per-project" | "choose";
   initialPrompt: string;
   createPrPrompt: string;
+  defaultBaseBranch: string;
   showKeyboardHints: boolean;
 }
 
@@ -86,6 +87,7 @@ const DEFAULT_CONFIG: AppConfig = {
   terminalTmuxMode: "per-project",
   initialPrompt: DEFAULT_INITIAL_PROMPT,
   createPrPrompt: DEFAULT_CREATE_PR_PROMPT,
+  defaultBaseBranch: "main",
   showKeyboardHints: true,
 };
 

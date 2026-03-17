@@ -27,6 +27,7 @@ interface SettingsData {
     terminalTmuxMode: string;
     initialPrompt: string;
     createPrPrompt: string;
+    defaultBaseBranch: string;
     showKeyboardHints: boolean;
   };
   options: {
@@ -100,8 +101,10 @@ export default function SettingsPage() {
   const [targetScreen, setTargetScreen] = useState<number | null>(null);
   const [promptDraft, setPromptDraft] = useState<string | null>(null);
   const [prPromptDraft, setPrPromptDraft] = useState<string | null>(null);
+  const [baseBranchDraft, setBaseBranchDraft] = useState<string | null>(null);
   const promptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prPromptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const baseBranchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const s = localStorage.getItem("targetScreen");
@@ -115,6 +118,7 @@ export default function SettingsPage() {
         setData(d);
         setPromptDraft(d.config.initialPrompt ?? "");
         setPrPromptDraft(d.config.createPrPrompt ?? "");
+        setBaseBranchDraft(d.config.defaultBaseBranch ?? "main");
       })
       .catch(console.error);
   }, []);
@@ -156,11 +160,21 @@ export default function SettingsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
 
-  // Flush pending prompt saves on unmount
+  const saveBaseBranchDebounced = useCallback((value: string) => {
+    setBaseBranchDraft(value);
+    if (baseBranchTimerRef.current) clearTimeout(baseBranchTimerRef.current);
+    baseBranchTimerRef.current = setTimeout(() => {
+      save({ defaultBaseBranch: value });
+    }, 500);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
+
+  // Flush pending saves on unmount
   useEffect(() => {
     return () => {
       if (promptTimerRef.current) clearTimeout(promptTimerRef.current);
       if (prPromptTimerRef.current) clearTimeout(prPromptTimerRef.current);
+      if (baseBranchTimerRef.current) clearTimeout(baseBranchTimerRef.current);
     };
   }, []);
 
@@ -355,6 +369,17 @@ export default function SettingsPage() {
               onChange={(e) => savePrPromptDebounced(e.target.value)}
               placeholder="e.g. /create-pr or a natural language instruction"
               className="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-700/50 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-600 transition-colors resize-y min-h-[4rem]"
+            />
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-zinc-200">Default Base Branch</h3>
+            <p className="text-xs text-zinc-500 mt-0.5 mb-2">Base branch used when creating worktree sessions</p>
+            <input
+              type="text"
+              value={baseBranchDraft ?? "main"}
+              onChange={(e) => saveBaseBranchDebounced(e.target.value)}
+              placeholder="main"
+              className="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-700/50 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-600 transition-colors"
             />
           </div>
         </div>

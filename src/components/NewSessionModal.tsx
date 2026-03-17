@@ -27,7 +27,7 @@ interface Props {
 
 export function NewSessionModal({ repoPath, repoName, onClose }: Props) {
   const [branchName, setBranchName] = useState("");
-  const [baseBranch, setBaseBranch] = useState("dev");
+  const [baseBranch, setBaseBranch] = useState("");
   const [prompt, setPrompt] = useState<string | null>(null);
   const [repos, setRepos] = useState<RepoInfo[]>([]);
   const [selectedRepo, setSelectedRepo] = useState<string>(repoPath || "");
@@ -77,6 +77,7 @@ export function NewSessionModal({ repoPath, repoName, onClose }: Props) {
       .then((r) => r.json())
       .then((data) => {
         setPrompt((prev) => prev === null ? (data.config?.initialPrompt ?? "") : prev);
+        setBaseBranch((prev) => prev === "" ? (data.config?.defaultBaseBranch ?? "main") : prev);
       })
       .catch(() => setPrompt((prev) => prev === null ? "" : prev));
   }, []);
@@ -113,11 +114,43 @@ export function NewSessionModal({ repoPath, repoName, onClose }: Props) {
       .catch(() => setTerminalConfig(null));
   }, [repoName]);
 
+  const [highlightedRepo, setHighlightedRepo] = useState(-1);
+
   const filteredRepos = repos.filter(
     (r) =>
       r.name.toLowerCase().includes(repoFilter.toLowerCase()) ||
       r.path.toLowerCase().includes(repoFilter.toLowerCase())
   );
+
+  // Reset highlight when filter changes
+  useEffect(() => {
+    setHighlightedRepo(-1);
+  }, [repoFilter]);
+
+  const selectRepo = (repo: RepoInfo) => {
+    setSelectedRepo(repo.path);
+    setSelectedRepoName(repo.name);
+    if (terminalConfig?.terminalUseTmux && terminalConfig.terminalTmuxMode === "choose" && !selectedTmuxSession) {
+      setSelectedTmuxSession(repo.name);
+    }
+    setPickerOpen(false);
+    setRepoFilter("");
+    setHighlightedRepo(-1);
+    setTimeout(() => branchRef.current?.focus(), 50);
+  };
+
+  const handleRepoFilterKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlightedRepo((prev) => Math.min(prev + 1, filteredRepos.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlightedRepo((prev) => Math.max(prev - 1, -1));
+    } else if (e.key === "Enter" && highlightedRepo >= 0 && highlightedRepo < filteredRepos.length) {
+      e.preventDefault();
+      selectRepo(filteredRepos[highlightedRepo]);
+    }
+  };
 
   async function addDirectory(dir: string) {
     setSetupLoading(true);
@@ -314,6 +347,7 @@ export function NewSessionModal({ repoPath, repoName, onClose }: Props) {
                       placeholder="Filter repos..."
                       value={repoFilter}
                       onChange={(e) => setRepoFilter(e.target.value)}
+                      onKeyDown={handleRepoFilterKeyDown}
                       className="w-full px-2.5 py-1.5 rounded-md bg-zinc-900 border border-zinc-800 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-600 transition-colors"
                     />
                   </div>
@@ -324,21 +358,13 @@ export function NewSessionModal({ repoPath, repoName, onClose }: Props) {
                     {!reposLoading && filteredRepos.length === 0 && (
                       <div className="px-3 py-4 text-sm text-zinc-600 text-center">No matching repos</div>
                     )}
-                    {filteredRepos.map((repo) => (
+                    {filteredRepos.map((repo, i) => (
                       <button
                         key={repo.path}
-                        onClick={() => {
-                          setSelectedRepo(repo.path);
-                          setSelectedRepoName(repo.name);
-                          if (terminalConfig?.terminalUseTmux && terminalConfig.terminalTmuxMode === "choose" && !selectedTmuxSession) {
-                            setSelectedTmuxSession(repo.name);
-                          }
-                          setPickerOpen(false);
-                          setRepoFilter("");
-                          setTimeout(() => branchRef.current?.focus(), 50);
-                        }}
-                        className={`w-full text-left px-3 py-2 transition-colors hover:bg-zinc-800/50 ${
-                          selectedRepo === repo.path ? "bg-blue-500/10" : ""
+                        onClick={() => selectRepo(repo)}
+                        onMouseEnter={() => setHighlightedRepo(i)}
+                        className={`w-full text-left px-3 py-2 transition-colors ${
+                          highlightedRepo === i ? "bg-zinc-800/70" : selectedRepo === repo.path ? "bg-blue-500/10" : "hover:bg-zinc-800/50"
                         }`}
                       >
                         <div className="flex items-center gap-2">
