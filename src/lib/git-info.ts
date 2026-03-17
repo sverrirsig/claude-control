@@ -57,15 +57,28 @@ export async function getGitDiff(cwd: string): Promise<string | null> {
   return diff || null;
 }
 
+// Cache: branch → { url, timestamp }
+const prUrlCache = new Map<string, { url: string | null; ts: number }>();
+const PR_URL_TTL_MS = 60_000;       // 60s for known PR URLs
+const PR_URL_NULL_TTL_MS = 30_000;  // 30s for "no PR" results
+
 export async function getPrUrl(cwd: string, branch: string): Promise<string | null> {
+  const cached = prUrlCache.get(branch);
+  if (cached) {
+    const ttl = cached.url ? PR_URL_TTL_MS : PR_URL_NULL_TTL_MS;
+    if (Date.now() - cached.ts < ttl) return cached.url;
+  }
+
   try {
     const { stdout } = await execFileAsync("gh", ["pr", "view", branch, "--json", "url", "--jq", ".url"], {
       cwd,
       timeout: 5000,
     });
-    const url = stdout.trim();
-    return url || null;
+    const url = stdout.trim() || null;
+    prUrlCache.set(branch, { url, ts: Date.now() });
+    return url;
   } catch {
+    prUrlCache.set(branch, { url: null, ts: Date.now() });
     return null;
   }
 }
