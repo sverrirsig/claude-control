@@ -26,10 +26,25 @@ const REPO_ACCENTS = [
   { dot: "bg-indigo-400", glow: "shadow-[0_0_8px_rgba(129,140,248,0.6)]", text: "text-indigo-300/80", line: "from-indigo-500/30" },
 ];
 
-function repoAccent(name: string) {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
-  return REPO_ACCENTS[Math.abs(hash) % REPO_ACCENTS.length];
+// Assign accents by position among visible groups so no two adjacent groups share a color.
+// Uses a hash to pick a starting offset for consistency when groups change, then spaces
+// assignments evenly across the palette to maximize visual distance.
+function buildAccentMap(groupNames: string[]): Map<string, typeof REPO_ACCENTS[0]> {
+  const map = new Map<string, typeof REPO_ACCENTS[0]>();
+  if (groupNames.length === 0) return map;
+
+  // Use first group name to seed a stable starting offset
+  let seed = 0;
+  const first = groupNames[0];
+  for (let i = 0; i < first.length; i++) seed = ((seed << 5) - seed + first.charCodeAt(i)) | 0;
+  const start = Math.abs(seed) % REPO_ACCENTS.length;
+
+  // Space colors evenly to maximize visual distance
+  const step = Math.max(1, Math.floor(REPO_ACCENTS.length / groupNames.length));
+  for (let i = 0; i < groupNames.length; i++) {
+    map.set(groupNames[i], REPO_ACCENTS[(start + i * step) % REPO_ACCENTS.length]);
+  }
+  return map;
 }
 
 export function SessionGrid({ sessions, viewMode, targetScreen, freshlyChanged, selectedIndex, onSelectIndex, actionFeedback, prStatuses, onNewSessionInRepo, actedSessions, onApproveReject }: { sessions: ClaudeSession[]; viewMode: ViewMode; targetScreen?: number | null; freshlyChanged?: Set<string>; selectedIndex?: number | null; onSelectIndex?: (idx: number | null) => void; actionFeedback?: { label: string; color: string } | null; prStatuses?: Record<string, PrStatus | null>; onNewSessionInRepo?: (repoPath: string, repoName: string) => void; actedSessions?: Record<string, { action: "approve" | "reject"; at: number }>; onApproveReject?: (sessionId: string, action: "approve" | "reject") => void }) {
@@ -134,9 +149,10 @@ export function SessionGrid({ sessions, viewMode, targetScreen, freshlyChanged, 
 
   const multiSessionGroups = groups.filter((g) => g.sessions.length > 1);
   const singleSessionGroups = groups.filter((g) => g.sessions.length === 1);
+  const accentMap = buildAccentMap(groups.map((g) => g.repoName));
 
   const renderGroupHeader = (group: typeof groups[0], showCount = true) => {
-    const accent = repoAccent(group.repoName);
+    const accent = accentMap.get(group.repoName) ?? REPO_ACCENTS[0];
     return (
       <div className={`flex items-center gap-3 ${viewMode === "list" ? "mb-2" : "mb-4"}`}>
         <div className="flex items-center gap-2.5">
