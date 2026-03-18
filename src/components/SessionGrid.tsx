@@ -132,39 +132,71 @@ export function SessionGrid({ sessions, viewMode, targetScreen, freshlyChanged, 
     return renderSessions(sessions);
   }
 
+  const multiSessionGroups = groups.filter((g) => g.sessions.length > 1);
+  const singleSessionGroups = groups.filter((g) => g.sessions.length === 1);
+
+  const renderGroupHeader = (group: typeof groups[0], showCount = true) => {
+    const accent = repoAccent(group.repoName);
+    return (
+      <div className={`flex items-center gap-3 ${viewMode === "list" ? "mb-2" : "mb-4"}`}>
+        <div className="flex items-center gap-2.5">
+          <span className={`w-2 h-2 rounded-full ${accent.dot} ${accent.glow}`} />
+          <h2 className={`text-sm font-semibold ${accent.text}`}>{prettifyName(group.repoName)}</h2>
+        </div>
+        {showCount && (
+          <span className="text-[11px] text-zinc-600 font-[family-name:var(--font-geist-mono)]">
+            {group.sessions.length} session{group.sessions.length !== 1 ? "s" : ""}
+          </span>
+        )}
+        {onNewSessionInRepo && (
+          <button
+            onClick={() => onNewSessionInRepo(group.repoPath, group.repoName)}
+            className="has-tooltip flex items-center justify-center w-5 h-5 rounded-md text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
+            data-tip={`New session`}
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+          </button>
+        )}
+        <div className={`flex-1 h-px bg-gradient-to-r ${accent.line} to-transparent`} />
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-8">
-      {groups.map((group) => {
-        const accent = repoAccent(group.repoName);
-        return (
+      {/* Multi-session groups: full-width with their own grid */}
+      {multiSessionGroups.map((group) => (
         <div key={group.repoPath}>
-          {/* Group header */}
-          <div className={`flex items-center gap-3 ${viewMode === "list" ? "mb-2" : "mb-4"}`}>
-            <div className="flex items-center gap-2.5">
-              <span className={`w-2 h-2 rounded-full ${accent.dot} ${accent.glow}`} />
-              <h2 className={`text-sm font-semibold ${accent.text}`}>{prettifyName(group.repoName)}</h2>
-            </div>
-            <span className="text-[11px] text-zinc-600 font-[family-name:var(--font-geist-mono)]">
-              {group.sessions.length} session{group.sessions.length !== 1 ? "s" : ""}
-            </span>
-            {onNewSessionInRepo && (
-              <button
-                onClick={() => onNewSessionInRepo(group.repoPath, group.repoName)}
-                className="has-tooltip flex items-center justify-center w-5 h-5 rounded-md text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
-                data-tip={`New session`}
-              >
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                </svg>
-              </button>
-            )}
-            <div className={`flex-1 h-px bg-gradient-to-r ${accent.line} to-transparent`} />
-          </div>
-
+          {renderGroupHeader(group)}
           {renderSessions(group.sessions)}
         </div>
-        );
-      })}
+      ))}
+
+      {/* Single-session groups: compact side-by-side layout */}
+      {singleSessionGroups.length > 0 && viewMode === "grid" && (
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 items-start">
+          {singleSessionGroups.map((group) => (
+            <div key={group.repoPath}>
+              {renderGroupHeader(group, false)}
+              {renderCard(group.sessions[0])}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Single-session groups in list mode: keep stacked */}
+      {singleSessionGroups.length > 0 && viewMode === "list" && (
+        <>
+          {singleSessionGroups.map((group) => (
+            <div key={group.repoPath}>
+              {renderGroupHeader(group)}
+              {renderSessions(group.sessions)}
+            </div>
+          ))}
+        </>
+      )}
     </div>
   );
 }
