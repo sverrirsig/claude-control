@@ -38,12 +38,18 @@ export default function Dashboard() {
     setModal({ repoPath, repoName });
   }, []);
 
+  const handleViewModeChange = useCallback((mode: ViewMode) => {
+    setViewMode(mode);
+    localStorage.setItem("viewMode", mode);
+  }, []);
+
   const { selectedIndex, setSelectedIndex, selectedSession, actionFeedback } = useKeyboardShortcuts({
     sessions,
     targetScreen,
     onNewGlobal: handleNewGlobal,
     onNewInRepo: handleNewInRepo,
     onApproveReject: handleApproveReject,
+    onViewModeChange: handleViewModeChange,
   });
 
   // Clear optimistic state when backend catches up or after timeout
@@ -100,11 +106,6 @@ export default function Dashboard() {
     if (savedView === "grid" || savedView === "list") setViewMode(savedView);
     const savedHints = localStorage.getItem("showKeyboardHints");
     if (savedHints === "false") setShowKeyboardHints(false);
-  }, []);
-
-  const handleViewModeChange = useCallback((mode: ViewMode) => {
-    setViewMode(mode);
-    localStorage.setItem("viewMode", mode);
   }, []);
 
   // Detect status transitions → sound + pulse (with debounce)

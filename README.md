@@ -52,6 +52,11 @@ Download the latest `.dmg` from the [Releases](../../releases) page, open it, an
 > ```bash
 > xattr -cr /Applications/Claude\ Control.app
 > ```
+>
+> If the app still crashes on launch, try running it directly from the terminal to see the error:
+> ```bash
+> /Applications/Claude\ Control.app/Contents/MacOS/Claude\ Control
+> ```
 
 ## Build from source
 

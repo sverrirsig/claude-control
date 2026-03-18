@@ -13,6 +13,25 @@ function prettifyName(name: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+const REPO_ACCENTS = [
+  { dot: "bg-blue-400", glow: "shadow-[0_0_8px_rgba(96,165,250,0.6)]", text: "text-blue-300/80", line: "from-blue-500/30" },
+  { dot: "bg-emerald-400", glow: "shadow-[0_0_8px_rgba(52,211,153,0.6)]", text: "text-emerald-300/80", line: "from-emerald-500/30" },
+  { dot: "bg-violet-400", glow: "shadow-[0_0_8px_rgba(167,139,250,0.6)]", text: "text-violet-300/80", line: "from-violet-500/30" },
+  { dot: "bg-amber-400", glow: "shadow-[0_0_8px_rgba(251,191,36,0.6)]", text: "text-amber-300/80", line: "from-amber-500/30" },
+  { dot: "bg-rose-400", glow: "shadow-[0_0_8px_rgba(251,113,133,0.6)]", text: "text-rose-300/80", line: "from-rose-500/30" },
+  { dot: "bg-cyan-400", glow: "shadow-[0_0_8px_rgba(34,211,238,0.6)]", text: "text-cyan-300/80", line: "from-cyan-500/30" },
+  { dot: "bg-orange-400", glow: "shadow-[0_0_8px_rgba(251,146,60,0.6)]", text: "text-orange-300/80", line: "from-orange-500/30" },
+  { dot: "bg-pink-400", glow: "shadow-[0_0_8px_rgba(244,114,182,0.6)]", text: "text-pink-300/80", line: "from-pink-500/30" },
+  { dot: "bg-teal-400", glow: "shadow-[0_0_8px_rgba(45,212,191,0.6)]", text: "text-teal-300/80", line: "from-teal-500/30" },
+  { dot: "bg-indigo-400", glow: "shadow-[0_0_8px_rgba(129,140,248,0.6)]", text: "text-indigo-300/80", line: "from-indigo-500/30" },
+];
+
+function repoAccent(name: string) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
+  return REPO_ACCENTS[Math.abs(hash) % REPO_ACCENTS.length];
+}
+
 export function SessionGrid({ sessions, viewMode, targetScreen, freshlyChanged, selectedIndex, onSelectIndex, actionFeedback, prStatuses, onNewSessionInRepo, actedSessions, onApproveReject }: { sessions: ClaudeSession[]; viewMode: ViewMode; targetScreen?: number | null; freshlyChanged?: Set<string>; selectedIndex?: number | null; onSelectIndex?: (idx: number | null) => void; actionFeedback?: { label: string; color: string } | null; prStatuses?: Record<string, PrStatus | null>; onNewSessionInRepo?: (repoPath: string, repoName: string) => void; actedSessions?: Record<string, { action: "approve" | "reject"; at: number }>; onApproveReject?: (sessionId: string, action: "approve" | "reject") => void }) {
   if (sessions.length === 0) {
     return (
@@ -115,15 +134,15 @@ export function SessionGrid({ sessions, viewMode, targetScreen, freshlyChanged, 
 
   return (
     <div className="space-y-8">
-      {groups.map((group) => (
+      {groups.map((group) => {
+        const accent = repoAccent(group.repoName);
+        return (
         <div key={group.repoPath}>
           {/* Group header */}
           <div className={`flex items-center gap-3 ${viewMode === "list" ? "mb-2" : "mb-4"}`}>
-            <div className="flex items-center gap-2">
-              <svg className="w-4 h-4 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
-              </svg>
-              <h2 className="text-sm font-semibold text-zinc-300">{prettifyName(group.repoName)}</h2>
+            <div className="flex items-center gap-2.5">
+              <span className={`w-2 h-2 rounded-full ${accent.dot} ${accent.glow}`} />
+              <h2 className={`text-sm font-semibold ${accent.text}`}>{prettifyName(group.repoName)}</h2>
             </div>
             <span className="text-[11px] text-zinc-600 font-[family-name:var(--font-geist-mono)]">
               {group.sessions.length} session{group.sessions.length !== 1 ? "s" : ""}
@@ -139,12 +158,13 @@ export function SessionGrid({ sessions, viewMode, targetScreen, freshlyChanged, 
                 </svg>
               </button>
             )}
-            <div className="flex-1 h-px bg-zinc-800/50" />
+            <div className={`flex-1 h-px bg-gradient-to-r ${accent.line} to-transparent`} />
           </div>
 
           {renderSessions(group.sessions)}
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

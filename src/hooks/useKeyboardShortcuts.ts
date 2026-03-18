@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useCallback, useState, useMemo } from "react";
-import { ClaudeSession } from "@/lib/types";
+import { ClaudeSession, ViewMode } from "@/lib/types";
 import { flattenGroupedSessions } from "@/lib/group-sessions";
 import { sendKeystrokeAction } from "@/lib/actions";
 import { useSettings } from "./useSettings";
@@ -12,9 +12,10 @@ interface UseKeyboardShortcutsOptions {
   onNewGlobal?: () => void;
   onNewInRepo?: (repoPath: string, repoName: string) => void;
   onApproveReject?: (sessionId: string, action: "approve" | "reject") => void;
+  onViewModeChange?: (mode: ViewMode) => void;
 }
 
-export function useKeyboardShortcuts({ sessions, targetScreen, onNewGlobal, onNewInRepo, onApproveReject }: UseKeyboardShortcutsOptions) {
+export function useKeyboardShortcuts({ sessions, targetScreen, onNewGlobal, onNewInRepo, onApproveReject, onViewModeChange }: UseKeyboardShortcutsOptions) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [actionFeedback, setActionFeedback] = useState<{ label: string; color: string } | null>(null);
   const { editorAvailable, gitGuiAvailable } = useSettings();
@@ -83,6 +84,17 @@ export function useKeyboardShortcuts({ sessions, targetScreen, onNewGlobal, onNe
           onNewGlobal?.();
         }
         return;
+      }
+
+      // Cmd+1, Cmd+2, etc. for view mode switching
+      if ((e.metaKey || e.ctrlKey) && !e.altKey) {
+        const viewModes: ViewMode[] = ["grid", "list"];
+        const idx = parseInt(e.key, 10) - 1;
+        if (idx >= 0 && idx < viewModes.length) {
+          e.preventDefault();
+          onViewModeChange?.(viewModes[idx]);
+          return;
+        }
       }
 
       if (e.metaKey || e.ctrlKey || e.altKey) return;
