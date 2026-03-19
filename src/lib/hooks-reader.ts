@@ -1,6 +1,6 @@
 import { homedir } from "os";
 import { join } from "path";
-import { readdir, stat, open, unlink } from "fs/promises";
+import { readdir, stat, readFile, unlink } from "fs/promises";
 import { SessionStatus } from "./types";
 
 const EVENTS_DIR = join(homedir(), ".claude-control", "events");
@@ -11,6 +11,8 @@ export interface HookStatus {
   event: string;
   ts: number;
   cwd: string | null;
+  sessionId: string | null;
+  transcriptPath: string | null;
 }
 
 const EVENT_TO_STATUS: Record<string, SessionStatus> = {
@@ -27,29 +29,8 @@ export function classifyStatusFromHook(eventName: string): SessionStatus | null 
   return EVENT_TO_STATUS[eventName] ?? null;
 }
 
-async function readLastLine(filePath: string): Promise<string | null> {
-  let fh;
-  try {
-    fh = await open(filePath, "r");
-    const fileStat = await fh.stat();
-    if (fileStat.size === 0) return null;
-
-    const readSize = Math.min(512, fileStat.size);
-    const buffer = Buffer.alloc(readSize);
-    await fh.read(buffer, 0, readSize, fileStat.size - readSize);
-
-    const text = buffer.toString("utf-8");
-    const lines = text.split("\n").filter((l) => l.trim().length > 0);
-    return lines.length > 0 ? lines[lines.length - 1] : null;
-  } catch {
-    return null;
-  } finally {
-    await fh?.close();
-  }
-}
-
-export async function readAllHookStatuses(): Promise<Map<string, HookStatus>> {
-  const result = new Map<string, HookStatus>();
+export async function readAllHookStatuses(): Promise<Map<number, HookStatus>> {
+  const result = new Map<number, HookStatus>();
 
   let entries: string[];
   try {
@@ -62,10 +43,9 @@ export async function readAllHookStatuses(): Promise<Map<string, HookStatus>> {
 
   await Promise.all(
     entries
-      .filter((e) => e.endsWith(".jsonl"))
+      .filter((e) => e.endsWith(".json") || e.endsWith(".jsonl"))
       .map(async (filename) => {
         const filePath = join(EVENTS_DIR, filename);
-        const sessionId = filename.replace(/\.jsonl$/, "");
 
         // Clean up stale files
         try {
@@ -78,14 +58,26 @@ export async function readAllHookStatuses(): Promise<Map<string, HookStatus>> {
           return;
         }
 
-        const lastLine = await readLastLine(filePath);
-        if (!lastLine) return;
+        let content: string;
+        try {
+          content = (await readFile(filePath, "utf-8")).trim();
+        } catch {
+          return;
+        }
+        if (!content) return;
+
+        // For old .jsonl files (multi-line), take the last line
+        const line = content.includes("\n")
+          ? content.split("\n").filter((l) => l.trim()).pop() ?? ""
+          : content;
 
         try {
-          const data = JSON.parse(lastLine) as {
+          const data = JSON.parse(line) as {
             event?: string;
             session_id?: string;
             cwd?: string;
+            pid?: number;
+            transcript_path?: string;
             ts?: number;
           };
 
@@ -94,14 +86,23 @@ export async function readAllHookStatuses(): Promise<Map<string, HookStatus>> {
           const status = classifyStatusFromHook(data.event);
           if (!status) return;
 
-          result.set(sessionId, {
+          // PID from filename (.json) or from payload (.jsonl legacy)
+          const pid = filename.endsWith(".json")
+            ? parseInt(filename.replace(/\.json$/, ""), 10)
+            : data.pid;
+
+          if (pid == null || isNaN(pid)) return;
+
+          result.set(pid, {
             status,
             event: data.event,
             ts: data.ts ?? 0,
             cwd: data.cwd ?? null,
+            sessionId: data.session_id || null,
+            transcriptPath: data.transcript_path || null,
           });
         } catch {
-          // Invalid JSON line — skip
+          // Invalid JSON — skip
         }
       })
   );

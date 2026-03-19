@@ -21,11 +21,14 @@ import {
 } from "./session-reader";
 import { getGitSummary, getGitDiff, getMainWorktreePath, getPrUrl } from "./git-info";
 import { classifyStatus } from "./status-classifier";
-import { readAllHookStatuses, HookStatus } from "./hooks-reader";
+import { readAllHookStatuses, type HookStatus } from "./hooks-reader";
 import { loadSessionMeta } from "./session-meta";
 import { SessionDetail } from "./types";
 
-async function findLatestJsonl(projectDir: string): Promise<string | null> {
+async function findLatestJsonl(
+  projectDir: string,
+  excludePaths?: Set<string>,
+): Promise<string | null> {
   try {
     const entries = await readdir(projectDir);
     const jsonlFiles = entries.filter((e) => e.endsWith(".jsonl"));
@@ -34,6 +37,7 @@ async function findLatestJsonl(projectDir: string): Promise<string | null> {
     let latest: { path: string; mtime: number } | null = null;
     for (const f of jsonlFiles) {
       const fullPath = join(projectDir, f);
+      if (excludePaths?.has(fullPath)) continue;
       try {
         const s = await stat(fullPath);
         if (!latest || s.mtimeMs > latest.mtime) {
@@ -51,12 +55,14 @@ async function findLatestJsonl(projectDir: string): Promise<string | null> {
 
 async function buildSession(
   info: ProcessInfo,
-  hookStatuses?: Map<string, HookStatus>,
+  hookStatus: HookStatus | undefined,
+  claimedPaths: Set<string>,
 ): Promise<ClaudeSession | null> {
   if (!info.workingDirectory) return null;
 
   const projectDir = workingDirToProjectDir(info.workingDirectory);
-  const jsonlPath = await findLatestJsonl(projectDir);
+  const jsonlPath = hookStatus?.transcriptPath
+    ?? await findLatestJsonl(projectDir, claimedPaths);
 
   let sessionId = `pid-${info.pid}`;
   let startedAt: string | null = null;
@@ -80,7 +86,7 @@ async function buildSession(
   if (jsonlResult) {
     const [lines, headLines, jsonlMtime] = jsonlResult;
     mtime = jsonlMtime;
-    sessionId = extractSessionId(lines) || sessionId;
+    sessionId = hookStatus?.sessionId ?? extractSessionId(lines) ?? sessionId;
     startedAt = extractStartedAt(lines);
     branch = extractBranch(lines);
     preview = extractPreview(lines);
@@ -98,10 +104,9 @@ async function buildSession(
   const isWorktree = mainWorktreePath !== null && mainWorktreePath !== info.workingDirectory;
   const parentRepo = isWorktree ? mainWorktreePath : null;
 
-  // Use hook-based status if available for this session, otherwise fall back to heuristic.
+  // Use hook-based status if available, otherwise fall back to heuristic.
   // Hook events are authoritative — trust them directly. After a PermissionRequest, the
   // status stays "waiting" until the next hook event (Stop, UserPromptSubmit, etc.).
-  const hookStatus = hookStatuses?.get(sessionId);
   let status: ClaudeSession["status"];
   if (hookStatus) {
     if (hookStatus.status === "waiting" && info.cpuPercent > 15) {
@@ -156,10 +161,18 @@ export async function discoverSessions(): Promise<ClaudeSession[]> {
   const pids = findClaudePidsFromTree(processTree);
   const processInfos = await getAllProcessInfos(pids, processTree);
 
+  // Collect transcript paths claimed by hook events so fallback doesn't reuse them
+  const claimedPaths = new Set<string>();
+  for (const [pid, hook] of hookStatuses) {
+    if (hook.transcriptPath && pids.includes(pid)) {
+      claimedPaths.add(hook.transcriptPath);
+    }
+  }
+
   const results = await Promise.all(
     processInfos
       .filter((info) => info.workingDirectory !== null)
-      .map((info) => buildSession(info, hookStatuses))
+      .map((info) => buildSession(info, hookStatuses.get(info.pid), claimedPaths))
   );
 
   const sessions = results.filter((s): s is ClaudeSession => s !== null);

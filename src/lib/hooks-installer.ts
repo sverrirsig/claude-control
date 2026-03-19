@@ -32,6 +32,7 @@ INPUT=$(cat)
 HOOK_EVENT=$(echo "$INPUT" | grep -o '"hook_event_name"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"\\([^"]*\\)"$/\\1/')
 SESSION_ID=$(echo "$INPUT" | grep -o '"session_id"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"\\([^"]*\\)"$/\\1/')
 CWD=$(echo "$INPUT" | grep -o '"cwd"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"\\([^"]*\\)"$/\\1/')
+TRANSCRIPT=$(echo "$INPUT" | grep -o '"transcript_path"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"\\([^"]*\\)"$/\\1/')
 
 if [ -z "$SESSION_ID" ] || [ -z "$HOOK_EVENT" ]; then
   exit 0
@@ -39,7 +40,7 @@ fi
 
 TS=$(date +%s)
 
-echo "{\\"event\\":\\"$HOOK_EVENT\\",\\"session_id\\":\\"$SESSION_ID\\",\\"cwd\\":\\"$CWD\\",\\"ts\\":$TS}" >> "$EVENTS_DIR/$SESSION_ID.jsonl"
+echo "{\\"event\\":\\"$HOOK_EVENT\\",\\"session_id\\":\\"$SESSION_ID\\",\\"cwd\\":\\"$CWD\\",\\"transcript_path\\":\\"$TRANSCRIPT\\",\\"ts\\":$TS}" > "$EVENTS_DIR/$PPID.json"
 `;
 
 let installed: boolean | null = null;
