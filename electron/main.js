@@ -1,5 +1,5 @@
 const { app, BrowserWindow, shell, utilityProcess } = require("electron");
-const { spawn, execFileSync } = require("child_process");
+const { spawn } = require("child_process");
 const path = require("path");
 const net = require("net");
 const http = require("http");
@@ -27,35 +27,6 @@ function getNextAppDir() {
     return path.join(process.resourcesPath, "next-app");
   }
   return path.join(__dirname, "..");
-}
-
-function findNodePath() {
-  // Try common locations for node
-  const candidates = [
-    "/usr/local/bin/node",
-    "/opt/homebrew/bin/node",
-    "/usr/bin/node",
-  ];
-
-  // Also try to find it via PATH using which
-  try {
-    const result = execFileSync("which", ["node"], { encoding: "utf-8", timeout: 3000 });
-    const p = result.trim();
-    if (p) candidates.unshift(p);
-  } catch {
-    // ignore
-  }
-
-  for (const c of candidates) {
-    try {
-      execFileSync(c, ["--version"], { timeout: 3000 });
-      return c;
-    } catch {
-      // try next
-    }
-  }
-
-  return "node"; // fallback, hope it's in PATH
 }
 
 function isPortAvailable(port) {
@@ -88,20 +59,33 @@ async function startNextServer() {
   const appDir = getNextAppDir();
 
   if (app.isPackaged) {
-    const nodePath = findNodePath();
+    // Use Electron's bundled Node.js via utilityProcess — no system Node required
     const serverPath = path.join(appDir, "server.js");
+    console.log(`Starting standalone server via utilityProcess: ${serverPath}`);
 
-    console.log(`Starting standalone server: ${nodePath} ${serverPath}`);
-
-    nextProcess = spawn(nodePath, [serverPath], {
-      cwd: appDir,
+    nextProcess = utilityProcess.fork(serverPath, [], {
       env: {
         ...process.env,
         PORT: String(PORT),
         HOSTNAME: "localhost",
         NODE_ENV: "production",
       },
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: "pipe",
+    });
+
+    nextProcess.stdout?.on("data", (data) => {
+      try { process.stdout.write(`[next] ${data}`); } catch { /* ignore EPIPE */ }
+    });
+
+    nextProcess.stderr?.on("data", (data) => {
+      try { process.stderr.write(`[next] ${data}`); } catch { /* ignore EPIPE */ }
+    });
+
+    nextProcess.on("exit", (code) => {
+      nextProcess = null;
+      if (!isQuitting) {
+        console.error(`Next.js server exited with code ${code}`);
+      }
     });
   } else {
     const nextBin = path.join(appDir, "node_modules", ".bin", "next");
@@ -110,26 +94,26 @@ async function startNextServer() {
       env: { ...process.env, PORT: String(PORT) },
       stdio: ["ignore", "pipe", "pipe"],
     });
+
+    nextProcess.stdout?.on("data", (data) => {
+      try { process.stdout.write(`[next] ${data}`); } catch { /* ignore EPIPE */ }
+    });
+
+    nextProcess.stderr?.on("data", (data) => {
+      try { process.stderr.write(`[next] ${data}`); } catch { /* ignore EPIPE */ }
+    });
+
+    nextProcess.on("error", (err) => {
+      console.error("Failed to start Next.js server:", err.message);
+    });
+
+    nextProcess.on("close", (code) => {
+      nextProcess = null;
+      if (!isQuitting) {
+        console.error(`Next.js server exited with code ${code}`);
+      }
+    });
   }
-
-  nextProcess.stdout?.on("data", (data) => {
-    try { process.stdout.write(`[next] ${data}`); } catch { /* ignore EPIPE */ }
-  });
-
-  nextProcess.stderr?.on("data", (data) => {
-    try { process.stderr.write(`[next] ${data}`); } catch { /* ignore EPIPE */ }
-  });
-
-  nextProcess.on("error", (err) => {
-    console.error("Failed to start Next.js server:", err.message);
-  });
-
-  nextProcess.on("close", (code) => {
-    nextProcess = null;
-    if (!isQuitting) {
-      console.error(`Next.js server exited with code ${code}`);
-    }
-  });
 }
 
 async function waitForServer(maxAttempts = 30) {
@@ -202,7 +186,7 @@ app.on("window-all-closed", () => {
 app.on("before-quit", () => {
   isQuitting = true;
   if (nextProcess) {
-    nextProcess.kill("SIGTERM");
+    nextProcess.kill();
     nextProcess = null;
   }
 });
