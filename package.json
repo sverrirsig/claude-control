@@ -19,15 +19,15 @@
   },
   "dependencies": {
     "next": "14.2.35",
-    "react": "^18",
-    "react-dom": "^18",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
     "swr": "^2.4.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.2",
     "@types/node": "^20",
-    "@types/react": "^18",
-    "@types/react-dom": "^18",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
     "concurrently": "^9.2.1",
     "electron": "^41.0.0",
     "electron-builder": "^26.8.1",
