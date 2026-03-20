@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useSettings } from "@/hooks/useSettings";
 
 const iconBtnClass =
-  "flex items-center justify-center h-8 rounded-lg bg-white/4 hover:bg-white/10 border border-white/[0.07] hover:border-white/15 text-zinc-500 hover:text-zinc-200 transition-all duration-150";
+  "flex items-center justify-center h-8 rounded-lg bg-white/4 hover:bg-white/10 border border-white/7 hover:border-white/15 text-zinc-500 hover:text-zinc-200 transition-all duration-150";
 
 function IconButton({
   onClick,
@@ -130,7 +130,7 @@ export function QuickActions({
           className={`flex-1 flex items-center justify-center h-8 rounded-lg border transition-all duration-150 ${
             prSending
               ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
-              : "bg-white/4 hover:bg-white/10 border-white/[0.07] hover:border-white/15 text-zinc-500 hover:text-zinc-200"
+              : "bg-white/4 hover:bg-white/10 border-white/7 hover:border-white/15 text-zinc-500 hover:text-zinc-200"
           }`}
         >
           {prIcon}

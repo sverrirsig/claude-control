@@ -501,7 +501,7 @@ export function NewSessionModal({ repoPath, repoName, onClose }: Props) {
                       className={`px-2.5 py-1 rounded-md text-xs transition-colors ${
                         selectedTmuxSession === s.name
                           ? "bg-blue-500/20 border-blue-500/40 text-blue-300 border"
-                          : "bg-white/4 border border-white/[0.07] text-zinc-400 hover:text-zinc-200 hover:border-white/15"
+                          : "bg-white/4 border border-white/7 text-zinc-400 hover:text-zinc-200 hover:border-white/15"
                       }`}
                     >
                       {s.name}

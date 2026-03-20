@@ -425,7 +425,7 @@ export default function SettingsPage() {
           <button
             onClick={addDirectory}
             disabled={addingDir}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-zinc-400 hover:text-zinc-200 bg-white/4 hover:bg-white/8 border border-white/[0.07] hover:border-white/15 transition-colors disabled:opacity-40"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-zinc-400 hover:text-zinc-200 bg-white/4 hover:bg-white/8 border border-white/7 hover:border-white/15 transition-colors disabled:opacity-40"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />

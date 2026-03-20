@@ -214,7 +214,7 @@ export function SessionCard({ session, targetScreen, pulse, selected, shortcutNu
               <span className="text-xs text-zinc-400 flex-1">Remove worktree and session?</span>
               <button
                 onClick={cancelCleanup}
-                className="px-3 py-1.5 rounded-lg text-xs text-zinc-500 hover:text-zinc-300 bg-white/4 hover:bg-white/8 border border-white/[0.07] transition-colors"
+                className="px-3 py-1.5 rounded-lg text-xs text-zinc-500 hover:text-zinc-300 bg-white/4 hover:bg-white/8 border border-white/7 transition-colors"
               >
                 Cancel
               </button>

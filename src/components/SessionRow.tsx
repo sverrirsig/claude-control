@@ -46,7 +46,7 @@ export function SessionRow({
     >
       {/* Shortcut number */}
       {shortcutNumber !== undefined && (
-        <span className={`shrink-0 flex items-center justify-center rounded font-bold font-(family-name:--font-geist-mono) ${
+        <span className={`shrink-0 flex items-center justify-center rounded-sm font-bold font-(family-name:--font-geist-mono) ${
           selected
             ? "w-5 h-5 text-[10px] bg-blue-500 text-white"
             : "w-5 h-5 text-[10px] bg-white/4 border border-white/6 text-zinc-600"
@@ -142,7 +142,7 @@ export function SessionRow({
           </button>
           <button
             onClick={() => onApproveReject("reject")}
-            className="flex items-center justify-center w-6 h-6 rounded-md bg-white/4 hover:bg-red-500/15 border border-white/[0.07] hover:border-red-500/25 text-zinc-500 hover:text-red-400 transition-colors"
+            className="flex items-center justify-center w-6 h-6 rounded-md bg-white/4 hover:bg-red-500/15 border border-white/7 hover:border-red-500/25 text-zinc-500 hover:text-red-400 transition-colors"
             title="Reject"
           >
             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>

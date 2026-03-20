@@ -138,7 +138,7 @@ export function QuickReply({
             className={`h-8 px-3 flex items-center justify-center gap-1.5 rounded-lg text-xs transition-colors ${
               sending === "reject"
                 ? "bg-red-500/15 border border-red-500/25 text-red-400"
-                : "bg-white/4 hover:bg-red-500/12 border border-white/[0.07] hover:border-red-500/25 text-zinc-500 hover:text-red-400"
+                : "bg-white/4 hover:bg-red-500/12 border border-white/7 hover:border-red-500/25 text-zinc-500 hover:text-red-400"
             } disabled:opacity-60`}
           >
             {sending === "reject" ? "Sent!" : "Reject"}
@@ -149,7 +149,7 @@ export function QuickReply({
               setShowReply(!showReply);
               if (!showReply) setTimeout(() => inputRef.current?.focus(), 100);
             }}
-            className="has-tooltip h-8 w-8 flex items-center justify-center rounded-lg bg-white/4 hover:bg-white/8 border border-white/[0.07] text-zinc-500 hover:text-zinc-300 transition-colors"
+            className="has-tooltip h-8 w-8 flex items-center justify-center rounded-lg bg-white/4 hover:bg-white/8 border border-white/7 text-zinc-500 hover:text-zinc-300 transition-colors"
             data-tip="Reply"
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
