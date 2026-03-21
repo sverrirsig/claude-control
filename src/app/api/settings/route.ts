@@ -26,16 +26,22 @@ async function checkInstalledApps<T extends { appName: string; command?: string 
       if (!opt.appName || alwaysInstalled?.has(opt.appName)) return { ...opt, installed: true };
       // Try macOS app bundle first, then CLI command as fallback
       const checks = [
-        execFileAsync("open", ["-Ra", opt.appName], { timeout: 3000 }).then(() => true, () => false),
+        execFileAsync("open", ["-Ra", opt.appName], { timeout: 3000 }).then(
+          () => true,
+          () => false,
+        ),
       ];
       if (opt.command) {
         checks.push(
-          execFileAsync("which", [opt.command], { timeout: 3000 }).then(() => true, () => false),
+          execFileAsync("which", [opt.command], { timeout: 3000 }).then(
+            () => true,
+            () => false,
+          ),
         );
       }
       const results = await Promise.all(checks);
       return { ...opt, installed: results.some(Boolean) };
-    })
+    }),
   );
 }
 
@@ -48,9 +54,27 @@ interface DependencyDef {
 }
 
 const DEPENDENCIES: DependencyDef[] = [
-  { id: "gh", label: "GitHub CLI", description: "Pull request detection and status checks", command: "gh", url: "https://cli.github.com" },
-  { id: "claude", label: "Claude Code", description: "The whole reason this app exists", command: "claude", url: "https://docs.anthropic.com/en/docs/claude-code" },
-  { id: "tmux", label: "tmux", description: "Background terminal sessions and send-keys support", command: "tmux", url: "https://github.com/tmux/tmux" },
+  {
+    id: "gh",
+    label: "GitHub CLI",
+    description: "Pull request detection and status checks",
+    command: "gh",
+    url: "https://cli.github.com",
+  },
+  {
+    id: "claude",
+    label: "Claude Code",
+    description: "The whole reason this app exists",
+    command: "claude",
+    url: "https://docs.anthropic.com/en/docs/claude-code",
+  },
+  {
+    id: "tmux",
+    label: "tmux",
+    description: "Background terminal sessions and send-keys support",
+    command: "tmux",
+    url: "https://github.com/tmux/tmux",
+  },
 ];
 
 async function checkDependencies(): Promise<(DependencyDef & { installed: boolean })[]> {
@@ -62,7 +86,7 @@ async function checkDependencies(): Promise<(DependencyDef & { installed: boolea
       } catch {
         return { ...dep, installed: false };
       }
-    })
+    }),
   );
 }
 

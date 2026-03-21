@@ -16,7 +16,15 @@ interface UseKeyboardShortcutsOptions {
   onStartEdit?: (sessionId: string) => void;
 }
 
-export function useKeyboardShortcuts({ sessions, targetScreen, onNewGlobal, onNewInRepo, onApproveReject, onViewModeChange, onStartEdit }: UseKeyboardShortcutsOptions) {
+export function useKeyboardShortcuts({
+  sessions,
+  targetScreen,
+  onNewGlobal,
+  onNewInRepo,
+  onApproveReject,
+  onViewModeChange,
+  onStartEdit,
+}: UseKeyboardShortcutsOptions) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [actionFeedback, setActionFeedback] = useState<{ label: string; color: string } | null>(null);
   const { editorAvailable, gitGuiAvailable } = useSettings();
@@ -33,7 +41,7 @@ export function useKeyboardShortcuts({ sessions, targetScreen, onNewGlobal, onNe
     }
   }
 
-  const selectedSession = selectedIndex !== null ? orderedSessions[selectedIndex] ?? null : null;
+  const selectedSession = selectedIndex !== null ? (orderedSessions[selectedIndex] ?? null) : null;
 
   const flash = useCallback((label: string, color: string = "blue") => {
     setActionFeedback({ label, color });
@@ -57,7 +65,7 @@ export function useKeyboardShortcuts({ sessions, targetScreen, onNewGlobal, onNe
         console.error("Action failed:", err);
       }
     },
-    [targetScreen]
+    [targetScreen],
   );
 
   const sendKeystroke = useCallback(async (pid: number, keystroke: string) => {
@@ -226,7 +234,20 @@ export function useKeyboardShortcuts({ sessions, targetScreen, onNewGlobal, onNe
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [orderedSessions, selectedSession, openAction, sendKeystroke, flash, onNewGlobal, onNewInRepo, onApproveReject, onStartEdit, onViewModeChange, editorAvailable, gitGuiAvailable]);
+  }, [
+    orderedSessions,
+    selectedSession,
+    openAction,
+    sendKeystroke,
+    flash,
+    onNewGlobal,
+    onNewInRepo,
+    onApproveReject,
+    onStartEdit,
+    onViewModeChange,
+    editorAvailable,
+    gitGuiAvailable,
+  ]);
 
   return { selectedIndex, setSelectedIndex, selectedSession, actionFeedback };
 }

@@ -1,12 +1,5 @@
 // Terminal app identifiers — "iterm" (not "iterm2") matches process tree convention
-export type TerminalApp =
-  | "iterm"
-  | "terminal-app"
-  | "ghostty"
-  | "kitty"
-  | "wezterm"
-  | "alacritty"
-  | "unknown";
+export type TerminalApp = "iterm" | "terminal-app" | "ghostty" | "kitty" | "wezterm" | "alacritty" | "unknown";
 
 export type TerminalOpenIn = "tab" | "window";
 

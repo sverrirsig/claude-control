@@ -25,10 +25,7 @@ import { readAllHookStatuses, type HookStatus } from "./hooks-reader";
 import { loadSessionMeta } from "./session-meta";
 import { SessionDetail } from "./types";
 
-async function findLatestJsonl(
-  projectDir: string,
-  excludePaths?: Set<string>,
-): Promise<string | null> {
+async function findLatestJsonl(projectDir: string, excludePaths?: Set<string>): Promise<string | null> {
   try {
     const entries = await readdir(projectDir);
     const jsonlFiles = entries.filter((e) => e.endsWith(".jsonl"));
@@ -61,13 +58,18 @@ async function buildSession(
   if (!info.workingDirectory) return null;
 
   const projectDir = workingDirToProjectDir(info.workingDirectory);
-  const jsonlPath = hookStatus?.transcriptPath
-    ?? await findLatestJsonl(projectDir, claimedPaths);
+  const jsonlPath = hookStatus?.transcriptPath ?? (await findLatestJsonl(projectDir, claimedPaths));
 
   let sessionId = `pid-${info.pid}`;
   let startedAt: string | null = null;
   let branch: string | null = null;
-  let preview: ConversationPreview = { lastUserMessage: null, lastAssistantText: null, assistantIsNewer: false, lastTools: [], messageCount: 0 };
+  let preview: ConversationPreview = {
+    lastUserMessage: null,
+    lastAssistantText: null,
+    assistantIsNewer: false,
+    lastTools: [],
+    messageCount: 0,
+  };
   let hasError = false;
   let askingForInput = false;
   let pendingToolUse = false;
@@ -110,15 +112,16 @@ async function buildSession(
   // If the hook status is available (and not null, meaning PermissionRequest was ignored),
   // use it; otherwise fall back to the heuristic classifier.
   const hookDerivedStatus = hookStatus?.status ?? null;
-  const status: ClaudeSession["status"] = hookDerivedStatus
-    ?? classifyStatus({
-        pid: info.pid,
-        jsonlMtime: mtime,
-        cpuPercent: info.cpuPercent,
-        hasError,
-        isAskingForInput: askingForInput,
-        hasPendingToolUse: pendingToolUse,
-      });
+  const status: ClaudeSession["status"] =
+    hookDerivedStatus ??
+    classifyStatus({
+      pid: info.pid,
+      jsonlMtime: mtime,
+      cpuPercent: info.cpuPercent,
+      hasError,
+      isAskingForInput: askingForInput,
+      hasPendingToolUse: pendingToolUse,
+    });
 
   return {
     id: sessionId,
@@ -163,7 +166,7 @@ export async function discoverSessions(): Promise<ClaudeSession[]> {
   const results = await Promise.all(
     processInfos
       .filter((info) => info.workingDirectory !== null)
-      .map((info) => buildSession(info, hookStatuses.get(info.pid), claimedPaths))
+      .map((info) => buildSession(info, hookStatuses.get(info.pid), claimedPaths)),
   );
 
   const sessions = results.filter((s): s is ClaudeSession => s !== null);

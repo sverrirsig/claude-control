@@ -95,7 +95,7 @@ export async function readAllHookStatuses(): Promise<Map<number, HookStatus>> {
         } catch {
           // Invalid JSON — skip
         }
-      })
+      }),
   );
 
   return result;

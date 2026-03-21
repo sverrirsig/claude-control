@@ -1,10 +1,16 @@
-name: Build & Release
+name: Release
 
 on:
   push:
     branches: [main]
 
 jobs:
+  style:
+    uses: ./.github/workflows/style.yml
+
+  test:
+    uses: ./.github/workflows/test.yml
+
   check-version:
     runs-on: ubuntu-latest
     outputs:
@@ -30,8 +36,8 @@ jobs:
             echo "New version v$CURRENT, will create release"
           fi
 
-  build:
-    needs: check-version
+  build-and-release:
+    needs: [style, test, check-version]
     if: needs.check-version.outputs.should_release == 'true'
     runs-on: macos-latest
     permissions:

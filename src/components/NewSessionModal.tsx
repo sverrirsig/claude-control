@@ -52,14 +52,20 @@ export function NewSessionModal({ repoPath, repoName, onClose }: Props) {
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") { e.preventDefault(); onClose(); return; }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+        return;
+      }
 
       // Trap ALL Tab events inside the modal
       if (e.key === "Tab" && modalRef.current) {
         e.preventDefault();
-        const focusable = Array.from(modalRef.current.querySelectorAll<HTMLElement>(
-          'input, textarea, button:not([disabled]), select, [tabindex]:not([tabindex="-1"])'
-        ));
+        const focusable = Array.from(
+          modalRef.current.querySelectorAll<HTMLElement>(
+            'input, textarea, button:not([disabled]), select, [tabindex]:not([tabindex="-1"])',
+          ),
+        );
         if (focusable.length === 0) return;
         const currentIdx = focusable.indexOf(document.activeElement as HTMLElement);
         let nextIdx: number;
@@ -97,10 +103,10 @@ export function NewSessionModal({ repoPath, repoName, onClose }: Props) {
     fetch("/api/settings")
       .then((r) => r.json())
       .then((data) => {
-        setPrompt((prev) => prev === null ? (data.config?.initialPrompt ?? "") : prev);
-        setBaseBranch((prev) => prev === "" ? (data.config?.defaultBaseBranch ?? "main") : prev);
+        setPrompt((prev) => (prev === null ? (data.config?.initialPrompt ?? "") : prev));
+        setBaseBranch((prev) => (prev === "" ? (data.config?.defaultBaseBranch ?? "main") : prev));
       })
-      .catch(() => setPrompt((prev) => prev === null ? "" : prev));
+      .catch(() => setPrompt((prev) => (prev === null ? "" : prev)));
   }, []);
 
   // Focus branch input when in repo-scoped mode
@@ -141,7 +147,7 @@ export function NewSessionModal({ repoPath, repoName, onClose }: Props) {
   const filteredRepos = repos.filter(
     (r) =>
       r.name.toLowerCase().includes(repoFilter.toLowerCase()) ||
-      r.path.toLowerCase().includes(repoFilter.toLowerCase())
+      r.path.toLowerCase().includes(repoFilter.toLowerCase()),
   );
 
   // Reset highlight when filter changes (React 19 "adjust state during render" pattern)
@@ -273,7 +279,10 @@ export function NewSessionModal({ repoPath, repoName, onClose }: Props) {
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-xs" onClick={onClose} />
 
-      <div ref={modalRef} className="relative w-full max-w-md mx-4 rounded-2xl bg-[#0c0c14] border border-zinc-800 shadow-2xl shadow-black/50 overflow-hidden">
+      <div
+        ref={modalRef}
+        className="relative w-full max-w-md mx-4 rounded-2xl bg-[#0c0c14] border border-zinc-800 shadow-2xl shadow-black/50 overflow-hidden"
+      >
         <div className="px-6 pt-6 pb-4">
           <h2 className="text-lg font-semibold text-zinc-100">
             {isRepoMode ? "New Session" : `New Session in ${repoName}`}
@@ -282,8 +291,8 @@ export function NewSessionModal({ repoPath, repoName, onClose }: Props) {
             {needsSetup
               ? "First, tell us where your code lives"
               : isRepoMode
-              ? "Pick a repo and optionally create a worktree"
-              : "Create a new worktree branch or open on the main branch"}
+                ? "Pick a repo and optionally create a worktree"
+                : "Create a new worktree branch or open on the main branch"}
           </p>
         </div>
 
@@ -309,7 +318,11 @@ export function NewSessionModal({ repoPath, repoName, onClose }: Props) {
                 ) : (
                   <>
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"
+                      />
                     </svg>
                     Browse for Folder...
                   </>
@@ -365,7 +378,10 @@ export function NewSessionModal({ repoPath, repoName, onClose }: Props) {
                 )}
                 <svg
                   className={`w-4 h-4 text-zinc-500 shrink-0 ml-2 transition-transform ${pickerOpen ? "rotate-180" : ""}`}
-                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
                 </svg>
@@ -457,9 +473,7 @@ export function NewSessionModal({ repoPath, repoName, onClose }: Props) {
           {/* Base branch (only shown when creating a worktree) */}
           {!needsSetup && branchName.trim() && (
             <div>
-              <label className="block text-xs font-medium text-zinc-400 mb-1.5">
-                Base branch
-              </label>
+              <label className="block text-xs font-medium text-zinc-400 mb-1.5">Base branch</label>
               <input
                 type="text"
                 value={baseBranch}
@@ -481,7 +495,9 @@ export function NewSessionModal({ repoPath, repoName, onClose }: Props) {
                 placeholder="e.g. Fix the login timeout bug"
                 value={prompt ?? ""}
                 onChange={(e) => setPrompt(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && e.metaKey) handleCreate(); }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && e.metaKey) handleCreate();
+                }}
                 className="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-hidden focus:border-zinc-600 transition-colors resize-y min-h-32"
               />
             </div>
@@ -490,9 +506,7 @@ export function NewSessionModal({ repoPath, repoName, onClose }: Props) {
           {/* Tmux session picker (shown when tmux enabled + "choose" mode) */}
           {!needsSetup && terminalConfig?.terminalUseTmux && terminalConfig.terminalTmuxMode === "choose" && (
             <div>
-              <label className="block text-xs font-medium text-zinc-400 mb-1.5">
-                Tmux session
-              </label>
+              <label className="block text-xs font-medium text-zinc-400 mb-1.5">Tmux session</label>
               {/* Existing sessions as clickable options */}
               {!tmuxSessionsLoading && tmuxSessions.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mb-2">
@@ -530,9 +544,7 @@ export function NewSessionModal({ repoPath, repoName, onClose }: Props) {
           )}
 
           {error && (
-            <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
-              {error}
-            </p>
+            <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>
           )}
 
           {!needsSetup && (

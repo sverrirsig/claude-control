@@ -59,8 +59,8 @@ export async function getGitDiff(cwd: string): Promise<string | null> {
 
 // Cache: branch → { url, timestamp }
 const prUrlCache = new Map<string, { url: string | null; ts: number }>();
-const PR_URL_TTL_MS = 60_000;       // 60s for known PR URLs
-const PR_URL_NULL_TTL_MS = 30_000;  // 30s for "no PR" results
+const PR_URL_TTL_MS = 60_000; // 60s for known PR URLs
+const PR_URL_NULL_TTL_MS = 30_000; // 30s for "no PR" results
 
 export async function getPrUrl(cwd: string, branch: string): Promise<string | null> {
   const cacheKey = `${cwd}::${branch}`;

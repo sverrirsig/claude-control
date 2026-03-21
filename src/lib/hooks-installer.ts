@@ -73,8 +73,8 @@ export async function ensureHooksInstalled(): Promise<boolean> {
     for (const event of HOOK_EVENTS) {
       const existing = hooks[event] ?? [];
       // Check if our hook is already registered
-      const alreadyRegistered = (existing as Array<{ hooks?: Array<{ command?: string }> }>).some(
-        (entry) => entry.hooks?.some((h) => h.command === HOOK_SCRIPT_PATH)
+      const alreadyRegistered = (existing as Array<{ hooks?: Array<{ command?: string }> }>).some((entry) =>
+        entry.hooks?.some((h) => h.command === HOOK_SCRIPT_PATH),
       );
 
       if (!alreadyRegistered) {

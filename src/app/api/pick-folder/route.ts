@@ -13,10 +13,7 @@ end tell
 set chosenFolder to choose folder with prompt "Select your code directory"
 return POSIX path of chosenFolder`;
 
-    const { stdout } = await execAsync(
-      `osascript -e '${script.replace(/'/g, "'\"'\"'")}'`,
-      { timeout: 60000 }
-    );
+    const { stdout } = await execAsync(`osascript -e '${script.replace(/'/g, "'\"'\"'")}'`, { timeout: 60000 });
 
     const folderPath = stdout.trim().replace(/\/$/, "");
 

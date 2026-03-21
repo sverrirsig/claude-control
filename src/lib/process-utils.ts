@@ -17,17 +17,13 @@ export interface ProcessInfo {
  * Output format: p<pid>\nfcwd\nn<path> per process — `f` lines are
  * intentionally skipped since we only need `p` (PID) and `n` (path).
  */
-export async function getBatchWorkingDirectories(
-  pids: number[]
-): Promise<Map<number, string>> {
+export async function getBatchWorkingDirectories(pids: number[]): Promise<Map<number, string>> {
   const result = new Map<number, string>();
   if (pids.length === 0) return result;
   try {
-    const { stdout } = await execFileAsync(
-      "lsof",
-      ["-p", pids.join(","), "-Fpn", "-d", "cwd"],
-      { timeout: PROCESS_TIMEOUT_MS }
-    );
+    const { stdout } = await execFileAsync("lsof", ["-p", pids.join(","), "-Fpn", "-d", "cwd"], {
+      timeout: PROCESS_TIMEOUT_MS,
+    });
     let currentPid: number | null = null;
     for (const line of stdout.split("\n")) {
       if (line.startsWith("p")) {
@@ -51,7 +47,7 @@ export async function getBatchWorkingDirectories(
  */
 export async function getAllProcessInfos(
   pids: number[],
-  processTree: Map<number, ProcessTreeEntry>
+  processTree: Map<number, ProcessTreeEntry>,
 ): Promise<ProcessInfo[]> {
   if (pids.length === 0) return [];
 

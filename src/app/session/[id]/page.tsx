@@ -32,10 +32,7 @@ export default function SessionDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center py-32">
         <p className="text-zinc-400 text-base mb-3">Session not found</p>
-        <Link
-          href="/"
-          className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
-        >
+        <Link href="/" className="text-sm text-blue-400 hover:text-blue-300 transition-colors">
           Back to dashboard
         </Link>
       </div>
@@ -57,16 +54,10 @@ export default function SessionDetailPage() {
       {/* Header */}
       <div className="flex items-start justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-100">
-            {session.repoName || "Unknown"}
-          </h1>
-          <p className="text-sm text-zinc-500 font-(family-name:--font-geist-mono) mt-1">
-            {session.workingDirectory}
-          </p>
+          <h1 className="text-2xl font-bold tracking-tight text-zinc-100">{session.repoName || "Unknown"}</h1>
+          <p className="text-sm text-zinc-500 font-(family-name:--font-geist-mono) mt-1">{session.workingDirectory}</p>
           {session.pid && (
-            <p className="text-xs text-zinc-600 font-(family-name:--font-geist-mono) mt-1">
-              PID {session.pid}
-            </p>
+            <p className="text-xs text-zinc-600 font-(family-name:--font-geist-mono) mt-1">PID {session.pid}</p>
           )}
         </div>
         <div className="flex items-center gap-3">

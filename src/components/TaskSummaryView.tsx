@@ -82,14 +82,20 @@ export function TaskSummaryView({ task, editing, onSave, onCancel, onStartEdit }
         />
         <div className="flex items-center gap-1.5">
           <button
-            onClick={(e) => { stopProp(e); handleSave(); }}
+            onClick={(e) => {
+              stopProp(e);
+              handleSave();
+            }}
             className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-medium bg-blue-600/80 hover:bg-blue-500 text-white transition-colors"
           >
             Save
             <kbd className="ml-0.5 px-1 py-px rounded-sm bg-white/15 text-[9px] font-mono">&#x23CE;</kbd>
           </button>
           <button
-            onClick={(e) => { stopProp(e); onCancel?.(); }}
+            onClick={(e) => {
+              stopProp(e);
+              onCancel?.();
+            }}
             className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] text-zinc-500 hover:text-zinc-300 bg-white/4 hover:bg-white/8 transition-colors"
           >
             Cancel
@@ -117,9 +123,7 @@ export function TaskSummaryView({ task, editing, onSave, onCancel, onStartEdit }
       className={task.description ? "cursor-pointer" : ""}
     >
       <h4 className="text-xs font-medium text-zinc-300 line-clamp-2 leading-relaxed">
-        {task.ticketId && (
-          <span className="text-zinc-500 mr-1.5">{task.ticketId}</span>
-        )}
+        {task.ticketId && <span className="text-zinc-500 mr-1.5">{task.ticketId}</span>}
         {task.title}
       </h4>
       {task.description && (

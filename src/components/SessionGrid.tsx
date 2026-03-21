@@ -8,29 +8,77 @@ import { sendKeystrokeAction } from "@/lib/actions";
 import { groupSessions } from "@/lib/group-sessions";
 
 function prettifyName(name: string): string {
-  return name
-    .replace(/[-_]+/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+  return name.replace(/[-_]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 const REPO_ACCENTS = [
-  { dot: "bg-blue-400", glow: "shadow-[0_0_8px_rgba(96,165,250,0.6)]", text: "text-blue-300/80", line: "from-blue-500/30" },
-  { dot: "bg-emerald-400", glow: "shadow-[0_0_8px_rgba(52,211,153,0.6)]", text: "text-emerald-300/80", line: "from-emerald-500/30" },
-  { dot: "bg-violet-400", glow: "shadow-[0_0_8px_rgba(167,139,250,0.6)]", text: "text-violet-300/80", line: "from-violet-500/30" },
-  { dot: "bg-amber-400", glow: "shadow-[0_0_8px_rgba(251,191,36,0.6)]", text: "text-amber-300/80", line: "from-amber-500/30" },
-  { dot: "bg-rose-400", glow: "shadow-[0_0_8px_rgba(251,113,133,0.6)]", text: "text-rose-300/80", line: "from-rose-500/30" },
-  { dot: "bg-cyan-400", glow: "shadow-[0_0_8px_rgba(34,211,238,0.6)]", text: "text-cyan-300/80", line: "from-cyan-500/30" },
-  { dot: "bg-orange-400", glow: "shadow-[0_0_8px_rgba(251,146,60,0.6)]", text: "text-orange-300/80", line: "from-orange-500/30" },
-  { dot: "bg-pink-400", glow: "shadow-[0_0_8px_rgba(244,114,182,0.6)]", text: "text-pink-300/80", line: "from-pink-500/30" },
-  { dot: "bg-teal-400", glow: "shadow-[0_0_8px_rgba(45,212,191,0.6)]", text: "text-teal-300/80", line: "from-teal-500/30" },
-  { dot: "bg-indigo-400", glow: "shadow-[0_0_8px_rgba(129,140,248,0.6)]", text: "text-indigo-300/80", line: "from-indigo-500/30" },
+  {
+    dot: "bg-blue-400",
+    glow: "shadow-[0_0_8px_rgba(96,165,250,0.6)]",
+    text: "text-blue-300/80",
+    line: "from-blue-500/30",
+  },
+  {
+    dot: "bg-emerald-400",
+    glow: "shadow-[0_0_8px_rgba(52,211,153,0.6)]",
+    text: "text-emerald-300/80",
+    line: "from-emerald-500/30",
+  },
+  {
+    dot: "bg-violet-400",
+    glow: "shadow-[0_0_8px_rgba(167,139,250,0.6)]",
+    text: "text-violet-300/80",
+    line: "from-violet-500/30",
+  },
+  {
+    dot: "bg-amber-400",
+    glow: "shadow-[0_0_8px_rgba(251,191,36,0.6)]",
+    text: "text-amber-300/80",
+    line: "from-amber-500/30",
+  },
+  {
+    dot: "bg-rose-400",
+    glow: "shadow-[0_0_8px_rgba(251,113,133,0.6)]",
+    text: "text-rose-300/80",
+    line: "from-rose-500/30",
+  },
+  {
+    dot: "bg-cyan-400",
+    glow: "shadow-[0_0_8px_rgba(34,211,238,0.6)]",
+    text: "text-cyan-300/80",
+    line: "from-cyan-500/30",
+  },
+  {
+    dot: "bg-orange-400",
+    glow: "shadow-[0_0_8px_rgba(251,146,60,0.6)]",
+    text: "text-orange-300/80",
+    line: "from-orange-500/30",
+  },
+  {
+    dot: "bg-pink-400",
+    glow: "shadow-[0_0_8px_rgba(244,114,182,0.6)]",
+    text: "text-pink-300/80",
+    line: "from-pink-500/30",
+  },
+  {
+    dot: "bg-teal-400",
+    glow: "shadow-[0_0_8px_rgba(45,212,191,0.6)]",
+    text: "text-teal-300/80",
+    line: "from-teal-500/30",
+  },
+  {
+    dot: "bg-indigo-400",
+    glow: "shadow-[0_0_8px_rgba(129,140,248,0.6)]",
+    text: "text-indigo-300/80",
+    line: "from-indigo-500/30",
+  },
 ];
 
 // Assign accents by position among visible groups so no two adjacent groups share a color.
 // Uses a hash to pick a starting offset for consistency when groups change, then spaces
 // assignments evenly across the palette to maximize visual distance.
-function buildAccentMap(groupNames: string[]): Map<string, typeof REPO_ACCENTS[0]> {
-  const map = new Map<string, typeof REPO_ACCENTS[0]>();
+function buildAccentMap(groupNames: string[]): Map<string, (typeof REPO_ACCENTS)[0]> {
+  const map = new Map<string, (typeof REPO_ACCENTS)[0]>();
   if (groupNames.length === 0) return map;
 
   // Use first group name to seed a stable starting offset
@@ -47,13 +95,49 @@ function buildAccentMap(groupNames: string[]): Map<string, typeof REPO_ACCENTS[0
   return map;
 }
 
-export function SessionGrid({ sessions, viewMode, targetScreen, freshlyChanged, selectedIndex, onSelectIndex, actionFeedback, prStatuses, onNewSessionInRepo, actedSessions, onApproveReject, editingSessionId, onStartEdit, onSaveMeta, onCancelEdit }: { sessions: ClaudeSession[]; viewMode: ViewMode; targetScreen?: number | null; freshlyChanged?: Set<string>; selectedIndex?: number | null; onSelectIndex?: (idx: number | null) => void; actionFeedback?: { label: string; color: string } | null; prStatuses?: Record<string, PrStatus | null>; onNewSessionInRepo?: (repoPath: string, repoName: string) => void; actedSessions?: Record<string, { action: "approve" | "reject"; at: number }>; onApproveReject?: (sessionId: string, action: "approve" | "reject") => void; editingSessionId?: string | null; onStartEdit?: (sessionId: string) => void; onSaveMeta?: (sessionId: string, updates: { title?: string; description?: string }) => void; onCancelEdit?: () => void }) {
+export function SessionGrid({
+  sessions,
+  viewMode,
+  targetScreen,
+  freshlyChanged,
+  selectedIndex,
+  onSelectIndex,
+  actionFeedback,
+  prStatuses,
+  onNewSessionInRepo,
+  actedSessions,
+  onApproveReject,
+  editingSessionId,
+  onStartEdit,
+  onSaveMeta,
+  onCancelEdit,
+}: {
+  sessions: ClaudeSession[];
+  viewMode: ViewMode;
+  targetScreen?: number | null;
+  freshlyChanged?: Set<string>;
+  selectedIndex?: number | null;
+  onSelectIndex?: (idx: number | null) => void;
+  actionFeedback?: { label: string; color: string } | null;
+  prStatuses?: Record<string, PrStatus | null>;
+  onNewSessionInRepo?: (repoPath: string, repoName: string) => void;
+  actedSessions?: Record<string, { action: "approve" | "reject"; at: number }>;
+  onApproveReject?: (sessionId: string, action: "approve" | "reject") => void;
+  editingSessionId?: string | null;
+  onStartEdit?: (sessionId: string) => void;
+  onSaveMeta?: (sessionId: string, updates: { title?: string; description?: string }) => void;
+  onCancelEdit?: () => void;
+}) {
   if (sessions.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-32">
         <div className="w-16 h-16 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-6">
           <svg className="w-8 h-8 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z"
+            />
           </svg>
         </div>
         <p className="text-zinc-400 text-base font-medium">No sessions detected</p>
@@ -83,13 +167,20 @@ export function SessionGrid({ sessions, viewMode, targetScreen, freshlyChanged, 
     const isSelected = hasSelection && idx === selectedIndex;
     const acted = actedSessions?.[session.id];
     const displayStatus = acted
-      ? (acted.action === "reject" ? "idle" as const : "working" as const)
+      ? acted.action === "reject"
+        ? ("idle" as const)
+        : ("working" as const)
       : session.status;
 
     return { key, idx, isSelected, acted, displayStatus };
   };
 
-  const sendKeystrokeForRow = async (pid: number, keystroke: string, sessionId: string, action: "approve" | "reject") => {
+  const sendKeystrokeForRow = async (
+    pid: number,
+    keystroke: string,
+    sessionId: string,
+    action: "approve" | "reject",
+  ) => {
     onApproveReject?.(sessionId, action);
     try {
       await sendKeystrokeAction(pid, keystroke);
@@ -109,7 +200,7 @@ export function SessionGrid({ sessions, viewMode, targetScreen, freshlyChanged, 
         selected={isSelected}
         shortcutNumber={idx < 9 ? idx + 1 : undefined}
         actionFeedback={isSelected ? actionFeedback : undefined}
-        prStatus={session.prUrl ? prStatuses?.[session.prUrl] ?? undefined : undefined}
+        prStatus={session.prUrl ? (prStatuses?.[session.prUrl] ?? undefined) : undefined}
         onSelect={() => onSelectIndex?.(isSelected ? null : idx)}
         actedOn={actedSessions?.[session.id]}
         onApproveReject={onApproveReject ? (action) => onApproveReject(session.id, action) : undefined}
@@ -129,12 +220,16 @@ export function SessionGrid({ sessions, viewMode, targetScreen, freshlyChanged, 
         session={session}
         selected={isSelected}
         shortcutNumber={idx < 9 ? idx + 1 : undefined}
-        prStatus={session.prUrl ? prStatuses?.[session.prUrl] ?? undefined : undefined}
+        prStatus={session.prUrl ? (prStatuses?.[session.prUrl] ?? undefined) : undefined}
         onSelect={() => onSelectIndex?.(isSelected ? null : idx)}
         displayStatus={displayStatus}
-        onApproveReject={session.pid ? (action) => {
-          sendKeystrokeForRow(session.pid!, action === "approve" ? "return" : "escape", session.id, action);
-        } : undefined}
+        onApproveReject={
+          session.pid
+            ? (action) => {
+                sendKeystrokeForRow(session.pid!, action === "approve" ? "return" : "escape", session.id, action);
+              }
+            : undefined
+        }
       />
     );
   };
@@ -155,7 +250,7 @@ export function SessionGrid({ sessions, viewMode, targetScreen, freshlyChanged, 
   const singleSessionGroups = groups.filter((g) => g.sessions.length === 1);
   const accentMap = buildAccentMap(groups.map((g) => g.repoName));
 
-  const renderGroupHeader = (group: typeof groups[0], showCount = true) => {
+  const renderGroupHeader = (group: (typeof groups)[0], showCount = true) => {
     const accent = accentMap.get(group.repoName) ?? REPO_ACCENTS[0];
     return (
       <div className={`flex items-center gap-3 ${viewMode === "list" ? "mb-2" : "mb-4"}`}>

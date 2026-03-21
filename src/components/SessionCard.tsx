@@ -49,16 +49,45 @@ const cardStyles: Record<SessionStatus, { border: string; glow: string; accent: 
   },
 };
 
-export function SessionCard({ session, targetScreen, pulse, selected, shortcutNumber, actionFeedback, prStatus, onSelect, actedOn, onApproveReject, editing, onStartEdit, onSaveMeta, onCancelEdit }: { session: ClaudeSession; targetScreen?: number | null; pulse?: boolean; selected?: boolean; shortcutNumber?: number; actionFeedback?: { label: string; color: string } | null; prStatus?: PrStatus | null; onSelect?: () => void; actedOn?: { action: "approve" | "reject"; at: number }; onApproveReject?: (action: "approve" | "reject") => void; editing?: boolean; onStartEdit?: () => void; onSaveMeta?: (updates: { title?: string; description?: string }) => void; onCancelEdit?: () => void }) {
+export function SessionCard({
+  session,
+  targetScreen,
+  pulse,
+  selected,
+  shortcutNumber,
+  actionFeedback,
+  prStatus,
+  onSelect,
+  actedOn,
+  onApproveReject,
+  editing,
+  onStartEdit,
+  onSaveMeta,
+  onCancelEdit,
+}: {
+  session: ClaudeSession;
+  targetScreen?: number | null;
+  pulse?: boolean;
+  selected?: boolean;
+  shortcutNumber?: number;
+  actionFeedback?: { label: string; color: string } | null;
+  prStatus?: PrStatus | null;
+  onSelect?: () => void;
+  actedOn?: { action: "approve" | "reject"; at: number };
+  onApproveReject?: (action: "approve" | "reject") => void;
+  editing?: boolean;
+  onStartEdit?: () => void;
+  onSaveMeta?: (updates: { title?: string; description?: string }) => void;
+  onCancelEdit?: () => void;
+}) {
   const isSuppressed = !!actedOn;
   const showQuickReply = session.status === "waiting" && session.pid && !isSuppressed;
-  const displayStatus = isSuppressed
-    ? (actedOn!.action === "reject" ? "idle" : "working")
-    : session.status;
+  const displayStatus = isSuppressed ? (actedOn!.action === "reject" ? "idle" : "working") : session.status;
   const styles = cardStyles[displayStatus];
   const [cleanupState, setCleanupState] = useState<"idle" | "confirm" | "cleaning" | "done">("idle");
 
-  const canCleanup = session.isWorktree && (displayStatus === "idle" || displayStatus === "waiting" || displayStatus === "finished");
+  const canCleanup =
+    session.isWorktree && (displayStatus === "idle" || displayStatus === "waiting" || displayStatus === "finished");
 
   async function handleCleanup(e: React.MouseEvent) {
     e.preventDefault();
@@ -67,7 +96,7 @@ export function SessionCard({ session, targetScreen, pulse, selected, shortcutNu
     if (cleanupState === "idle") {
       setCleanupState("confirm");
       // Auto-reset after 4 seconds if not confirmed
-      setTimeout(() => setCleanupState((s) => s === "confirm" ? "idle" : s), 4000);
+      setTimeout(() => setCleanupState((s) => (s === "confirm" ? "idle" : s)), 4000);
       return;
     }
 
@@ -103,8 +132,18 @@ export function SessionCard({ session, targetScreen, pulse, selected, shortcutNu
     return (
       <div className="relative block rounded-xl border border-zinc-800/20 bg-[#0a0a0f]/40 p-5 card-fade-out">
         <div className="flex flex-col items-center justify-center py-8 text-zinc-600">
-          <svg className="w-8 h-8 mb-2 text-emerald-500/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <svg
+            className="w-8 h-8 mb-2 text-emerald-500/50"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={1.5}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
           </svg>
           <span className="text-sm">Cleaned up</span>
         </div>
@@ -119,16 +158,22 @@ export function SessionCard({ session, targetScreen, pulse, selected, shortcutNu
         className={`group relative flex flex-col rounded-xl border bg-[#0a0a0f]/80 backdrop-blur-xs p-5 card-hover cursor-pointer ${selected ? "ring-2 ring-blue-400 border-blue-400/50 shadow-[0_0_30px_rgba(96,165,250,0.25),0_0_60px_rgba(96,165,250,0.10)] scale-[1.02]" : styles.border} ${!selected ? styles.glow : ""} ${pulse ? "attention-pulse" : ""} ${cleanupState === "cleaning" ? "opacity-50 pointer-events-none" : ""}`}
       >
         {/* Gradient accent at top */}
-        <div className={`absolute inset-x-0 top-0 h-24 rounded-t-xl bg-linear-to-b ${selected ? "from-blue-500/12 to-transparent" : styles.accent} pointer-events-none transition-colors duration-150`} />
+        <div
+          className={`absolute inset-x-0 top-0 h-24 rounded-t-xl bg-linear-to-b ${selected ? "from-blue-500/12 to-transparent" : styles.accent} pointer-events-none transition-colors duration-150`}
+        />
 
         {/* Action feedback flash */}
         {actionFeedback && (
           <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-black/60 backdrop-blur-xs action-flash pointer-events-none">
-            <span className={`text-sm font-semibold px-3 py-1.5 rounded-lg ${
-              actionFeedback.color === "emerald" ? "text-emerald-300 bg-emerald-500/20" :
-              actionFeedback.color === "red" ? "text-red-300 bg-red-500/20" :
-              "text-blue-300 bg-blue-500/20"
-            }`}>
+            <span
+              className={`text-sm font-semibold px-3 py-1.5 rounded-lg ${
+                actionFeedback.color === "emerald"
+                  ? "text-emerald-300 bg-emerald-500/20"
+                  : actionFeedback.color === "red"
+                    ? "text-red-300 bg-red-500/20"
+                    : "text-blue-300 bg-blue-500/20"
+              }`}
+            >
               {actionFeedback.label}
             </span>
           </div>
@@ -140,7 +185,9 @@ export function SessionCard({ session, targetScreen, pulse, selected, shortcutNu
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 {shortcutNumber !== undefined && (
-                  <span className={`shrink-0 flex items-center justify-center rounded-sm font-bold font-(family-name:--font-geist-mono) transition-all duration-150 ${selected ? "w-6 h-6 text-[11px] bg-blue-500 text-white shadow-[0_0_12px_rgba(96,165,250,0.5)]" : "w-5 h-5 text-[10px] bg-white/4 border border-white/6 text-zinc-600"}`}>
+                  <span
+                    className={`shrink-0 flex items-center justify-center rounded-sm font-bold font-(family-name:--font-geist-mono) transition-all duration-150 ${selected ? "w-6 h-6 text-[11px] bg-blue-500 text-white shadow-[0_0_12px_rgba(96,165,250,0.5)]" : "w-5 h-5 text-[10px] bg-white/4 border border-white/6 text-zinc-600"}`}
+                  >
                     {shortcutNumber}
                   </span>
                 )}
@@ -177,7 +224,15 @@ export function SessionCard({ session, targetScreen, pulse, selected, shortcutNu
           <div className="mb-4 min-h-12 flex-1">
             {editing ? (
               <TaskSummaryView
-                task={session.taskSummary ?? { title: "", description: null, source: "user", ticketId: null, ticketUrl: null }}
+                task={
+                  session.taskSummary ?? {
+                    title: "",
+                    description: null,
+                    source: "user",
+                    ticketId: null,
+                    ticketUrl: null,
+                  }
+                }
                 editing
                 onSave={onSaveMeta}
                 onCancel={onCancelEdit}
@@ -197,7 +252,9 @@ export function SessionCard({ session, targetScreen, pulse, selected, shortcutNu
               lastAssistantText={session.preview.lastAssistantText}
               lastTools={session.preview.lastTools}
               hasPendingToolUse={session.hasPendingToolUse}
-              onActed={(action) => { if (action !== "reply") onApproveReject?.(action); }}
+              onActed={(action) => {
+                if (action !== "reply") onApproveReject?.(action);
+              }}
             />
           )}
 

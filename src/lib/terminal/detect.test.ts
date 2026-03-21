@@ -95,9 +95,7 @@ describe("findTerminalInTree", () => {
   });
 
   it("handles cycle protection (pid points to itself)", () => {
-    const tree = new Map<number, ProcessTreeEntry>([
-      [100, { ppid: 100, comm: "claude", cpuPercent: 0 }],
-    ]);
+    const tree = new Map<number, ProcessTreeEntry>([[100, { ppid: 100, comm: "claude", cpuPercent: 0 }]]);
     const result = findTerminalInTree(100, tree);
     expect(result.app).toBe("unknown");
   });
@@ -152,9 +150,7 @@ describe("findClaudePidsFromTree", () => {
   });
 
   it("does not match partial names like claude-code", () => {
-    const tree = new Map<number, ProcessTreeEntry>([
-      [100, { ppid: 50, comm: "claude-code", cpuPercent: 0 }],
-    ]);
+    const tree = new Map<number, ProcessTreeEntry>([[100, { ppid: 50, comm: "claude-code", cpuPercent: 0 }]]);
     expect(findClaudePidsFromTree(tree)).toHaveLength(0);
   });
 });

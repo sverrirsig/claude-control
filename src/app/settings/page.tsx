@@ -50,7 +50,17 @@ interface SettingsData {
   dependencies: DependencyDef[];
 }
 
-function Toggle({ enabled, onChange, label, description }: { enabled: boolean; onChange: (v: boolean) => void; label: string; description: string }) {
+function Toggle({
+  enabled,
+  onChange,
+  label,
+  description,
+}: {
+  enabled: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+  description: string;
+}) {
   return (
     <div className="flex items-center justify-between py-4 border-b border-white/4 last:border-0">
       <div>
@@ -61,7 +71,9 @@ function Toggle({ enabled, onChange, label, description }: { enabled: boolean; o
         onClick={() => onChange(!enabled)}
         className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${enabled ? "bg-emerald-500" : "bg-zinc-700"}`}
       >
-        <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-xs transition-transform duration-200 ${enabled ? "translate-x-5" : "translate-x-0"}`} />
+        <span
+          className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-xs transition-transform duration-200 ${enabled ? "translate-x-5" : "translate-x-0"}`}
+        />
       </button>
     </div>
   );
@@ -95,7 +107,8 @@ function SettingRow<T extends OptionDef>({
           const installed = "installed" in opt ? (opt as AppOptionDef).installed : true;
           return (
             <option key={opt.id} value={opt.id} disabled={!installed}>
-              {opt.label}{!installed ? " (not installed)" : ""}
+              {opt.label}
+              {!installed ? " (not installed)" : ""}
             </option>
           );
         })}
@@ -152,32 +165,41 @@ export default function SettingsPage() {
     }
   };
 
-  const savePromptDebounced = useCallback((value: string) => {
-    setPromptDraft(value);
-    if (promptTimerRef.current) clearTimeout(promptTimerRef.current);
-    promptTimerRef.current = setTimeout(() => {
-      save({ initialPrompt: value });
-    }, 500);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data]);
+  const savePromptDebounced = useCallback(
+    (value: string) => {
+      setPromptDraft(value);
+      if (promptTimerRef.current) clearTimeout(promptTimerRef.current);
+      promptTimerRef.current = setTimeout(() => {
+        save({ initialPrompt: value });
+      }, 500);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- save is intentionally excluded (unstable reference)
+    [data],
+  );
 
-  const savePrPromptDebounced = useCallback((value: string) => {
-    setPrPromptDraft(value);
-    if (prPromptTimerRef.current) clearTimeout(prPromptTimerRef.current);
-    prPromptTimerRef.current = setTimeout(() => {
-      save({ createPrPrompt: value });
-    }, 500);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data]);
+  const savePrPromptDebounced = useCallback(
+    (value: string) => {
+      setPrPromptDraft(value);
+      if (prPromptTimerRef.current) clearTimeout(prPromptTimerRef.current);
+      prPromptTimerRef.current = setTimeout(() => {
+        save({ createPrPrompt: value });
+      }, 500);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- save is intentionally excluded (unstable reference)
+    [data],
+  );
 
-  const saveBaseBranchDebounced = useCallback((value: string) => {
-    setBaseBranchDraft(value);
-    if (baseBranchTimerRef.current) clearTimeout(baseBranchTimerRef.current);
-    baseBranchTimerRef.current = setTimeout(() => {
-      save({ defaultBaseBranch: value });
-    }, 500);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data]);
+  const saveBaseBranchDebounced = useCallback(
+    (value: string) => {
+      setBaseBranchDraft(value);
+      if (baseBranchTimerRef.current) clearTimeout(baseBranchTimerRef.current);
+      baseBranchTimerRef.current = setTimeout(() => {
+        save({ defaultBaseBranch: value });
+      }, 500);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- save is intentionally excluded (unstable reference)
+    [data],
+  );
 
   // Flush pending saves on unmount
   useEffect(() => {
@@ -228,9 +250,7 @@ export default function SettingsPage() {
           <p className="text-sm text-zinc-500 mt-1">Configure your tools and preferences</p>
         </div>
         <div className="flex items-center gap-3">
-          {saved && (
-            <span className="text-xs text-emerald-400 animate-pulse">Saved</span>
-          )}
+          {saved && <span className="text-xs text-emerald-400 animate-pulse">Saved</span>}
           <Link
             href="/"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-zinc-400 hover:text-zinc-100 bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800/50 hover:border-zinc-700 transition-colors"
@@ -248,7 +268,10 @@ export default function SettingsPage() {
         <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-3">Dependencies</h2>
         <div className="rounded-xl border border-white/6 bg-[#0a0a0f]/80 px-5">
           {data.dependencies.map((dep, i) => (
-            <div key={dep.id} className={`flex items-center justify-between py-4 ${i < data.dependencies.length - 1 ? "border-b border-white/4" : ""}`}>
+            <div
+              key={dep.id}
+              className={`flex items-center justify-between py-4 ${i < data.dependencies.length - 1 ? "border-b border-white/4" : ""}`}
+            >
               <div className="flex items-center gap-3">
                 <span className={`w-2 h-2 rounded-full shrink-0 ${dep.installed ? "bg-emerald-400" : "bg-red-400"}`} />
                 <div>
@@ -395,7 +418,9 @@ export default function SettingsPage() {
         <div className="rounded-xl border border-white/6 bg-[#0a0a0f]/80 px-5 py-4 space-y-5">
           <div>
             <h3 className="text-sm font-medium text-zinc-200">Initial Prompt</h3>
-            <p className="text-xs text-zinc-500 mt-0.5 mb-2">Default prompt used when creating new sessions with a branch name</p>
+            <p className="text-xs text-zinc-500 mt-0.5 mb-2">
+              Default prompt used when creating new sessions with a branch name
+            </p>
             <textarea
               rows={4}
               value={promptDraft ?? ""}
@@ -406,7 +431,9 @@ export default function SettingsPage() {
           </div>
           <div>
             <h3 className="text-sm font-medium text-zinc-200">Create PR Prompt</h3>
-            <p className="text-xs text-zinc-500 mt-0.5 mb-2">Message sent to Claude when you click the PR button on a session card</p>
+            <p className="text-xs text-zinc-500 mt-0.5 mb-2">
+              Message sent to Claude when you click the PR button on a session card
+            </p>
             <textarea
               rows={3}
               value={prPromptDraft ?? ""}

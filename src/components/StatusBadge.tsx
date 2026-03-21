@@ -11,7 +11,9 @@ const statusConfig: Record<SessionStatus, { dotColor: string; textColor: string;
 export function StatusBadge({ status }: { status: SessionStatus }) {
   const config = statusConfig[status];
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider ${config.textColor} ${config.bgColor}`}>
+    <span
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider ${config.textColor} ${config.bgColor}`}
+    >
       <span className={`h-1.5 w-1.5 rounded-full ${config.dotColor} ${config.pulse ? "animate-soft-pulse" : ""}`} />
       {statusLabels[status]}
     </span>

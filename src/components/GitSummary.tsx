@@ -13,14 +13,10 @@ export function GitSummary({ git }: { git: GitSummaryType }) {
       </span>
       {hasChanges && (
         <span className="inline-flex items-center gap-2 px-2 py-0.5 rounded-sm bg-zinc-800/80 border border-zinc-700/50 text-xs text-zinc-400">
-          {git.changedFiles > 0 && (
-            <span>{git.changedFiles} changed</span>
-          )}
+          {git.changedFiles > 0 && <span>{git.changedFiles} changed</span>}
           {git.additions > 0 && <span className="text-emerald-400">+{git.additions}</span>}
           {git.deletions > 0 && <span className="text-red-400">-{git.deletions}</span>}
-          {git.untrackedFiles > 0 && (
-            <span className="text-amber-400">+{git.untrackedFiles} new</span>
-          )}
+          {git.untrackedFiles > 0 && <span className="text-amber-400">+{git.untrackedFiles} new</span>}
         </span>
       )}
     </div>

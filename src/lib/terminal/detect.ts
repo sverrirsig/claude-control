@@ -1,21 +1,12 @@
 import { execFile } from "child_process";
 import { promisify } from "util";
-import type {
-  TerminalApp,
-  TerminalInfo,
-  TmuxPaneInfo,
-  TmuxClientInfo,
-  ProcessTreeEntry,
-} from "./types";
+import type { TerminalApp, TerminalInfo, TmuxPaneInfo, TmuxClientInfo, ProcessTreeEntry } from "./types";
 import { PROCESS_TIMEOUT_MS } from "../constants";
 
 const execFileAsync = promisify(execFile);
 
 // Known terminal mappings: process name (lowercased) → app info
-const KNOWN_TERMINALS: Record<
-  string,
-  { app: TerminalApp; appName: string; processName: string }
-> = {
+const KNOWN_TERMINALS: Record<string, { app: TerminalApp; appName: string; processName: string }> = {
   iterm2: { app: "iterm", appName: "iTerm2", processName: "iTerm2" },
   terminal: { app: "terminal-app", appName: "Terminal", processName: "Terminal" },
   ghostty: { app: "ghostty", appName: "Ghostty", processName: "ghostty" },
@@ -74,9 +65,7 @@ export async function buildProcessTree(): Promise<Map<number, ProcessTreeEntry>>
 /**
  * Extract PIDs from the process tree where comm is exactly "claude".
  */
-export function findClaudePidsFromTree(
-  processTree: Map<number, ProcessTreeEntry>
-): number[] {
+export function findClaudePidsFromTree(processTree: Map<number, ProcessTreeEntry>): number[] {
   const pids: number[] = [];
   Array.from(processTree.entries()).forEach(([pid, entry]) => {
     if (entry.comm === "claude") {
@@ -138,7 +127,7 @@ export async function detectAllTmuxPanes(): Promise<Map<string, TmuxPaneInfo>> {
     const { stdout } = await execFileAsync(
       "tmux",
       ["list-panes", "-a", "-F", "#{pane_tty}\t#{pane_id}\t#{session_name}\t#{window_index}\t#{pane_index}"],
-      { timeout: 5000 }
+      { timeout: 5000 },
     );
     const panes = new Map<string, TmuxPaneInfo>();
     for (const line of stdout.split("\n")) {
@@ -171,7 +160,7 @@ export async function detectTmuxClients(): Promise<TmuxClientInfo[]> {
     const { stdout } = await execFileAsync(
       "tmux",
       ["list-clients", "-F", "#{client_tty}\t#{client_pid}\t#{client_session}"],
-      { timeout: 5000 }
+      { timeout: 5000 },
     );
     const clients: TmuxClientInfo[] = [];
     for (const line of stdout.split("\n")) {
@@ -194,7 +183,7 @@ export async function detectTmuxClients(): Promise<TmuxClientInfo[]> {
  */
 export function findTerminalInTree(
   startPid: number,
-  processTree: Map<number, ProcessTreeEntry>
+  processTree: Map<number, ProcessTreeEntry>,
 ): Pick<TerminalInfo, "app" | "appName" | "processName"> {
   let currentPid = startPid;
   const visited = new Set<number>();
@@ -217,9 +206,7 @@ export function findTerminalInTree(
  * Match a process comm string against known terminals.
  * Handles full paths like /Applications/iTerm.app/Contents/MacOS/iTerm2.
  */
-export function matchTerminal(
-  comm: string
-): Pick<TerminalInfo, "app" | "appName" | "processName"> | null {
+export function matchTerminal(comm: string): Pick<TerminalInfo, "app" | "appName" | "processName"> | null {
   const basename = comm.includes("/") ? comm.split("/").pop() || comm : comm;
   const lower = basename.toLowerCase();
 
@@ -251,7 +238,7 @@ export async function detectTerminal(
   pid: number,
   processTree: Map<number, ProcessTreeEntry>,
   tmuxPanes: Map<string, TmuxPaneInfo>,
-  tmuxClients?: TmuxClientInfo[]
+  tmuxClients?: TmuxClientInfo[],
 ): Promise<TerminalInfo> {
   const cached = terminalCache.get(pid);
   if (cached) return cached;
@@ -279,9 +266,7 @@ export async function detectTerminal(
       };
 
       termApp =
-        sessionClient && sessionClient.pid > 0
-          ? findTerminalInTree(sessionClient.pid, processTree)
-          : UNKNOWN_TERMINAL;
+        sessionClient && sessionClient.pid > 0 ? findTerminalInTree(sessionClient.pid, processTree) : UNKNOWN_TERMINAL;
     } else {
       // Not in tmux: walk up from the claude process itself
       termApp = findTerminalInTree(pid, processTree);

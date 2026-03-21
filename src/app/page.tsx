@@ -60,19 +60,22 @@ export default function Dashboard() {
     setEditingSessionId(sessionId);
   }, []);
 
-  const handleSaveMeta = useCallback(async (sessionId: string, updates: { title?: string; description?: string }) => {
-    try {
-      await fetch(`/api/sessions/${sessionId}/meta`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updates),
-      });
-      setEditingSessionId(null);
-      refresh();
-    } catch (err) {
-      console.error("Failed to save session meta:", err);
-    }
-  }, [refresh]);
+  const handleSaveMeta = useCallback(
+    async (sessionId: string, updates: { title?: string; description?: string }) => {
+      try {
+        await fetch(`/api/sessions/${sessionId}/meta`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updates),
+        });
+        setEditingSessionId(null);
+        refresh();
+      } catch (err) {
+        console.error("Failed to save session meta:", err);
+      }
+    },
+    [refresh],
+  );
 
   const handleCancelEdit = useCallback(() => {
     setEditingSessionId(null);
@@ -100,7 +103,7 @@ export default function Dashboard() {
       const session = sessions.find((s) => s.id === id);
       const elapsed = now - entry.at;
       // Clear if backend status left "waiting" (and at least 1s has passed) or after 10s
-      if ((!session || (session.status !== "waiting" && elapsed > 1000)) || elapsed >= 10_000) {
+      if (!session || (session.status !== "waiting" && elapsed > 1000) || elapsed >= 10_000) {
         toRemove.push(id);
       }
     }
@@ -114,14 +117,18 @@ export default function Dashboard() {
     } else {
       // Schedule cleanup for the nearest timeout
       const nearest = Math.min(...ids.map((id) => 10_000 - (now - actedSessions[id].at)));
-      const timer = setTimeout(() => setActedSessions((prev) => {
-        const next = { ...prev };
-        const now2 = Date.now();
-        for (const id of Object.keys(next)) {
-          if (now2 - next[id].at >= 10_000) delete next[id];
-        }
-        return next;
-      }), Math.max(nearest, 100));
+      const timer = setTimeout(
+        () =>
+          setActedSessions((prev) => {
+            const next = { ...prev };
+            const now2 = Date.now();
+            for (const id of Object.keys(next)) {
+              if (now2 - next[id].at >= 10_000) delete next[id];
+            }
+            return next;
+          }),
+        Math.max(nearest, 100),
+      );
       return () => clearTimeout(timer);
     }
   }, [sessions, actedSessions]);
@@ -133,11 +140,14 @@ export default function Dashboard() {
   const confirmedStatuses = useRef<Map<string, SessionStatus>>(new Map());
   const pollCount = useRef<Map<string, number>>(new Map());
   const playChime = useNotificationSound();
-  const handleNotificationClick = useCallback((sessionId: string) => {
-    const ordered = flattenGroupedSessions(sessions);
-    const idx = ordered.findIndex((s) => s.id === sessionId);
-    if (idx >= 0) setSelectedIndex(idx);
-  }, [sessions, setSelectedIndex]);
+  const handleNotificationClick = useCallback(
+    (sessionId: string) => {
+      const ordered = flattenGroupedSessions(sessions);
+      const idx = ordered.findIndex((s) => s.id === sessionId);
+      if (idx >= 0) setSelectedIndex(idx);
+    },
+    [sessions, setSelectedIndex],
+  );
   const sendNotification = useDesktopNotification(alwaysNotify, handleNotificationClick);
 
   // Preferences are initialized via lazy useState initializers above
@@ -165,7 +175,8 @@ export default function Dashboard() {
         }
 
         if (
-          prev && prev !== session.status &&
+          prev &&
+          prev !== session.status &&
           (session.status === "waiting" || session.status === "idle" || session.status === "finished")
         ) {
           // "idle" gets a delayed notification to avoid false triggers between turns
@@ -252,7 +263,11 @@ export default function Dashboard() {
         <div className="text-center py-10 px-4">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-300 text-sm">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
+              />
             </svg>
             Failed to load sessions. Retrying...
           </div>
@@ -302,7 +317,10 @@ export default function Dashboard() {
           <div className="max-w-7xl mx-auto px-6 pb-4">
             <div className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-[#0a0a0f]/90 backdrop-blur-md border border-white/6 pointer-events-auto text-xs text-zinc-500">
               Keyboard hints hidden. Re-enable in{" "}
-              <Link href="/settings" className="text-blue-400 hover:text-blue-300 underline underline-offset-2 transition-colors">
+              <Link
+                href="/settings"
+                className="text-blue-400 hover:text-blue-300 underline underline-offset-2 transition-colors"
+              >
                 Settings
               </Link>
             </div>
@@ -310,13 +328,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {modal && (
-        <NewSessionModal
-          repoPath={modal.repoPath}
-          repoName={modal.repoName}
-          onClose={() => setModal(null)}
-        />
-      )}
+      {modal && <NewSessionModal repoPath={modal.repoPath} repoName={modal.repoName} onClose={() => setModal(null)} />}
     </>
   );
 }

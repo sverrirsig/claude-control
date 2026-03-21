@@ -54,5 +54,7 @@ function playChime() {
 }
 
 export function useNotificationSound() {
-  return useCallback(() => { playChime(); }, []);
+  return useCallback(() => {
+    playChime();
+  }, []);
 }

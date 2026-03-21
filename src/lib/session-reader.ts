@@ -182,7 +182,11 @@ function summarizeToolInput(name: string, input?: Record<string, unknown>): stri
     case "Skill":
       return typeof input.skill === "string" ? input.skill : null;
     case "Agent":
-      return typeof input.description === "string" ? input.description : (typeof input.prompt === "string" ? input.prompt.slice(0, PREVIEW_TEXT_MAX_LENGTH) : null);
+      return typeof input.description === "string"
+        ? input.description
+        : typeof input.prompt === "string"
+          ? input.prompt.slice(0, PREVIEW_TEXT_MAX_LENGTH)
+          : null;
     default: {
       // Fallback: show the first short string value from the input
       for (const val of Object.values(input)) {
@@ -407,7 +411,11 @@ export function isAskingForInput(lines: JsonlLine[]): boolean {
   if (lower.includes("do you want me to")) return true;
   if (lower.includes("before i ") && fullText.includes("?")) return true;
   if (lower.includes("is that okay") || lower.includes("does that look right")) return true;
-  if (lower.includes("let me know") && (lower.includes("prefer") || lower.includes("choose") || lower.includes("decision"))) return true;
+  if (
+    lower.includes("let me know") &&
+    (lower.includes("prefer") || lower.includes("choose") || lower.includes("decision"))
+  )
+    return true;
 
   return false;
 }
@@ -436,7 +444,12 @@ export function extractTaskSummary(headLines: JsonlLine[]): TaskSummary | null {
           if (data.title && (data.identifier || data.id)) {
             let desc = data.description || null;
             if (desc) {
-              desc = desc.replace(/\\n/g, "\n").replace(/\n+/g, " · ").replace(/^\s*\*\s*/g, "").replace(/\s*\*\s*/g, " · ").trim();
+              desc = desc
+                .replace(/\\n/g, "\n")
+                .replace(/\n+/g, " · ")
+                .replace(/^\s*\*\s*/g, "")
+                .replace(/\s*\*\s*/g, " · ")
+                .trim();
               if (desc.length > 300) desc = desc.slice(0, 297) + "...";
             }
             return {
@@ -474,9 +487,14 @@ export function extractTaskSummary(headLines: JsonlLine[]): TaskSummary | null {
 
     const textLines = text.split("\n").filter((l: string) => l.trim());
     const rawTitle = textLines[0].replace(/^#+\s*/, "");
-    const title = rawTitle.length > TASK_TITLE_MAX_LENGTH ? rawTitle.slice(0, TASK_TITLE_MAX_LENGTH - 3) + "..." : rawTitle;
+    const title =
+      rawTitle.length > TASK_TITLE_MAX_LENGTH ? rawTitle.slice(0, TASK_TITLE_MAX_LENGTH - 3) + "..." : rawTitle;
     const rawDesc = textLines.length > 1 ? textLines.slice(1).join(" ") : null;
-    const description = rawDesc ? (rawDesc.length > TASK_DESCRIPTION_MAX_LENGTH ? rawDesc.slice(0, TASK_DESCRIPTION_MAX_LENGTH - 3) + "..." : rawDesc) : null;
+    const description = rawDesc
+      ? rawDesc.length > TASK_DESCRIPTION_MAX_LENGTH
+        ? rawDesc.slice(0, TASK_DESCRIPTION_MAX_LENGTH - 3) + "..."
+        : rawDesc
+      : null;
 
     return {
       title,

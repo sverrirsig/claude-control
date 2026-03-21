@@ -23,12 +23,16 @@ async function fetchPrStatuses(sessions: ClaudeSession[]): Promise<Record<string
 
 export function usePrStatus(sessions: ClaudeSession[]) {
   // Build a stable key from the set of PR URLs so SWR re-fetches when PRs change
-  const prUrls = sessions.filter((s) => s.prUrl).map((s) => s.prUrl).sort().join(",");
+  const prUrls = sessions
+    .filter((s) => s.prUrl)
+    .map((s) => s.prUrl)
+    .sort()
+    .join(",");
 
   const { data } = useSWR<Record<string, PrStatus | null>>(
     prUrls ? `pr-status:${prUrls}` : null,
     () => fetchPrStatuses(sessions),
-    { refreshInterval: PR_POLL_MS, revalidateOnFocus: false }
+    { refreshInterval: PR_POLL_MS, revalidateOnFocus: false },
   );
 
   return data ?? {};

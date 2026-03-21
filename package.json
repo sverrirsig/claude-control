@@ -9,7 +9,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint .",
+    "lint": "eslint",
+    "format": "biome format --write",
+    "format:check": "biome format",
     "typecheck": "tsc --noEmit",
     "electron:dev": "concurrently --kill-others \"next dev -p 3200\" \"wait-on http://localhost:3200 && electron .\"",
     "electron:build": "next build && node scripts/prepare-build.js && electron-builder --mac --publish never",
@@ -24,6 +26,7 @@
     "swr": "^2.4.1"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.8",
     "@tailwindcss/postcss": "^4.2.2",
     "@types/node": "^20",
     "@types/react": "^19.2.14",

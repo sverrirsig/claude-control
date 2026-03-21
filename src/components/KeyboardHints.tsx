@@ -20,7 +20,15 @@ function Hint({ keys, label }: { keys: string; label: string }) {
   );
 }
 
-export function KeyboardHints({ selectedSession, actionFeedback, onDismiss }: { selectedSession: ClaudeSession | null; actionFeedback?: { label: string; color: string } | null; onDismiss?: () => void }) {
+export function KeyboardHints({
+  selectedSession,
+  actionFeedback,
+  onDismiss,
+}: {
+  selectedSession: ClaudeSession | null;
+  actionFeedback?: { label: string; color: string } | null;
+  onDismiss?: () => void;
+}) {
   const isWaiting = selectedSession?.status === "waiting" && selectedSession?.hasPendingToolUse;
   const { editorAvailable, gitGuiAvailable } = useSettings();
 
@@ -29,11 +37,15 @@ export function KeyboardHints({ selectedSession, actionFeedback, onDismiss }: { 
       <div className="max-w-7xl mx-auto px-6 pb-4">
         <div className="relative flex items-center justify-center gap-4 flex-wrap px-4 py-2 rounded-xl bg-[#0a0a0f]/90 backdrop-blur-md border border-white/6 pointer-events-auto">
           {actionFeedback ? (
-            <span className={`text-xs font-medium cleanup-slide-in ${
-              actionFeedback.color === "emerald" ? "text-emerald-400" :
-              actionFeedback.color === "red" ? "text-red-400" :
-              "text-blue-400"
-            }`}>
+            <span
+              className={`text-xs font-medium cleanup-slide-in ${
+                actionFeedback.color === "emerald"
+                  ? "text-emerald-400"
+                  : actionFeedback.color === "red"
+                    ? "text-red-400"
+                    : "text-blue-400"
+              }`}
+            >
               {actionFeedback.label}
             </span>
           ) : (
