@@ -31,9 +31,10 @@ export function SessionRow({
   const colors = statusColors[displayStatus];
   const isWaiting = displayStatus === "waiting";
 
-  const repoLabel = session.isWorktree && session.parentRepo
-    ? session.workingDirectory.split("/").filter(Boolean).pop() || session.repoName
-    : session.repoName || "Unknown";
+  const repoLabel =
+    session.isWorktree && session.parentRepo
+      ? session.workingDirectory.split("/").filter(Boolean).pop() || session.repoName
+      : session.repoName || "Unknown";
 
   return (
     <div
@@ -46,11 +47,13 @@ export function SessionRow({
     >
       {/* Shortcut number */}
       {shortcutNumber !== undefined && (
-        <span className={`shrink-0 flex items-center justify-center rounded-sm font-bold font-(family-name:--font-geist-mono) ${
-          selected
-            ? "w-5 h-5 text-[10px] bg-blue-500 text-white"
-            : "w-5 h-5 text-[10px] bg-white/4 border border-white/6 text-zinc-600"
-        }`}>
+        <span
+          className={`shrink-0 flex items-center justify-center rounded-sm font-bold font-(family-name:--font-geist-mono) ${
+            selected
+              ? "w-5 h-5 text-[10px] bg-blue-500 text-white"
+              : "w-5 h-5 text-[10px] bg-white/4 border border-white/6 text-zinc-600"
+          }`}
+        >
           {shortcutNumber}
         </span>
       )}
@@ -63,16 +66,12 @@ export function SessionRow({
           )}
           <span className={`relative inline-flex h-2 w-2 rounded-full ${colors.dot}`} />
         </span>
-        <span className={`text-xs font-medium ${colors.text}`}>
-          {statusLabels[displayStatus]}
-        </span>
+        <span className={`text-xs font-medium ${colors.text}`}>{statusLabels[displayStatus]}</span>
       </div>
 
       {/* Repo / branch name */}
       <div className="min-w-0 flex-1 flex items-center gap-2">
-        <span className="text-sm text-zinc-200 font-medium truncate">
-          {repoLabel}
-        </span>
+        <span className="text-sm text-zinc-200 font-medium truncate">{repoLabel}</span>
         {session.isWorktree && (
           <span className="shrink-0 px-1 py-0.5 text-[8px] font-semibold uppercase tracking-wider rounded-sm bg-violet-500/10 border border-violet-500/20 text-violet-400">
             wt
@@ -84,7 +83,11 @@ export function SessionRow({
       {session.git && (
         <span className="shrink-0 hidden sm:flex items-center gap-1 text-[11px] text-zinc-500 font-(family-name:--font-geist-mono)">
           <svg className="w-3 h-3 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"
+            />
           </svg>
           <span className="truncate max-w-[120px]">{session.git.branch}</span>
         </span>
@@ -93,12 +96,8 @@ export function SessionRow({
       {/* Git stats */}
       {session.git && session.git.changedFiles > 0 && (
         <div className="shrink-0 hidden md:flex items-center gap-1.5 text-[11px] font-(family-name:--font-geist-mono)">
-          {session.git.additions > 0 && (
-            <span className="text-emerald-500">+{session.git.additions}</span>
-          )}
-          {session.git.deletions > 0 && (
-            <span className="text-red-400">-{session.git.deletions}</span>
-          )}
+          {session.git.additions > 0 && <span className="text-emerald-500">+{session.git.additions}</span>}
+          {session.git.deletions > 0 && <span className="text-red-400">-{session.git.deletions}</span>}
         </div>
       )}
 

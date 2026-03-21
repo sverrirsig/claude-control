@@ -1,10 +1,9 @@
-@import 'tailwindcss';
+@import "tailwindcss";
 
 @theme {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
 }
-
 
 :root {
   --background: #050508;
@@ -34,24 +33,37 @@ body {
 
 /* Status glow effects */
 .glow-green {
-  box-shadow: 0 0 20px rgba(34, 197, 94, 0.08), inset 0 1px 0 rgba(34, 197, 94, 0.1);
+  box-shadow:
+    0 0 20px rgba(34, 197, 94, 0.08),
+    inset 0 1px 0 rgba(34, 197, 94, 0.1);
 }
 .glow-blue {
-  box-shadow: 0 0 20px rgba(59, 130, 246, 0.08), inset 0 1px 0 rgba(59, 130, 246, 0.1);
+  box-shadow:
+    0 0 20px rgba(59, 130, 246, 0.08),
+    inset 0 1px 0 rgba(59, 130, 246, 0.1);
 }
 .glow-yellow {
-  box-shadow: 0 0 20px rgba(234, 179, 8, 0.06), inset 0 1px 0 rgba(234, 179, 8, 0.08);
+  box-shadow:
+    0 0 20px rgba(234, 179, 8, 0.06),
+    inset 0 1px 0 rgba(234, 179, 8, 0.08);
 }
 .glow-red {
-  box-shadow: 0 0 20px rgba(239, 68, 68, 0.08), inset 0 1px 0 rgba(239, 68, 68, 0.1);
+  box-shadow:
+    0 0 20px rgba(239, 68, 68, 0.08),
+    inset 0 1px 0 rgba(239, 68, 68, 0.1);
 }
 .glow-zinc {
-  box-shadow: 0 0 12px rgba(161, 161, 170, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  box-shadow:
+    0 0 12px rgba(161, 161, 170, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 /* Card hover lift */
 .card-hover {
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
 }
 .card-hover:hover {
   transform: translateY(-2px);
@@ -75,8 +87,13 @@ body {
 
 /* Pulse animation for status indicators */
 @keyframes soft-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 .animate-soft-pulse {
   animation: soft-pulse 2s ease-in-out infinite;
@@ -84,10 +101,26 @@ body {
 
 /* Attention pulse — plays when a session needs attention */
 @keyframes attention-pulse {
-  0% { transform: scale(1); box-shadow: 0 0 0px rgba(59, 130, 246, 0); }
-  30% { transform: scale(1.02); box-shadow: 0 0 35px rgba(59, 130, 246, 0.2), 0 0 70px rgba(59, 130, 246, 0.08); }
-  70% { transform: scale(1.005); box-shadow: 0 0 15px rgba(59, 130, 246, 0.1), 0 0 40px rgba(59, 130, 246, 0.04); }
-  100% { transform: scale(1); box-shadow: 0 0 0px rgba(59, 130, 246, 0); }
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0px rgba(59, 130, 246, 0);
+  }
+  30% {
+    transform: scale(1.02);
+    box-shadow:
+      0 0 35px rgba(59, 130, 246, 0.2),
+      0 0 70px rgba(59, 130, 246, 0.08);
+  }
+  70% {
+    transform: scale(1.005);
+    box-shadow:
+      0 0 15px rgba(59, 130, 246, 0.1),
+      0 0 40px rgba(59, 130, 246, 0.04);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0px rgba(59, 130, 246, 0);
+  }
 }
 .attention-pulse {
   animation: attention-pulse 1.8s cubic-bezier(0.4, 0, 0.2, 1) 1;
@@ -95,16 +128,28 @@ body {
 
 /* Cleanup animations */
 @keyframes cleanup-slide-in {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 .cleanup-slide-in {
   animation: cleanup-slide-in 0.2s ease-out;
 }
 
 @keyframes card-fade-out {
-  from { opacity: 1; transform: scale(1); }
-  to { opacity: 0; transform: scale(0.96); }
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.96);
+  }
 }
 .card-fade-out {
   animation: card-fade-out 0.6s ease-out forwards;
@@ -113,10 +158,18 @@ body {
 
 /* Action feedback flash on selected card */
 @keyframes action-flash {
-  0% { opacity: 0; }
-  15% { opacity: 1; }
-  75% { opacity: 1; }
-  100% { opacity: 0; }
+  0% {
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 }
 .action-flash {
   animation: action-flash 1.2s ease-out forwards;
@@ -135,13 +188,15 @@ body {
   padding: 3px 8px;
   border-radius: 6px;
   background: #27272a;
-  border: 1px solid rgba(255,255,255,0.08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   color: #a1a1aa;
   font-size: 11px;
   white-space: nowrap;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 0.1s, transform 0.1s;
+  transition:
+    opacity 0.1s,
+    transform 0.1s;
   z-index: 50;
 }
 .has-tooltip:hover::after {

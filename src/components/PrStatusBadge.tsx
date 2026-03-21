@@ -56,7 +56,11 @@ export function PrStatusBadge({ pr }: { pr: PrStatus }) {
         data-tip="PR merged"
       >
         <svg className="w-3 h-3 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"
+          />
         </svg>
         <span className="font-medium text-violet-400">Merged</span>
       </div>
@@ -82,23 +86,29 @@ export function PrStatusBadge({ pr }: { pr: PrStatus }) {
   // CI checks
   if (pr.checksDetail && pr.checks !== "none") {
     const checkColor = pr.checks === "passing" ? "green" : pr.checks === "failing" ? "red" : "amber";
-    const icon = pr.checks === "passing" ? (
-      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-      </svg>
-    ) : pr.checks === "failing" ? (
-      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-      </svg>
-    ) : (
-      <span className="w-3 h-3 rounded-full border-[1.5px] border-current border-t-transparent animate-spin" />
-    );
+    const icon =
+      pr.checks === "passing" ? (
+        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+        </svg>
+      ) : pr.checks === "failing" ? (
+        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      ) : (
+        <span className="w-3 h-3 rounded-full border-[1.5px] border-current border-t-transparent animate-spin" />
+      );
 
     items.push(
-      <span key="checks" className={`inline-flex items-center gap-1 ${checkColor === "green" ? "text-emerald-400" : checkColor === "red" ? "text-red-400" : "text-amber-400"}`}>
+      <span
+        key="checks"
+        className={`inline-flex items-center gap-1 ${checkColor === "green" ? "text-emerald-400" : checkColor === "red" ? "text-red-400" : "text-amber-400"}`}
+      >
         {icon}
-        <span className="font-mono font-medium">{pr.checksDetail.passing}/{pr.checksDetail.total}</span>
-      </span>
+        <span className="font-mono font-medium">
+          {pr.checksDetail.passing}/{pr.checksDetail.total}
+        </span>
+      </span>,
     );
   }
 
@@ -107,10 +117,14 @@ export function PrStatusBadge({ pr }: { pr: PrStatus }) {
     items.push(
       <span key="threads" className="inline-flex items-center gap-1 text-amber-400">
         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z"
+          />
         </svg>
         <span className="font-mono font-medium">{pr.unresolvedThreads}</span>
-      </span>
+      </span>,
     );
   }
 
@@ -119,17 +133,25 @@ export function PrStatusBadge({ pr }: { pr: PrStatus }) {
     items.push(
       <span key="review" className="inline-flex items-center text-emerald-400">
         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
         </svg>
-      </span>
+      </span>,
     );
   } else if (pr.reviewDecision === "CHANGES_REQUESTED") {
     items.push(
       <span key="review" className="inline-flex items-center text-red-400">
         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"
+          />
         </svg>
-      </span>
+      </span>,
     );
   }
 
@@ -140,14 +162,16 @@ export function PrStatusBadge({ pr }: { pr: PrStatus }) {
         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3" />
         </svg>
-      </span>
+      </span>,
     );
   }
 
   // Conflicts
   if (pr.mergeable === "CONFLICTING") {
     items.push(
-      <span key="conflict" className="inline-flex items-center text-red-400 font-bold text-[10px]">!</span>
+      <span key="conflict" className="inline-flex items-center text-red-400 font-bold text-[10px]">
+        !
+      </span>,
     );
   }
 

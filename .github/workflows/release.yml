@@ -1,17 +1,23 @@
-name: Build & Release
+name: Release
 
 on:
   push:
     branches: [main]
 
 jobs:
+  style:
+    uses: ./.github/workflows/style.yml
+
+  test:
+    uses: ./.github/workflows/test.yml
+
   check-version:
     runs-on: ubuntu-latest
     outputs:
       should_release: ${{ steps.check.outputs.should_release }}
       version: ${{ steps.check.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 2
 
@@ -30,18 +36,18 @@ jobs:
             echo "New version v$CURRENT, will create release"
           fi
 
-  build:
-    needs: check-version
+  build-and-release:
+    needs: [style, test, check-version]
     if: needs.check-version.outputs.should_release == 'true'
     runs-on: macos-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version-file: .node-version
           cache: npm
 
       - name: Install dependencies

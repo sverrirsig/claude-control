@@ -1,0 +1,14 @@
+name: CI
+
+on:
+  pull_request:
+
+jobs:
+  style:
+    uses: ./.github/workflows/style.yml
+
+  test:
+    uses: ./.github/workflows/test.yml
+
+  build:
+    uses: ./.github/workflows/build.yml

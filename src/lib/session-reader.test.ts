@@ -78,10 +78,7 @@ describe("extractBranch", () => {
 
 describe("extractPreview", () => {
   it("extracts last user message and assistant text", () => {
-    const lines = [
-      userLine("fix the bug"),
-      assistantLine([textBlock("I fixed it.")]),
-    ];
+    const lines = [userLine("fix the bug"), assistantLine([textBlock("I fixed it.")])];
     const preview = extractPreview(lines);
     expect(preview.lastUserMessage).toBe("fix the bug");
     expect(preview.lastAssistantText).toBe("I fixed it.");
@@ -146,18 +143,12 @@ describe("extractPreview", () => {
   });
 
   it("marks assistantIsNewer when assistant is last speaker", () => {
-    const lines = [
-      userLine("fix it"),
-      assistantLine([textBlock("Done.")]),
-    ];
+    const lines = [userLine("fix it"), assistantLine([textBlock("Done.")])];
     expect(extractPreview(lines).assistantIsNewer).toBe(true);
   });
 
   it("marks assistantIsNewer false when user is last speaker", () => {
-    const lines = [
-      assistantLine([textBlock("Done.")]),
-      userLine("thanks, now do this"),
-    ];
+    const lines = [assistantLine([textBlock("Done.")]), userLine("thanks, now do this")];
     expect(extractPreview(lines).assistantIsNewer).toBe(false);
   });
 
@@ -165,16 +156,14 @@ describe("extractPreview", () => {
     const lines = [
       userLine("fix the bug"),
       assistantLine([textBlock("Done.")]),
-      userLine('<local-command-caveat>Caveat: The messages below were generated...</local-command-caveat>'),
+      userLine("<local-command-caveat>Caveat: The messages below were generated...</local-command-caveat>"),
     ];
     const preview = extractPreview(lines);
     expect(preview.lastUserMessage).toBe("fix the bug");
   });
 
   it("filters out <system-reminder> messages", () => {
-    const lines = [
-      userLine('<system-reminder>Remember to follow style guidelines</system-reminder>'),
-    ];
+    const lines = [userLine("<system-reminder>Remember to follow style guidelines</system-reminder>")];
     const preview = extractPreview(lines);
     expect(preview.lastUserMessage).toBeNull();
     expect(preview.messageCount).toBe(0);
@@ -184,7 +173,7 @@ describe("extractPreview", () => {
     const lines = [
       userLine("fix the bug"),
       assistantLine([textBlock("I fixed it.")]),
-      userLine('<command-name>/clear</command-name>'),
+      userLine("<command-name>/clear</command-name>"),
     ];
     const preview = extractPreview(lines);
     expect(preview.lastUserMessage).toBeNull();
@@ -196,7 +185,7 @@ describe("extractPreview", () => {
     const lines = [
       userLine("old message"),
       assistantLine([textBlock("old reply")]),
-      userLine('<command-name>/clear</command-name>'),
+      userLine("<command-name>/clear</command-name>"),
       userLine("new message"),
       assistantLine([textBlock("new reply")]),
     ];
@@ -207,18 +196,14 @@ describe("extractPreview", () => {
   });
 
   it("detects command substitution warning in Bash tool", () => {
-    const lines = [
-      assistantLine([toolUseBlock("Bash", { command: "echo $(whoami)", description: "Print username" })]),
-    ];
+    const lines = [assistantLine([toolUseBlock("Bash", { command: "echo $(whoami)", description: "Print username" })])];
     const preview = extractPreview(lines);
     expect(preview.lastTools[0].warnings).toContain("Command contains $() command substitution");
     expect(preview.lastTools[0].description).toBe("Print username");
   });
 
   it("detects multiple warnings", () => {
-    const lines = [
-      assistantLine([toolUseBlock("Bash", { command: "sudo rm -rf /tmp/foo | sh" })]),
-    ];
+    const lines = [assistantLine([toolUseBlock("Bash", { command: "sudo rm -rf /tmp/foo | sh" })])];
     const warnings = extractPreview(lines).lastTools[0].warnings;
     expect(warnings).toContain("Recursive or forced file deletion");
     expect(warnings).toContain("Runs with elevated privileges");
@@ -226,32 +211,24 @@ describe("extractPreview", () => {
   });
 
   it("returns no warnings for safe commands", () => {
-    const lines = [
-      assistantLine([toolUseBlock("Bash", { command: "npm test" })]),
-    ];
+    const lines = [assistantLine([toolUseBlock("Bash", { command: "npm test" })])];
     expect(extractPreview(lines).lastTools[0].warnings).toEqual([]);
   });
 
   it("returns no warnings for non-Bash tools", () => {
-    const lines = [
-      assistantLine([toolUseBlock("Read", { file_path: "/etc/passwd" })]),
-    ];
+    const lines = [assistantLine([toolUseBlock("Read", { file_path: "/etc/passwd" })])];
     expect(extractPreview(lines).lastTools[0].warnings).toEqual([]);
   });
 });
 
 describe("lastMessageHasError", () => {
   it("detects error + failed in last assistant message", () => {
-    const lines = [
-      assistantLine([textBlock("An error occurred and the command failed.")]),
-    ];
+    const lines = [assistantLine([textBlock("An error occurred and the command failed.")])];
     expect(lastMessageHasError(lines)).toBe(true);
   });
 
   it("returns false when only error (no failed)", () => {
-    const lines = [
-      assistantLine([textBlock("There was an error.")]),
-    ];
+    const lines = [assistantLine([textBlock("There was an error.")])];
     expect(lastMessageHasError(lines)).toBe(false);
   });
 
@@ -260,35 +237,24 @@ describe("lastMessageHasError", () => {
   });
 
   it("returns false when last meaningful message is from user", () => {
-    const lines = [
-      assistantLine([textBlock("error and failed here")]),
-      userLine("okay thanks"),
-    ];
+    const lines = [assistantLine([textBlock("error and failed here")]), userLine("okay thanks")];
     expect(lastMessageHasError(lines)).toBe(false);
   });
 
   it("skips progress/system lines to find last real message", () => {
-    const lines = [
-      assistantLine([textBlock("error and failed here")]),
-      { type: "progress" },
-    ];
+    const lines = [assistantLine([textBlock("error and failed here")]), { type: "progress" }];
     expect(lastMessageHasError(lines)).toBe(true);
   });
 });
 
 describe("hasPendingToolUse", () => {
   it("returns true when last message is assistant with tool_use", () => {
-    const lines = [
-      assistantLine([textBlock("Let me check."), toolUseBlock("Bash", { command: "ls" })]),
-    ];
+    const lines = [assistantLine([textBlock("Let me check."), toolUseBlock("Bash", { command: "ls" })])];
     expect(hasPendingToolUse(lines)).toBe(true);
   });
 
   it("returns false when last message is user (tool_result came back)", () => {
-    const lines = [
-      assistantLine([toolUseBlock("Bash", { command: "ls" })]),
-      userLine("tool result here"),
-    ];
+    const lines = [assistantLine([toolUseBlock("Bash", { command: "ls" })]), userLine("tool result here")];
     expect(hasPendingToolUse(lines)).toBe(false);
   });
 
@@ -297,10 +263,7 @@ describe("hasPendingToolUse", () => {
   });
 
   it("skips progress lines", () => {
-    const lines = [
-      assistantLine([toolUseBlock("Read", { file_path: "/x" })]),
-      { type: "progress" },
-    ];
+    const lines = [assistantLine([toolUseBlock("Read", { file_path: "/x" })]), { type: "progress" }];
     expect(hasPendingToolUse(lines)).toBe(true);
   });
 });
@@ -337,10 +300,7 @@ describe("isAskingForInput", () => {
   });
 
   it("returns false for greeting (first assistant turn, no tools)", () => {
-    const lines = [
-      userLine("hello"),
-      assistantLine([textBlock("Hi! How can I help you today?")]),
-    ];
+    const lines = [userLine("hello"), assistantLine([textBlock("Hi! How can I help you today?")])];
     expect(isAskingForInput(lines)).toBe(false);
   });
 
@@ -367,16 +327,16 @@ describe("isAskingForInput", () => {
       userLine("start"),
       assistantLine([toolUseBlock("Bash", { command: "ls" })]),
       userLine("result"),
-      { type: "assistant", message: { role: "assistant", content: [textBlock("Shall I proceed?")], stop_reason: "max_tokens" } },
+      {
+        type: "assistant",
+        message: { role: "assistant", content: [textBlock("Shall I proceed?")], stop_reason: "max_tokens" },
+      },
     ];
     expect(isAskingForInput(lines)).toBe(false);
   });
 
   it("returns false when last speaker is user", () => {
-    const lines = [
-      assistantLine([textBlock("Shall I proceed?")]),
-      userLine("yes"),
-    ];
+    const lines = [assistantLine([textBlock("Shall I proceed?")]), userLine("yes")];
     expect(isAskingForInput(lines)).toBe(false);
   });
 
@@ -398,17 +358,13 @@ describe("linesToConversation", () => {
   });
 
   it("extracts tool uses from assistant messages", () => {
-    const lines = [
-      assistantLine([textBlock("Reading..."), toolUseBlock("Read", { file_path: "/x" })]),
-    ];
+    const lines = [assistantLine([textBlock("Reading..."), toolUseBlock("Read", { file_path: "/x" })])];
     const msgs = linesToConversation(lines);
     expect(msgs[0].toolUses).toEqual([{ name: "Read", input: { file_path: "/x" } }]);
   });
 
   it("concatenates multiple text blocks", () => {
-    const lines = [
-      assistantLine([textBlock("Part 1"), textBlock("Part 2")]),
-    ];
+    const lines = [assistantLine([textBlock("Part 1"), textBlock("Part 2")])];
     const msgs = linesToConversation(lines);
     expect(msgs[0].text).toBe("Part 1\nPart 2");
   });
@@ -436,7 +392,7 @@ describe("linesToConversation", () => {
   it("filters out system-injected XML user messages", () => {
     const lines = [
       { ...userLine("hello"), timestamp: "t1" },
-      { ...userLine('<system-reminder>Be helpful</system-reminder>'), timestamp: "t2" },
+      { ...userLine("<system-reminder>Be helpful</system-reminder>"), timestamp: "t2" },
       { ...assistantLine([textBlock("Hi!")]), timestamp: "t3" },
     ];
     const msgs = linesToConversation(lines);
@@ -506,7 +462,7 @@ describe("extractTaskSummary", () => {
 
   it("skips system-injected XML messages for task summary", () => {
     const lines = [
-      userLine('<system-reminder>You are Claude Code</system-reminder>'),
+      userLine("<system-reminder>You are Claude Code</system-reminder>"),
       userLine("Build the auth module"),
     ];
     const summary = extractTaskSummary(lines);

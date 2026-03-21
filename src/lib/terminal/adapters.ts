@@ -197,11 +197,9 @@ export async function sendKeystroke(info: TerminalInfo, keystroke: string): Prom
       tab: "Tab",
       space: "Space",
     };
-    await execFileAsync(
-      "tmux",
-      ["send-keys", "-t", info.tmux.paneId, tmuxKeyMap[keystroke] ?? keystroke],
-      { timeout: PROCESS_TIMEOUT_MS }
-    );
+    await execFileAsync("tmux", ["send-keys", "-t", info.tmux.paneId, tmuxKeyMap[keystroke] ?? keystroke], {
+      timeout: PROCESS_TIMEOUT_MS,
+    });
     return;
   }
 
@@ -327,7 +325,6 @@ export async function createSession(opts: CreateSessionOpts): Promise<void> {
     // Named session that needs creating, or unnamed fallback
     const sessionName = tmuxSession || `claude-${Date.now().toString(36).slice(-4)}`;
     effectiveCommand = `tmux new-session -s '${shellEscape(sessionName)}' "${shellEscapeDouble(cmd)}"`;
-
   } else {
     effectiveCommand = cmd;
   }
@@ -389,14 +386,12 @@ end tell`;
 // listTmuxSessions
 // ────────────────────────────────────────────────────────────────────────────
 
-export async function listTmuxSessions(): Promise<
-  { name: string; windows: number; attached: boolean }[]
-> {
+export async function listTmuxSessions(): Promise<{ name: string; windows: number; attached: boolean }[]> {
   try {
     const { stdout } = await execFileAsync(
       "tmux",
       ["list-sessions", "-F", "#{session_name}\t#{session_windows}\t#{session_attached}"],
-      { timeout: PROCESS_TIMEOUT_MS }
+      { timeout: PROCESS_TIMEOUT_MS },
     );
     return stdout
       .trim()

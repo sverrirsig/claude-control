@@ -23,10 +23,14 @@ end repeat
 return output
 `;
     const { stdout } = await execAsync(`osascript -e '${script.replace(/'/g, "'\"'\"'")}'`, { timeout: 5000 });
-    const screens = stdout.trim().split("\n").filter(Boolean).map((line, index) => {
-      const [name, resolution] = line.split("|");
-      return { index, name: name.trim(), resolution: resolution?.trim() || "" };
-    });
+    const screens = stdout
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+      .map((line, index) => {
+        const [name, resolution] = line.split("|");
+        return { index, name: name.trim(), resolution: resolution?.trim() || "" };
+      });
 
     return NextResponse.json({ screens });
   } catch (error) {

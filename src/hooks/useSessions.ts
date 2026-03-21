@@ -20,7 +20,7 @@ export function useSessions() {
       refreshInterval: POLL_INTERVAL_MS,
       revalidateOnFocus: false,
       keepPreviousData: true,
-    }
+    },
   );
 
   return {

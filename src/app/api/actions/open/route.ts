@@ -82,7 +82,12 @@ export async function POST(request: Request) {
     // "iterm" is accepted as backward compat for "focus"
     const normalizedAction = action === "iterm" ? "focus" : action;
 
-    if (normalizedAction !== "focus" && normalizedAction !== "send-message" && normalizedAction !== "send-keystroke" && normalizedAction !== "open-url") {
+    if (
+      normalizedAction !== "focus" &&
+      normalizedAction !== "send-message" &&
+      normalizedAction !== "send-keystroke" &&
+      normalizedAction !== "open-url"
+    ) {
       if (!path) {
         return NextResponse.json({ error: "Missing path" }, { status: 400 });
       }

@@ -2,11 +2,10 @@ import { useCallback, useEffect, useRef } from "react";
 import { ClaudeSession } from "@/lib/types";
 
 const STATUS_COLORS: Record<string, string> = {
-  waiting: "#3b82f6",  // blue-500
-  idle: "#f59e0b",     // amber-500
+  waiting: "#3b82f6", // blue-500
+  idle: "#f59e0b", // amber-500
   finished: "#71717a", // zinc-500
 };
-
 
 // Generate a colored circle icon as a blob URL (cached per color)
 const iconCache = new Map<string, string>();
@@ -46,15 +45,14 @@ function getStatusIcon(status: string): string | undefined {
 }
 
 function prettifyName(name: string): string {
-  return name
-    .replace(/[-_]+/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+  return name.replace(/[-_]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function getRepoLabel(session: ClaudeSession): string {
-  const raw = session.isWorktree && session.parentRepo
-    ? session.parentRepo.split("/").filter(Boolean).pop() || session.repoName || "Session"
-    : session.repoName || "Session";
+  const raw =
+    session.isWorktree && session.parentRepo
+      ? session.parentRepo.split("/").filter(Boolean).pop() || session.repoName || "Session"
+      : session.repoName || "Session";
   return prettifyName(raw);
 }
 

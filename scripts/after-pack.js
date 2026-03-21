@@ -6,7 +6,13 @@ const path = require("path");
 // bypassing electron-builder's node_modules filtering.
 exports.default = async function afterPack(context) {
   const source = path.join(__dirname, "..", "next-app-dist");
-  const dest = path.join(context.appOutDir, `${context.packager.appInfo.productFilename}.app`, "Contents", "Resources", "next-app");
+  const dest = path.join(
+    context.appOutDir,
+    `${context.packager.appInfo.productFilename}.app`,
+    "Contents",
+    "Resources",
+    "next-app",
+  );
 
   console.log(`Copying Next.js app to: ${dest}`);
   execSync(`cp -RL "${source}" "${dest}"`, { stdio: "inherit" });

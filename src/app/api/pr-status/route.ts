@@ -15,7 +15,10 @@ function parsePrNumber(prUrl: string): { owner: string; repo: string; number: nu
   return { owner: match[1], repo: match[2], number: parseInt(match[3]) };
 }
 
-async function fetchReviewThreads(prUrl: string, cwd: string): Promise<{ unresolvedThreads: number; commentCount: number }> {
+async function fetchReviewThreads(
+  prUrl: string,
+  cwd: string,
+): Promise<{ unresolvedThreads: number; commentCount: number }> {
   const parsed = parsePrNumber(prUrl);
   if (!parsed) return { unresolvedThreads: 0, commentCount: 0 };
 
@@ -56,11 +59,8 @@ async function fetchPrStatus(prUrl: string, cwd: string): Promise<PrStatus | nul
     const [ghResult, threadResult] = await Promise.all([
       execFileAsync(
         "gh",
-        [
-          "pr", "view", prUrl,
-          "--json", "url,state,statusCheckRollup,reviewDecision,mergeable,mergeStateStatus",
-        ],
-        { cwd, timeout: 10000 }
+        ["pr", "view", prUrl, "--json", "url,state,statusCheckRollup,reviewDecision,mergeable,mergeStateStatus"],
+        { cwd, timeout: 10000 },
       ),
       fetchReviewThreads(prUrl, cwd),
     ]);

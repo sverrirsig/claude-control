@@ -15,7 +15,13 @@ function makeSession(overrides: Partial<ClaudeSession> = {}): ClaudeSession {
     lastActivity: "2026-01-01T00:00:00Z",
     startedAt: "2026-01-01T00:00:00Z",
     git: null,
-    preview: { lastUserMessage: null, lastAssistantText: null, assistantIsNewer: false, lastTools: [], messageCount: 0 },
+    preview: {
+      lastUserMessage: null,
+      lastAssistantText: null,
+      assistantIsNewer: false,
+      lastTools: [],
+      messageCount: 0,
+    },
     hasPendingToolUse: false,
     taskSummary: null,
     jsonlPath: null,
@@ -70,7 +76,7 @@ describe("groupSessions", () => {
     ];
     const groups = groupSessions(sessions);
     expect(groups[0].repoName).toBe("alpha"); // 2 sessions
-    expect(groups[1].repoName).toBe("beta");  // 1 session
+    expect(groups[1].repoName).toBe("beta"); // 1 session
   });
 
   it("sorts alphabetically when counts are equal", () => {

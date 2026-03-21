@@ -87,11 +87,19 @@ async function startNextServer() {
     });
 
     nextProcess.stdout?.on("data", (data) => {
-      try { process.stdout.write(`[next] ${data}`); } catch { /* ignore EPIPE */ }
+      try {
+        process.stdout.write(`[next] ${data}`);
+      } catch {
+        /* ignore EPIPE */
+      }
     });
 
     nextProcess.stderr?.on("data", (data) => {
-      try { process.stderr.write(`[next] ${data}`); } catch { /* ignore EPIPE */ }
+      try {
+        process.stderr.write(`[next] ${data}`);
+      } catch {
+        /* ignore EPIPE */
+      }
     });
 
     nextProcess.on("exit", (code) => {
@@ -109,11 +117,19 @@ async function startNextServer() {
     });
 
     nextProcess.stdout?.on("data", (data) => {
-      try { process.stdout.write(`[next] ${data}`); } catch { /* ignore EPIPE */ }
+      try {
+        process.stdout.write(`[next] ${data}`);
+      } catch {
+        /* ignore EPIPE */
+      }
     });
 
     nextProcess.stderr?.on("data", (data) => {
-      try { process.stderr.write(`[next] ${data}`); } catch { /* ignore EPIPE */ }
+      try {
+        process.stderr.write(`[next] ${data}`);
+      } catch {
+        /* ignore EPIPE */
+      }
     });
 
     nextProcess.on("error", (err) => {

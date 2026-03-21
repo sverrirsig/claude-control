@@ -19,17 +19,13 @@ describe("workingDirToEscapedPath", () => {
 
 describe("escapedPathToProjectDir", () => {
   it("joins with CLAUDE_PROJECTS_DIR", () => {
-    expect(escapedPathToProjectDir("-Users-alli-project")).toBe(
-      join(CLAUDE_PROJECTS_DIR, "-Users-alli-project")
-    );
+    expect(escapedPathToProjectDir("-Users-alli-project")).toBe(join(CLAUDE_PROJECTS_DIR, "-Users-alli-project"));
   });
 });
 
 describe("workingDirToProjectDir", () => {
   it("composes escape + join", () => {
-    expect(workingDirToProjectDir("/Users/alli/project")).toBe(
-      join(CLAUDE_PROJECTS_DIR, "-Users-alli-project")
-    );
+    expect(workingDirToProjectDir("/Users/alli/project")).toBe(join(CLAUDE_PROJECTS_DIR, "-Users-alli-project"));
   });
 });
 
