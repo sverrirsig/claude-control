@@ -10,6 +10,15 @@ export const statusLabels: Record<SessionStatus, string> = {
   finished: "Finished",
 };
 
+export interface ModelTokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
+}
+
+export type TokenUsage = Record<string, ModelTokenUsage>;
+
 export interface ClaudeSession {
   id: string;
   pid: number | null;
@@ -24,6 +33,7 @@ export interface ClaudeSession {
   git: GitSummary | null;
   preview: ConversationPreview;
   taskSummary: TaskSummary | null;
+  tokenUsage: TokenUsage | null;
   hasPendingToolUse: boolean;
   jsonlPath: string | null;
   prUrl: string | null;

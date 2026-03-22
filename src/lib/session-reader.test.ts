@@ -1,4 +1,7 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
+import { writeFile, unlink } from "fs/promises";
+import { join } from "path";
+import { tmpdir } from "os";
 import {
   extractSessionId,
   extractStartedAt,
@@ -9,6 +12,11 @@ import {
   hasPendingToolUse,
   isAskingForInput,
   linesToConversation,
+  readTokenUsage,
+  getJsonlMtime,
+  readJsonlHead,
+  readJsonlTail,
+  readFullConversation,
 } from "./session-reader";
 
 // Helper to build JSONL line objects
@@ -204,6 +212,50 @@ describe("extractPreview", () => {
     expect(preview.lastUserMessage).toBe("new message");
     expect(preview.lastAssistantText).toBe("new reply");
     expect(preview.messageCount).toBe(2);
+  });
+
+  it("extracts skill name from Skill tool input", () => {
+    const lines = [
+      assistantLine([toolUseBlock("Skill", { skill: "octo:review" })]),
+    ];
+    expect(extractPreview(lines).lastTools[0].input).toBe("octo:review");
+  });
+
+  it("extracts description from Agent tool input", () => {
+    const lines = [
+      assistantLine([toolUseBlock("Agent", { description: "Run tests", prompt: "ignored" })]),
+    ];
+    expect(extractPreview(lines).lastTools[0].input).toBe("Run tests");
+  });
+
+  it("falls back to prompt when Agent has no description", () => {
+    const lines = [
+      assistantLine([toolUseBlock("Agent", { prompt: "Do something" })]),
+    ];
+    expect(extractPreview(lines).lastTools[0].input).toBe("Do something");
+  });
+
+  it("uses first short string value for unknown tool", () => {
+    const lines = [
+      assistantLine([toolUseBlock("CustomTool", { option: "value" })]),
+    ];
+    expect(extractPreview(lines).lastTools[0].input).toBe("value");
+  });
+
+  it("returns null input for unknown tool with no short string values", () => {
+    const lines = [
+      assistantLine([toolUseBlock("CustomTool", { data: "x".repeat(300) })]),
+    ];
+    expect(extractPreview(lines).lastTools[0].input).toBeNull();
+  });
+
+  it("counts and shows user message for XML-mixed content (system tag + real text)", () => {
+    const lines = [
+      userLine("<system-reminder>Follow style</system-reminder>Build the feature"),
+    ];
+    const preview = extractPreview(lines);
+    expect(preview.lastUserMessage).toBe("Build the feature");
+    expect(preview.messageCount).toBe(1);
   });
 
   it("detects command substitution warning in Bash tool", () => {
@@ -512,5 +564,238 @@ describe("extractTaskSummary", () => {
     const summary = extractTaskSummary(lines);
     expect(summary).not.toBeNull();
     expect(summary!.title).toBe("Build the auth module");
+  });
+});
+
+describe("readTokenUsage", () => {
+  const tmpFile = join(tmpdir(), `session-reader-test-${process.pid}.jsonl`);
+
+  afterEach(async () => {
+    await unlink(tmpFile).catch(() => {});
+  });
+
+  function assistantJsonl(model: string, usage: Record<string, number>, extra = {}): string {
+    return JSON.stringify({
+      type: "assistant",
+      message: { role: "assistant", content: [], model, usage, ...extra },
+    });
+  }
+
+  it("returns null for nonexistent file", async () => {
+    expect(await readTokenUsage("/nonexistent/path.jsonl")).toBeNull();
+  });
+
+  it("returns null when file has no assistant lines with usage", async () => {
+    await writeFile(tmpFile, [
+      JSON.stringify({ type: "user", message: { role: "human", content: "hello" } }),
+      JSON.stringify({ type: "system", sessionId: "abc" }),
+    ].join("\n"));
+    expect(await readTokenUsage(tmpFile)).toBeNull();
+  });
+
+  it("aggregates tokens from a single model", async () => {
+    await writeFile(tmpFile, [
+      assistantJsonl("claude-sonnet-4-6", { input_tokens: 100, output_tokens: 200, cache_creation_input_tokens: 50, cache_read_input_tokens: 30 }),
+      assistantJsonl("claude-sonnet-4-6", { input_tokens: 50, output_tokens: 80, cache_creation_input_tokens: 0, cache_read_input_tokens: 100 }),
+    ].join("\n"));
+    const usage = await readTokenUsage(tmpFile);
+    expect(usage).not.toBeNull();
+    expect(usage!["claude-sonnet-4-6"]).toEqual({
+      inputTokens: 150,
+      outputTokens: 280,
+      cacheCreationTokens: 50,
+      cacheReadTokens: 130,
+    });
+  });
+
+  it("aggregates tokens across multiple models", async () => {
+    await writeFile(tmpFile, [
+      assistantJsonl("claude-sonnet-4-6", { input_tokens: 100, output_tokens: 200 }),
+      assistantJsonl("claude-opus-4-6", { input_tokens: 500, output_tokens: 300 }),
+    ].join("\n"));
+    const usage = await readTokenUsage(tmpFile);
+    expect(usage).not.toBeNull();
+    expect(Object.keys(usage!)).toHaveLength(2);
+    expect(usage!["claude-sonnet-4-6"].inputTokens).toBe(100);
+    expect(usage!["claude-opus-4-6"].inputTokens).toBe(500);
+  });
+
+  it("skips lines missing model or usage fields", async () => {
+    await writeFile(tmpFile, [
+      JSON.stringify({ type: "assistant", message: { role: "assistant", content: [] } }),
+      assistantJsonl("claude-sonnet-4-6", { input_tokens: 10, output_tokens: 20 }),
+    ].join("\n"));
+    const usage = await readTokenUsage(tmpFile);
+    expect(Object.keys(usage!)).toHaveLength(1);
+  });
+
+  it("skips malformed JSON lines without throwing", async () => {
+    await writeFile(tmpFile, [
+      '{"type":"assistant","message":{"role":"assistant",BROKEN',
+      assistantJsonl("claude-sonnet-4-6", { input_tokens: 10, output_tokens: 5 }),
+    ].join("\n"));
+    const usage = await readTokenUsage(tmpFile);
+    expect(usage!["claude-sonnet-4-6"].inputTokens).toBe(10);
+  });
+
+  it("treats missing usage sub-fields as zero", async () => {
+    await writeFile(tmpFile, assistantJsonl("claude-sonnet-4-6", { input_tokens: 42 }));
+    const usage = await readTokenUsage(tmpFile);
+    expect(usage!["claude-sonnet-4-6"]).toEqual({
+      inputTokens: 42,
+      outputTokens: 0,
+      cacheCreationTokens: 0,
+      cacheReadTokens: 0,
+    });
+  });
+});
+
+describe("getJsonlMtime", () => {
+  const tmpFile = join(tmpdir(), `getJsonlMtime-test-${process.pid}.jsonl`);
+
+  afterEach(async () => {
+    await unlink(tmpFile).catch(() => {});
+  });
+
+  it("returns a Date for an existing file", async () => {
+    await writeFile(tmpFile, "{}");
+    const result = await getJsonlMtime(tmpFile);
+    expect(result).toBeInstanceOf(Date);
+  });
+
+  it("returns null for a nonexistent file", async () => {
+    expect(await getJsonlMtime("/nonexistent/path.jsonl")).toBeNull();
+  });
+});
+
+describe("isAskingForInput — additional phrases", () => {
+  function withToolThenAssistant(text: string) {
+    return [
+      { type: "user", message: { role: "human", content: "do it" } },
+      { type: "assistant", message: { role: "assistant", content: [{ type: "tool_use", name: "Bash", input: { command: "ls" } }], stop_reason: "end_turn" } },
+      { type: "user", message: { role: "human", content: "tool result" } },
+      { type: "assistant", message: { role: "assistant", content: [{ type: "text", text }], stop_reason: "end_turn" } },
+    ];
+  }
+
+  it("returns true for 'before I ...' with question mark", () => {
+    expect(isAskingForInput(withToolThenAssistant("Before I make these changes, want me to show a diff?"))).toBe(true);
+  });
+
+  it("returns true for 'is that okay'", () => {
+    expect(isAskingForInput(withToolThenAssistant("I've made the edits. Is that okay?"))).toBe(true);
+  });
+
+  it("returns true for 'does that look right'", () => {
+    expect(isAskingForInput(withToolThenAssistant("The output is ready. Does that look right?"))).toBe(true);
+  });
+
+  it("returns true for 'let me know' with 'prefer'", () => {
+    expect(isAskingForInput(withToolThenAssistant("Let me know which approach you prefer."))).toBe(true);
+  });
+
+  it("returns true for 'let me know' with 'choose'", () => {
+    expect(isAskingForInput(withToolThenAssistant("Let me know which one to choose."))).toBe(true);
+  });
+
+  it("returns true for 'let me know' with 'decision'", () => {
+    expect(isAskingForInput(withToolThenAssistant("Let me know once you've made a decision."))).toBe(true);
+  });
+
+  it("returns false for 'let me know' without preference/decision words", () => {
+    expect(isAskingForInput(withToolThenAssistant("Let me know if you have any questions."))).toBe(false);
+  });
+});
+
+describe("extractTaskSummary — XML-mixed messages", () => {
+  it("uses stripped content when message is XML-wrapped but has real text", () => {
+    const lines = [
+      { type: "user", message: { role: "human", content: "<system-reminder>Follow style</system-reminder>Build the login page" } },
+    ];
+    const summary = extractTaskSummary(lines);
+    expect(summary).not.toBeNull();
+    expect(summary!.title).toBe("Build the login page");
+  });
+});
+
+describe("readJsonlHead", () => {
+  const tmpFile = join(tmpdir(), `readJsonlHead-test-${process.pid}.jsonl`);
+
+  afterEach(async () => {
+    await unlink(tmpFile).catch(() => {});
+  });
+
+  it("returns parsed lines from the top of the file", async () => {
+    const lines = [
+      JSON.stringify({ type: "system", sessionId: "abc" }),
+      JSON.stringify({ type: "user", message: { content: "hello" } }),
+      JSON.stringify({ type: "assistant", message: { content: [] } }),
+    ];
+    await writeFile(tmpFile, lines.join("\n"));
+    const result = await readJsonlHead(tmpFile, 2);
+    expect(result).toHaveLength(2);
+    expect(result[0].type).toBe("system");
+    expect(result[1].type).toBe("user");
+  });
+
+  it("returns empty array for nonexistent file", async () => {
+    expect(await readJsonlHead("/nonexistent/path.jsonl")).toEqual([]);
+  });
+
+  it("skips malformed JSON lines", async () => {
+    await writeFile(tmpFile, ["BROKEN", JSON.stringify({ type: "user", message: { content: "hi" } })].join("\n"));
+    const result = await readJsonlHead(tmpFile);
+    expect(result.some((l) => l.type === "user")).toBe(true);
+  });
+});
+
+describe("readJsonlTail", () => {
+  const tmpFile = join(tmpdir(), `readJsonlTail-test-${process.pid}.jsonl`);
+
+  afterEach(async () => {
+    await unlink(tmpFile).catch(() => {});
+  });
+
+  it("returns parsed lines from the tail of the file", async () => {
+    const lines = Array.from({ length: 10 }, (_, i) =>
+      JSON.stringify({ type: "user", message: { content: `msg-${i}` } })
+    );
+    await writeFile(tmpFile, lines.join("\n"));
+    const result = await readJsonlTail(tmpFile, 3);
+    expect(result).toHaveLength(3);
+    expect((result[result.length - 1].message as { content: string }).content).toBe("msg-9");
+  });
+
+  it("returns empty array for nonexistent file", async () => {
+    expect(await readJsonlTail("/nonexistent/path.jsonl")).toEqual([]);
+  });
+});
+
+describe("readFullConversation", () => {
+  const tmpFile = join(tmpdir(), `readFullConversation-test-${process.pid}.jsonl`);
+
+  afterEach(async () => {
+    await unlink(tmpFile).catch(() => {});
+  });
+
+  it("returns all parsed lines", async () => {
+    const lines = [
+      JSON.stringify({ type: "user", message: { content: "first" } }),
+      JSON.stringify({ type: "assistant", message: { content: [] } }),
+      JSON.stringify({ type: "user", message: { content: "second" } }),
+    ];
+    await writeFile(tmpFile, lines.join("\n"));
+    const result = await readFullConversation(tmpFile);
+    expect(result).toHaveLength(3);
+  });
+
+  it("returns empty array for nonexistent file", async () => {
+    expect(await readFullConversation("/nonexistent/path.jsonl")).toEqual([]);
+  });
+
+  it("skips malformed lines", async () => {
+    await writeFile(tmpFile, ["BROKEN", JSON.stringify({ type: "user", message: { content: "ok" } })].join("\n"));
+    const result = await readFullConversation(tmpFile);
+    expect(result).toHaveLength(1);
   });
 });

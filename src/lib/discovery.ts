@@ -3,6 +3,9 @@ import { join } from "path";
 import { ClaudeSession, ConversationPreview } from "./types";
 import { ProcessInfo, getAllProcessInfos } from "./process-utils";
 import { buildProcessTree, findClaudePidsFromTree } from "./terminal/detect";
+import { readBridgeProcesses } from "./process-bridge";
+import { loadConfig } from "./config";
+import { normalizeHostPath } from "./paths";
 import { workingDirToProjectDir, repoNameFromPath } from "./paths";
 import {
   readJsonlTail,
@@ -18,6 +21,7 @@ import {
   hasPendingToolUse,
   getJsonlMtime,
   linesToConversation,
+  readTokenUsage,
 } from "./session-reader";
 import { getGitSummary, getGitDiff, getMainWorktreePath, getPrUrl } from "./git-info";
 import { classifyStatus } from "./status-classifier";
@@ -58,9 +62,10 @@ async function buildSession(
   hookStatus: HookStatus | undefined,
   claimedPaths: Set<string>,
 ): Promise<ClaudeSession | null> {
-  if (!info.workingDirectory) return null;
+  const workingDirectory = normalizeHostPath(info.workingDirectory);
+  if (!workingDirectory) return null;
 
-  const projectDir = workingDirToProjectDir(info.workingDirectory);
+  const projectDir = workingDirToProjectDir(workingDirectory);
   const jsonlPath = hookStatus?.transcriptPath
     ?? await findLatestJsonl(projectDir, claimedPaths);
 
@@ -75,12 +80,13 @@ async function buildSession(
   let lastActivity = new Date().toISOString();
   let taskSummary: ClaudeSession["taskSummary"] = null;
 
-  const [jsonlResult, git, mainWorktreePath] = await Promise.all([
+  const [jsonlResult, tokenUsage, git, mainWorktreePath] = await Promise.all([
     jsonlPath
       ? Promise.all([readJsonlTail(jsonlPath), readJsonlHead(jsonlPath), getJsonlMtime(jsonlPath)])
       : Promise.resolve(null),
-    getGitSummary(info.workingDirectory),
-    getMainWorktreePath(info.workingDirectory),
+    jsonlPath ? readTokenUsage(jsonlPath) : Promise.resolve(null),
+    getGitSummary(workingDirectory),
+    getMainWorktreePath(workingDirectory),
   ]);
 
   if (jsonlResult) {
@@ -99,9 +105,9 @@ async function buildSession(
 
   const resolvedBranch = git?.branch ?? branch;
   const skipPrLookup = !resolvedBranch || resolvedBranch === "main" || resolvedBranch === "master";
-  const prUrl = skipPrLookup ? null : await getPrUrl(info.workingDirectory, resolvedBranch);
+  const prUrl = skipPrLookup ? null : await getPrUrl(workingDirectory, resolvedBranch);
 
-  const isWorktree = mainWorktreePath !== null && mainWorktreePath !== info.workingDirectory;
+  const isWorktree = mainWorktreePath !== null && mainWorktreePath !== workingDirectory;
   const parentRepo = isWorktree ? mainWorktreePath : null;
 
   // Hooks provide authoritative working/idle/finished status.
@@ -123,8 +129,8 @@ async function buildSession(
   return {
     id: sessionId,
     pid: info.pid,
-    workingDirectory: info.workingDirectory,
-    repoName: repoNameFromPath(info.workingDirectory),
+    workingDirectory,
+    repoName: repoNameFromPath(workingDirectory),
     parentRepo,
     isWorktree,
     branch: resolvedBranch,
@@ -133,6 +139,7 @@ async function buildSession(
     startedAt,
     git,
     preview,
+    tokenUsage,
     hasPendingToolUse: pendingToolUse,
     taskSummary,
     jsonlPath,
@@ -140,20 +147,31 @@ async function buildSession(
   };
 }
 
+async function getNativeProcessInfos(): Promise<ProcessInfo[]> {
+  const processTree = await buildProcessTree();
+  const pids = findClaudePidsFromTree(processTree);
+  return getAllProcessInfos(pids, processTree);
+}
+
 export async function discoverSessions(): Promise<ClaudeSession[]> {
-  // Single ps call builds the full tree (pid, ppid, %cpu, comm) —
-  // extract claude PIDs and their CPU% from it, then one lsof for cwds
-  const [processTree, hookStatuses, meta] = await Promise.all([
-    buildProcessTree(),
+  const [config, hookStatuses, meta] = await Promise.all([
+    loadConfig(),
     readAllHookStatuses(),
     loadSessionMeta(),
   ]);
-  const pids = findClaudePidsFromTree(processTree);
-  const processInfos = await getAllProcessInfos(pids, processTree);
+
+  let processInfos: ProcessInfo[];
+  if (config.processBridge.enabled) {
+    processInfos =
+      (await readBridgeProcesses(config.processBridge.maxAgeMs)) ??
+      (await getNativeProcessInfos());
+  } else {
+    processInfos = await getNativeProcessInfos();
+  }
 
   // Collect transcript paths claimed by hook events so fallback doesn't reuse them
   const claimedPaths = new Set<string>();
-  const activePids = new Set(pids);
+  const activePids = new Set(processInfos.map((p) => p.pid));
   for (const [pid, hook] of hookStatuses) {
     if (hook.transcriptPath && activePids.has(pid)) {
       claimedPaths.add(hook.transcriptPath);

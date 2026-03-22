@@ -16,6 +16,7 @@ function makeSession(overrides: Partial<ClaudeSession> = {}): ClaudeSession {
     startedAt: "2026-01-01T00:00:00Z",
     git: null,
     preview: { lastUserMessage: null, lastAssistantText: null, assistantIsNewer: false, lastTools: [], messageCount: 0 },
+    tokenUsage: null,
     hasPendingToolUse: false,
     taskSummary: null,
     jsonlPath: null,
@@ -81,6 +82,13 @@ describe("groupSessions", () => {
     const groups = groupSessions(sessions);
     expect(groups[0].repoName).toBe("apple");
     expect(groups[1].repoName).toBe("zebra");
+  });
+
+  it("uses repoPath as repoName when path has no separable segments", () => {
+    const sessions = [makeSession({ workingDirectory: "myrepo", repoName: "myrepo" })];
+    const groups = groupSessions(sessions);
+    expect(groups[0].repoName).toBe("myrepo");
+    expect(groups[0].repoPath).toBe("myrepo");
   });
 });
 

@@ -14,7 +14,8 @@ When you're running several Claude Code instances across different repos and wor
 
 ## Features
 
-- **Auto-discovery** — Detects all running `claude` CLI processes via the process table, uses hook events for authoritative PID-to-JSONL mapping with mtime-based fallback
+- **Auto-discovery** — Detects all running `claude` CLI processes via the process table, uses hook events for authoritative PID-to-JSONL mapping with mtime-based fallback; optionally reads from a macOS process bridge file for use when running containerized
+- **Token usage** — Shows per-model input, output, and cache token counts on each session card
 - **Live status** — Classifies each session as Working, Idle, Waiting (needs input), Errored, or Finished using real-time hook events from Claude Code, with CPU/JSONL heuristic fallback
 - **Git integration** — Shows branch name, changed files, additions/deletions, and detects open pull requests via `gh`
 - **PR status badges** — Live CI check rollup (passing/failing/pending), review decision, unresolved threads, merge conflicts, and merged/closed state
@@ -65,7 +66,7 @@ npm run electron:dev
 npm run electron:build
 ```
 
-The development server runs on port 3200. The Electron shell loads it automatically.
+The development server runs on port 2875 (mnemonic: CTRL on a phone keypad). The Electron shell loads it automatically.
 
 ### Scripts
 
@@ -80,6 +81,42 @@ The development server runs on port 3200. The Electron shell loads it automatica
 | `npm run test:watch` | Run tests in watch mode |
 | `npm run lint` | Run ESLint |
 | `npm run typecheck` | Run TypeScript type checking |
+| `npm run bridge:start` | Start the macOS process bridge (background) |
+| `npm run bridge:stop` | Stop the process bridge |
+| `npm run bridge:restart` | Restart the process bridge |
+| `npm run bridge:status` | Show bridge status and last write age |
+
+## Running in Docker
+
+The app can run as a containerized web server. This is useful for accessing the dashboard from any browser on the same machine, or for running headlessly without Electron.
+
+```bash
+# Build and start
+docker compose up -d
+
+# Dashboard is available at:
+open http://localhost:2875
+```
+
+The container mounts `~/.claude` (read-only) and `~/.claude-control` (read-write). Because Docker on macOS cannot see host processes directly, you must run the process bridge natively so the container can discover Claude sessions:
+
+```bash
+npm run bridge:start
+```
+
+The bridge polls the macOS process table every second and writes `~/.claude-control/processes.json`. The container reads this file (freshness-checked) and falls back to its own process scan if the file is absent or stale.
+
+Enable the bridge in settings or directly in `~/.claude-control/config.json`:
+
+```json
+{
+  "processBridge": {
+    "enabled": true,
+    "intervalMs": 1000,
+    "maxAgeMs": 5000
+  }
+}
+```
 
 ## How it works
 
@@ -118,23 +155,35 @@ Hook events are installed automatically into `~/.claude/settings.json` on first 
 ### Architecture
 
 ```
-Electron shell (macOS native window)
-    ↓
+Electron shell (macOS native window)  |  Docker container
+    ↓                                  |      ↓
 Browser (SWR polls /api/sessions every 1s)
     ↓
-Next.js API Routes (standalone server)
+Next.js API Routes (standalone server, port 2875)
     ↓
-┌──────────────────────────────────────────┐
-│  discovery.ts  →  process-utils.ts       │  ps, lsof
-│                →  hooks-reader.ts        │  <pid>.json → status + transcript
-│                →  paths.ts               │  ~/.claude/projects mapping
-│                →  session-reader.ts       │  JSONL parsing
-│                →  git-info.ts            │  git status, diff, PR detection
-│                →  status-classifier.ts   │  Heuristic fallback
-└──────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────┐
+│  discovery.ts  →  process-utils.ts                   │  ps, lsof (native)
+│                →  process-bridge.ts                  │  ~/.claude-control/processes.json (Docker)
+│                →  hooks-reader.ts                    │  <pid>.json → status + transcript
+│                →  paths.ts + normalizeHostPath()     │  ~/.claude/projects mapping, path remapping
+│                →  session-reader.ts                  │  JSONL parsing, token usage
+│                →  git-info.ts                        │  git status, diff, PR detection
+│                →  status-classifier.ts               │  Heuristic fallback
+└──────────────────────────────────────────────────────┘
+        ↑
+macOS process bridge (scripts/bridge.js)
+  polls ps/lsof → writes ~/.claude-control/processes.json
 ```
 
 No database — all state is derived from the process table, hook event files, and JSONL transcripts on every request.
+
+### Token usage
+
+For each session that has a JSONL transcript, the app scans all assistant messages and aggregates token counts by model. The session card footer shows:
+
+- Model name (e.g. `sonnet-4-6`)
+- Input tokens (↑), output tokens (↓)
+- Combined cache tokens (⚡) when non-zero
 
 ## First-time setup
 
@@ -147,6 +196,11 @@ You can add multiple code directories. The app scans up to two levels deep for g
 ```
 ├── electron/
 │   └── main.js                  # Electron main process
+├── scripts/
+│   ├── bridge.js                # macOS process bridge (polls ps/lsof, writes processes.json)
+│   ├── bridge-ctl.sh            # start/stop/restart/status for the bridge daemon
+│   ├── prepare-build.js         # Assembles standalone Next.js app
+│   └── after-pack.js            # Copies into Electron resources
 ├── src/
 │   ├── app/
 │   │   ├── page.tsx             # Dashboard
@@ -156,12 +210,22 @@ You can add multiple code directories. The app scans up to two levels deep for g
 │   ├── components/              # React components
 │   ├── hooks/                   # SWR hooks, keyboard shortcuts, notifications
 │   └── lib/                     # Core logic (discovery, git, JSONL parsing)
-├── scripts/
-│   ├── prepare-build.js         # Assembles standalone Next.js app
-│   └── after-pack.js            # Copies into Electron resources
+│       ├── process-bridge.ts    # Reads ~/.claude-control/processes.json (Docker bridge)
+│       └── paths.ts             # Path helpers including normalizeHostPath()
+├── Dockerfile                   # Multi-stage build (node:24-alpine, standalone output)
+├── docker-compose.yml           # Mounts ~/.claude and ~/.claude-control
 └── public/
     └── icon.png
 ```
+
+## Test coverage
+
+| Package | Statements | Branches | Functions | Tests |
+|---|---|---|---|---|
+| `src/lib` | 94.6% | 86.5% | 100% | 153 |
+| `src/lib/terminal` | 29.8% | 26.9% | 25% | (see note) |
+
+`lib/terminal/detect.ts` coverage is low because it exercises OS-level process tree construction (`ps`, `lsof`) that requires live processes to test meaningfully — unit tests for this module are not practical without spawning real subprocesses.
 
 ## Tech stack
 

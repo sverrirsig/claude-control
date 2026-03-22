@@ -10,6 +10,16 @@ import { PrStatusBadge } from "./PrStatusBadge";
 import { QuickActions } from "./QuickActions";
 import { QuickReply } from "./QuickReply";
 
+function formatTokens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}k`;
+  return String(n);
+}
+
+function shortModel(model: string): string {
+  return model.replace(/^claude-/, "");
+}
+
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const seconds = Math.floor(diff / 1000);
@@ -201,11 +211,27 @@ export function SessionCard({ session, targetScreen, pulse, selected, shortcutNu
             />
           )}
 
-          {/* Time ago */}
-          <div className="mb-3 mt-3">
-            <span className="text-[11px] text-zinc-600 font-(family-name:--font-geist-mono)">
+          {/* Footer: time ago + token usage */}
+          <div className="mb-3 mt-3 flex items-start justify-between gap-2">
+            <span className="text-[11px] text-zinc-600 font-(family-name:--font-geist-mono) shrink-0">
               {timeAgo(session.lastActivity)}
             </span>
+            {session.tokenUsage && (
+              <div className="flex flex-col items-end gap-0.5 min-w-0">
+                {Object.entries(session.tokenUsage).map(([model, usage]) => (
+                  <div key={model} className="flex items-center gap-1.5 font-(family-name:--font-geist-mono)">
+                    <span className="text-[9px] text-zinc-600 truncate max-w-[80px]">{shortModel(model)}</span>
+                    <span className="text-[10px] text-zinc-500" title="input tokens">↑{formatTokens(usage.inputTokens)}</span>
+                    <span className="text-[10px] text-zinc-500" title="output tokens">↓{formatTokens(usage.outputTokens)}</span>
+                    {(usage.cacheReadTokens + usage.cacheCreationTokens) > 0 && (
+                      <span className="text-[10px] text-zinc-600" title="cache read + creation tokens">
+                        ⚡{formatTokens(usage.cacheReadTokens + usage.cacheCreationTokens)}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Confirmation bar — slides in over the actions */}

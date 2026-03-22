@@ -2,6 +2,7 @@ import { homedir } from "os";
 import { join } from "path";
 import { readdir, stat, readFile, unlink } from "fs/promises";
 import { SessionStatus } from "./types";
+import { normalizeHostPath } from "./paths";
 
 const EVENTS_DIR = join(homedir(), ".claude-control", "events");
 const STALE_THRESHOLD_MS = 24 * 60 * 60 * 1000;
@@ -88,9 +89,9 @@ export async function readAllHookStatuses(): Promise<Map<number, HookStatus>> {
             status,
             event: data.event,
             ts: data.ts ?? 0,
-            cwd: data.cwd || null,
+            cwd: data.cwd ? normalizeHostPath(data.cwd) : null,
             sessionId: data.session_id || null,
-            transcriptPath: data.transcript_path || null,
+            transcriptPath: data.transcript_path ? normalizeHostPath(data.transcript_path) : null,
           });
         } catch {
           // Invalid JSON — skip

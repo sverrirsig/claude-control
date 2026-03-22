@@ -1,0 +1,17 @@
+services:
+  claude-control:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "2875:2875"
+    volumes:
+      # Session event files and user config (read-write — app writes config here)
+      - ${HOME}/.claude-control:/root/.claude-control
+      # Claude Code project/session data (read-only — discovery only)
+      - ${HOME}/.claude:/root/.claude:ro
+    environment:
+      - PORT=2875
+      - HOSTNAME=0.0.0.0
+      - NODE_ENV=production
+    restart: unless-stopped

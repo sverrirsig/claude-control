@@ -1,0 +1,10 @@
+node_modules
+.next
+dist
+next-app-dist
+.DS_Store
+*.tsbuildinfo
+.env
+.env*.local
+.claude/worktrees/
+tmp/
