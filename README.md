@@ -25,7 +25,7 @@ When you're running several Claude Code instances across different repos and wor
 - **Desktop notifications** — Native macOS notifications when sessions finish working or need attention (configurable)
 - **Notification sounds** — Subtle two-tone chime on status transitions (configurable)
 - **Quick actions** — One-click buttons to focus the terminal tab, open your editor, git GUI, Finder, or PR link for any session
-- **Multiple terminal support** — Works with iTerm2, Terminal.app, Ghostty, kitty, WezTerm, and Alacritty
+- **Multiple terminal support** — Full tab-level control for iTerm2, Terminal.app, and kitty; basic support for Ghostty, WezTerm, Warp, and Alacritty (see [Terminal support](#terminal-support))
 - **tmux integration** — Run sessions inside tmux with per-project session grouping or manual session selection; approve/reject without terminal focus via `send-keys`
 - **Configurable tools** — Choose your preferred terminal, code editor (VS Code, Cursor, Zed, etc.), git GUI (Fork, Sublime Merge, etc.), and browser (Chrome, Arc, Safari, etc.)
 - **New session creation** — Create new Claude Code sessions with git worktree support, repo browsing, and custom initial prompts
@@ -38,7 +38,7 @@ When you're running several Claude Code instances across different repos and wor
 - **macOS** (uses AppleScript for terminal integration, native folder picker, etc.)
 - **Node.js** >= 18 (LTS 24 recommended — see `.node-version`)
 - [**Claude Code CLI**](https://docs.anthropic.com/en/docs/claude-code) installed and running
-- A supported terminal: [iTerm2](https://iterm2.com/) (default), Terminal.app, [Ghostty](https://ghostty.org/), [kitty](https://sw.kovidgoyal.net/kitty/), [WezTerm](https://wezfurlong.org/wezterm/), or [Alacritty](https://alacritty.org/)
+- A supported terminal (see [Terminal support](#terminal-support) below)
 - [**tmux**](https://github.com/tmux/tmux) for tmux integration (optional)
 - [**GitHub CLI**](https://cli.github.com/) (`gh`) for PR detection (optional)
 
@@ -136,6 +136,55 @@ Next.js API Routes (standalone server)
 
 No database — all state is derived from the process table, hook event files, and JSONL transcripts on every request.
 
+## Terminal support
+
+Claude-control auto-detects which terminal each Claude session is running in by walking the process tree. Capabilities vary by terminal:
+
+### Full support
+
+These terminals support tab-level focus, text input, and keystroke sending — clicking "focus" in the dashboard switches to the exact tab running that session.
+
+| Terminal | Focus method | How it works |
+|---|---|---|
+| [**Terminal.app**](https://support.apple.com/guide/terminal/) | AppleScript (TTY matching) | Matches tabs by TTY, uses System Events for keystrokes. Works out of the box. |
+| [**iTerm2**](https://iterm2.com/) | AppleScript (TTY matching) | Iterates windows/tabs/sessions, matches by TTY path. Native `write text` for keystrokes. Works out of the box. |
+| [**kitty**](https://sw.kovidgoyal.net/kitty/) | Remote control (Unix socket) | Uses `kitten @` IPC to resolve window by PID, then focus by window ID. Requires configuration (see below). |
+
+#### kitty configuration
+
+kitty requires remote control to be enabled. Add the following to `~/.config/kitty/kitty.conf`:
+
+```conf
+allow_remote_control socket-only
+listen_on unix:/tmp/kitty-{kitty_pid}
+```
+
+**You must restart kitty** after making these changes (`listen_on` is not reloaded on config refresh).
+
+- **`allow_remote_control socket-only`** — Allows external programs to control kitty via the Unix socket, while preventing programs running *inside* kitty (e.g. scripts you run) from doing so. This is the recommended security setting.
+- **`listen_on unix:/tmp/kitty-{kitty_pid}`** — Creates a socket at `/tmp/kitty-<pid>` that claude-control uses to send commands. The `{kitty_pid}` placeholder ensures each kitty instance gets its own socket.
+
+To verify it's working, run this inside kitty:
+
+```bash
+kitten @ ls
+```
+
+If it outputs JSON with your windows and tabs, remote control is active. Without these settings, claude-control falls back to basic app activation (no tab selection).
+
+### Basic support
+
+These terminals are detected and can be activated, but focus goes to the app — not a specific tab. Text and keystrokes are sent via macOS System Events.
+
+| Terminal | Notes |
+|---|---|
+| [**Ghostty**](https://ghostty.org/) | Has AppleScript support since v1.3 but lacks PID/TTY properties for tab matching ([#10756](https://github.com/ghostty-org/ghostty/issues/10756)). Full support expected when 1.4 ships. |
+| [**WezTerm**](https://wezfurlong.org/wezterm/) | No tab-level IPC available. |
+| [**Warp**](https://www.warp.dev/) | No tab-level IPC available. |
+| [**Alacritty**](https://alacritty.org/) | No tabs by design — use tmux for multi-session workflows. |
+
+> **Tip:** For any terminal with basic support, enabling **tmux integration** gives you full per-session control. Claude-control sends commands directly to tmux panes via `send-keys`, bypassing the terminal entirely.
+
 ## First-time setup
 
 On first launch, the app will ask you to select your code directory (the parent folder containing your git repos, e.g. `~/Code`). This is stored in `~/.claude-control/config.json` and used for the repo picker when creating new sessions.
@@ -166,9 +215,9 @@ You can add multiple code directories. The app scans up to two levels deep for g
 ## Tech stack
 
 - **Electron** — Native macOS window with hidden title bar
-- **Next.js 14** (App Router, standalone output) — Serves both API and UI from a single process
+- **Next.js 16** (App Router, standalone output) — Serves both API and UI from a single process
 - **TypeScript** (strict)
-- **Tailwind CSS 3** — Dark theme
+- **Tailwind CSS 4** — Dark theme
 - **SWR** — Client-side polling with 1-second intervals
 
 ## Contributing

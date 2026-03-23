@@ -8,6 +8,7 @@ export interface TerminalInfo {
   app: TerminalApp;
   appName: string; // Display name: "iTerm2", "Terminal", "Ghostty"
   processName: string; // As seen by ps: "iTerm2", "Terminal", "ghostty"
+  pid: number; // The claude process PID (used by kitty for --match pid:N)
   inTmux: boolean;
   tmux?: {
     paneId: string; // e.g. "%5"
@@ -15,6 +16,7 @@ export interface TerminalInfo {
     windowIndex: number;
     paneIndex: number;
     target: string; // e.g. "main:1.0"
+    clientPid: number; // PID of the tmux client process (used by kitty for window matching)
     clientTty: string; // TTY of the tmux client (terminal tab's TTY, NOT pane TTY)
   };
   tty: string; // The claude process's TTY (or "" on failure)
