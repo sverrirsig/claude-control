@@ -226,8 +226,13 @@ export function NewSessionModal({ repoPath, repoName, onClose }: Props) {
     setSetupLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/pick-folder", { method: "POST" });
-      const data = await res.json();
+      const api = (window as unknown as { electronAPI?: { pickFolder: () => Promise<{ cancelled?: boolean; path?: string }> } }).electronAPI;
+      if (!api) {
+        setError("Folder picker is only available in the desktop app");
+        setSetupLoading(false);
+        return;
+      }
+      const data = await api.pickFolder();
       if (data.cancelled) {
         setSetupLoading(false);
         return;

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, shell, utilityProcess } = require("electron");
+const { app, BrowserWindow, shell, utilityProcess, dialog, ipcMain } = require("electron");
 const { spawn } = require("child_process");
 const path = require("path");
 const net = require("net");
@@ -156,6 +156,17 @@ async function waitForServer(maxAttempts = 30) {
   return false;
 }
 
+ipcMain.handle("dialog:pickFolder", async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ["openDirectory"],
+    title: "Select your code directory",
+  });
+  if (result.canceled || result.filePaths.length === 0) {
+    return { cancelled: true };
+  }
+  return { path: result.filePaths[0] };
+});
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
@@ -169,6 +180,7 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      preload: path.join(__dirname, "preload.js"),
     },
     show: false,
   });
