@@ -14,6 +14,7 @@ const KNOWN_TERMINALS: Record<string, { app: TerminalApp; appName: string; proce
   "wezterm-gui": { app: "wezterm", appName: "WezTerm", processName: "wezterm-gui" },
   wezterm: { app: "wezterm", appName: "WezTerm", processName: "WezTerm" },
   alacritty: { app: "alacritty", appName: "Alacritty", processName: "alacritty" },
+  warp: { app: "warp", appName: "Warp", processName: "Warp" },
 };
 
 const UNKNOWN_TERMINAL: Pick<TerminalInfo, "app" | "appName" | "processName"> = {
@@ -222,6 +223,7 @@ export function matchTerminal(comm: string): Pick<TerminalInfo, "app" | "appName
   if (lowerComm.includes("kitty")) return KNOWN_TERMINALS["kitty"];
   if (lowerComm.includes("wezterm")) return KNOWN_TERMINALS["wezterm-gui"] ?? KNOWN_TERMINALS["wezterm"];
   if (lowerComm.includes("alacritty")) return KNOWN_TERMINALS["alacritty"];
+  if (lowerComm.includes("warp")) return KNOWN_TERMINALS["warp"];
 
   return null;
 }

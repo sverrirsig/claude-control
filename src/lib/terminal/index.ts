@@ -28,4 +28,4 @@ export {
   createSession,
   listTmuxSessions,
 } from "./adapters";
-export type { CreateSessionOpts } from "./adapters";
+export type { CreateSessionPublicOpts as CreateSessionOpts } from "./adapters";
