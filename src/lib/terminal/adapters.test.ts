@@ -88,7 +88,7 @@ describe("shared utilities", () => {
     const result = systemEventsScript("iTerm2", 'keystroke "y"');
     expect(result).toContain('tell process "iTerm2"');
     expect(result).toContain('keystroke "y"');
-    expect(result).toContain("tell application \"System Events\"");
+    expect(result).toContain('tell application "System Events"');
   });
 });
 

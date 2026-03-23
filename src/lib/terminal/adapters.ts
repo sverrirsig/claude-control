@@ -25,8 +25,7 @@ export async function focusSession(info: TerminalInfo): Promise<void> {
   }
 
   // Use tmux client TTY (terminal tab's TTY) when in tmux, otherwise the process's TTY
-  const effectiveInfo =
-    info.inTmux && info.tmux?.clientTty ? { ...info, tty: info.tmux.clientTty } : info;
+  const effectiveInfo = info.inTmux && info.tmux?.clientTty ? { ...info, tty: info.tmux.clientTty } : info;
 
   const adapter = getAdapter(effectiveInfo.app);
   await adapter.focus(effectiveInfo);
@@ -56,11 +55,9 @@ export async function sendKeystroke(info: TerminalInfo, keystroke: string): Prom
       tab: "Tab",
       space: "Space",
     };
-    await execFileAsync(
-      "tmux",
-      ["send-keys", "-t", info.tmux.paneId, tmuxKeyMap[keystroke] ?? keystroke],
-      { timeout: PROCESS_TIMEOUT_MS },
-    );
+    await execFileAsync("tmux", ["send-keys", "-t", info.tmux.paneId, tmuxKeyMap[keystroke] ?? keystroke], {
+      timeout: PROCESS_TIMEOUT_MS,
+    });
     return;
   }
 
@@ -133,9 +130,7 @@ export async function createSession(opts: CreateSessionPublicOpts): Promise<void
 // listTmuxSessions (not terminal-specific, stays here)
 // ────────────────────────────────────────────────────────────────────────────
 
-export async function listTmuxSessions(): Promise<
-  { name: string; windows: number; attached: boolean }[]
-> {
+export async function listTmuxSessions(): Promise<{ name: string; windows: number; attached: boolean }[]> {
   try {
     const { stdout } = await execFileAsync(
       "tmux",
