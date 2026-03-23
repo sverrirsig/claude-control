@@ -324,6 +324,8 @@ describe("kitty adapter", () => {
       expect.any(Object),
       expect.any(Function),
     );
+    // Should also raise the macOS window
+    expect(execMock).toHaveBeenCalledWith("open", ["-a", "kitty"], expect.any(Object), expect.any(Function));
   });
 
   it("createSession uses os-window type for window mode", async () => {

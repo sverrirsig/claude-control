@@ -8,7 +8,7 @@ export interface TerminalInfo {
   app: TerminalApp;
   appName: string; // Display name: "iTerm2", "Terminal", "Ghostty"
   processName: string; // As seen by ps: "iTerm2", "Terminal", "ghostty"
-  pid: number; // The claude process PID (used by kitty for --match pid:N)
+  pid: number; // The claude process PID (used by kitty for window matching via kitten @ ls)
   inTmux: boolean;
   tmux?: {
     paneId: string; // e.g. "%5"
