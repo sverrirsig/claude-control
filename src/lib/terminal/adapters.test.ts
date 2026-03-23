@@ -11,7 +11,7 @@ describe("adapter registry", () => {
 
   it("returns an adapter for every known terminal", async () => {
     const { getAdapter } = await import("./adapters/registry");
-    const knownApps: TerminalApp[] = ["iterm", "terminal-app", "ghostty", "kitty", "wezterm", "alacritty"];
+    const knownApps: TerminalApp[] = ["iterm", "terminal-app", "ghostty", "kitty", "wezterm", "alacritty", "warp"];
 
     for (const app of knownApps) {
       const adapter = getAdapter(app);
@@ -349,6 +349,10 @@ describe("kitty adapter", () => {
 // ── Public API tmux delegation tests ────────────────────────────────────────
 
 describe("public API tmux handling", () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
   it("sendText delegates to tmux send-keys when in tmux", async () => {
     const execMock = vi.fn().mockResolvedValue({ stdout: "", stderr: "" });
     vi.doMock("child_process", () => ({

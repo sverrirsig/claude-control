@@ -54,11 +54,22 @@ export const terminalAppAdapter: TerminalAdapter = {
 
   async createSession(command: string, opts: CreateSessionOpts): Promise<void> {
     const asCmd = escapeForAppleScript(command);
-    // "do script" opens a new window by default; pass "in front window" for tabs
-    const target = opts.openIn === "tab" ? ` in front window` : "";
-    const script = `tell application "Terminal"
+    // "do script in front window" opens a tab; plain "do script" opens a new window.
+    // When requesting a tab, check that a window exists first — "in front window"
+    // fails if Terminal has no open windows.
+    const script =
+      opts.openIn === "tab"
+        ? `tell application "Terminal"
   activate
-  do script "${asCmd}"${target}
+  if (count of windows) > 0 then
+    do script "${asCmd}" in front window
+  else
+    do script "${asCmd}"
+  end if
+end tell`
+        : `tell application "Terminal"
+  activate
+  do script "${asCmd}"
 end tell`;
     await execFileAsync("osascript", ["-e", script], { timeout: OSASCRIPT_TIMEOUT_MS });
   },
