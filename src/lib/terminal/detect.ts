@@ -260,7 +260,7 @@ export async function detectTerminal(
         windowIndex: paneInfo.windowIndex,
         paneIndex: paneInfo.paneIndex,
         target: paneInfo.target,
-        clientPid: sessionClient?.pid ?? 0,
+        clientPid: sessionClient?.pid,
         clientTty: sessionClient?.tty ?? "",
       };
 
