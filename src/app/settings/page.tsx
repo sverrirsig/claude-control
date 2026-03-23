@@ -213,14 +213,23 @@ export default function SettingsPage() {
   const addDirectory = async () => {
     setAddingDir(true);
     try {
-      const res = await fetch("/api/pick-folder");
-      const { path } = await res.json();
-      if (path && data) {
-        const dirs = [...data.config.codeDirectories];
-        if (!dirs.includes(path)) {
-          dirs.push(path);
-          await save({ codeDirectories: dirs });
-        }
+      const api = (
+        window as unknown as { electronAPI?: { pickFolder: () => Promise<{ cancelled?: boolean; path?: string }> } }
+      ).electronAPI;
+      if (!api) {
+        console.error("Folder picker is only available in the desktop app");
+        setAddingDir(false);
+        return;
+      }
+      const { path, cancelled } = await api.pickFolder();
+      if (cancelled || !path || !data) {
+        setAddingDir(false);
+        return;
+      }
+      const dirs = [...data.config.codeDirectories];
+      if (!dirs.includes(path)) {
+        dirs.push(path);
+        await save({ codeDirectories: dirs });
       }
     } catch (err) {
       console.error("Failed to add directory:", err);
