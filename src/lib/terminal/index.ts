@@ -17,7 +17,6 @@ export {
   detectTerminal,
   findTerminalInTree,
   matchTerminal,
-  clearTerminalCache,
   evictStaleTerminalCache,
   getTerminalAppName,
 } from "./detect";

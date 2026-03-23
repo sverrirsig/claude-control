@@ -25,10 +25,6 @@ const UNKNOWN_TERMINAL: Pick<TerminalInfo, "app" | "appName" | "processName"> = 
 // Cache keyed by PID — only caches successful (non-unknown) detections
 const terminalCache = new Map<number, TerminalInfo>();
 
-export function clearTerminalCache(pid: number): void {
-  terminalCache.delete(pid);
-}
-
 export function evictStaleTerminalCache(alivePids: Set<number>): void {
   Array.from(terminalCache.keys()).forEach((pid) => {
     if (!alivePids.has(pid)) terminalCache.delete(pid);

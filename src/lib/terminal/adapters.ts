@@ -8,7 +8,12 @@ const execFileAsync = promisify(execFile);
 const OSASCRIPT_TIMEOUT_MS = 10000;
 
 function escapeForAppleScript(text: string): string {
-  return text.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  return text
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, "\\n")
+    .replace(/\r/g, "\\r")
+    .replace(/\t/g, "\\t");
 }
 
 function mapKeystrokeToSystemEvents(keystroke: string): string {

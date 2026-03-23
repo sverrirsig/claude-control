@@ -2,7 +2,7 @@ import { readdir, stat } from "fs/promises";
 import { join } from "path";
 import { ClaudeSession, ConversationPreview } from "./types";
 import { ProcessInfo, getAllProcessInfos } from "./process-utils";
-import { buildProcessTree, findClaudePidsFromTree } from "./terminal/detect";
+import { buildProcessTree, findClaudePidsFromTree, evictStaleTerminalCache } from "./terminal/detect";
 import { workingDirToProjectDir, repoNameFromPath } from "./paths";
 import {
   readJsonlTail,
@@ -154,9 +154,12 @@ export async function discoverSessions(): Promise<ClaudeSession[]> {
   const pids = findClaudePidsFromTree(processTree);
   const processInfos = await getAllProcessInfos(pids, processTree);
 
+  // Clean up terminal cache entries for dead PIDs
+  const activePids = new Set(pids);
+  evictStaleTerminalCache(activePids);
+
   // Collect transcript paths claimed by hook events so fallback doesn't reuse them
   const claimedPaths = new Set<string>();
-  const activePids = new Set(pids);
   for (const [pid, hook] of hookStatuses) {
     if (hook.transcriptPath && activePids.has(pid)) {
       claimedPaths.add(hook.transcriptPath);
