@@ -288,6 +288,41 @@ export async function detectTerminal(
   }
 }
 
+/** Process names that indicate a remote/non-GUI session (not orphaned). */
+const NON_ORPHAN_ANCESTORS = new Set(["sshd", "ssh"]);
+
+/**
+ * Check if a claude process is orphaned — its parent terminal has been closed.
+ * Walks the process tree upward looking for a known terminal. If none is found
+ * and the session is not in tmux or SSH, it's orphaned.
+ */
+export function isOrphaned(
+  pid: number,
+  processTree: Map<number, ProcessTreeEntry>,
+  inTmux: boolean,
+): boolean {
+  if (inTmux) return false;
+  if (!processTree.has(pid)) return false;
+
+  // Check for known terminal
+  const result = findTerminalInTree(pid, processTree);
+  if (result.app !== "unknown") return false;
+
+  // Check for non-GUI ancestors (SSH, etc.) — these aren't orphaned, just remote
+  let currentPid = pid;
+  const visited = new Set<number>();
+  while (currentPid > 1 && !visited.has(currentPid)) {
+    visited.add(currentPid);
+    const entry = processTree.get(currentPid);
+    if (!entry) break;
+    const basename = entry.comm.includes("/") ? entry.comm.split("/").pop() || entry.comm : entry.comm;
+    if (NON_ORPHAN_ANCESTORS.has(basename.toLowerCase())) return false;
+    currentPid = entry.ppid;
+  }
+
+  return true;
+}
+
 /**
  * Return the display name for a TerminalApp value.
  */
