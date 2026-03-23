@@ -100,6 +100,7 @@ export async function createSession(opts: CreateSessionPublicOpts): Promise<void
           const termApp = findTerminalInTree(client.pid, tree);
           await focusSession({
             ...termApp,
+            pid: client.pid,
             inTmux: false,
             tty: client.tty,
           });

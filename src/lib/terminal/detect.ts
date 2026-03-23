@@ -260,6 +260,7 @@ export async function detectTerminal(
         windowIndex: paneInfo.windowIndex,
         paneIndex: paneInfo.paneIndex,
         target: paneInfo.target,
+        clientPid: sessionClient?.pid,
         clientTty: sessionClient?.tty ?? "",
       };
 
@@ -272,6 +273,7 @@ export async function detectTerminal(
 
     const result: TerminalInfo = {
       ...termApp,
+      pid,
       inTmux,
       tty,
       ...(tmuxInfo ? { tmux: tmuxInfo } : {}),
@@ -282,7 +284,7 @@ export async function detectTerminal(
     }
     return result;
   } catch {
-    return { ...UNKNOWN_TERMINAL, inTmux: false, tty: "" };
+    return { ...UNKNOWN_TERMINAL, pid, inTmux: false, tty: "" };
   }
 }
 
