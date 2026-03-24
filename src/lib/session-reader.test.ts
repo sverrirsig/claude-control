@@ -140,10 +140,10 @@ describe("extractPreview", () => {
     expect(extractPreview(lines).messageCount).toBe(1);
   });
 
-  it("truncates long messages to 200 chars", () => {
-    const longMsg = "x".repeat(300);
+  it("truncates long messages to 600 chars", () => {
+    const longMsg = "x".repeat(700);
     const lines = [userLine(longMsg)];
-    expect(extractPreview(lines).lastUserMessage!.length).toBe(200);
+    expect(extractPreview(lines).lastUserMessage!.length).toBe(600);
   });
 
   it("returns zero counts for empty input", () => {
@@ -244,7 +244,7 @@ describe("extractPreview", () => {
 
   it("returns null input for unknown tool with no short string values", () => {
     const lines = [
-      assistantLine([toolUseBlock("CustomTool", { data: "x".repeat(300) })]),
+      assistantLine([toolUseBlock("CustomTool", { data: "x".repeat(700) })]),
     ];
     expect(extractPreview(lines).lastTools[0].input).toBeNull();
   });

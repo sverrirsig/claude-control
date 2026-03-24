@@ -20,11 +20,12 @@ When you're running several Claude Code instances across different repos and wor
 - **Git integration** — Shows branch name, changed files, additions/deletions, and detects open pull requests via `gh`
 - **PR status badges** — Live CI check rollup (passing/failing/pending), review decision, unresolved threads, merge conflicts, and merged/closed state
 - **Task context** — Extracts Linear issue titles and descriptions from MCP tool results to show what each session is working on
-- **Conversation preview** — Shows the last assistant message, active tool, and user prompt for each session
+- **Conversation preview** — Status-aware preview on each card: working sessions show the active prompt prominently; idle sessions show the completion summary with bullet-point formatting; waiting sessions show the assistant's question
 - **Approve/reject from dashboard** — Approve or reject tool-use permission prompts directly from the dashboard without switching to the terminal
 - **Keyboard shortcuts** — Number keys (1-9) to select sessions, Tab/Shift+Tab to cycle, A/X to approve/reject, Enter to focus terminal, E/G/F/P for editor/git/finder/PR
 - **Desktop notifications** — Native macOS notifications when sessions finish working or need attention (configurable)
 - **Notification sounds** — Subtle two-tone chime on status transitions (configurable)
+- **Action bridge** — Optional HTTP companion server (`npm run bridge:start`) proxies desktop actions (focus, editor, Finder, git GUI, URL) from a Docker container to the host Mac via `host.docker.internal`
 - **Quick actions** — One-click buttons to focus the terminal tab, open your editor, git GUI, Finder, or PR link for any session
 - **Multiple terminal support** — Works with iTerm2, Terminal.app, Ghostty, kitty, WezTerm, and Alacritty
 - **tmux integration** — Run sessions inside tmux with per-project session grouping or manual session selection; approve/reject without terminal focus via `send-keys`
@@ -106,7 +107,7 @@ npm run bridge:start
 
 The bridge polls the macOS process table every second and writes `~/.claude-control/processes.json`. The container reads this file (freshness-checked) and falls back to its own process scan if the file is absent or stale.
 
-Enable the bridge in settings or directly in `~/.claude-control/config.json`:
+Enable the process bridge in settings or directly in `~/.claude-control/config.json`:
 
 ```json
 {
@@ -117,6 +118,23 @@ Enable the bridge in settings or directly in `~/.claude-control/config.json`:
   }
 }
 ```
+
+### Action bridge (Docker)
+
+When running in Docker, desktop actions (open terminal, editor, Finder, git GUI, browser URLs) cannot execute macOS commands directly. The same `bridge.js` daemon also serves an HTTP action proxy on port 27184.
+
+Enable it in settings or in `~/.claude-control/config.json`:
+
+```json
+{
+  "actionBridge": {
+    "enabled": true,
+    "port": 27184
+  }
+}
+```
+
+With both bridges enabled the dashboard inside Docker has full feature parity with the native Electron app — session discovery, status, and all quick actions work transparently.
 
 ## How it works
 
@@ -226,6 +244,8 @@ You can add multiple code directories. The app scans up to two levels deep for g
 | `src/lib/terminal` | 29.8% | 26.9% | 25% | (see note) |
 
 `lib/terminal/detect.ts` coverage is low because it exercises OS-level process tree construction (`ps`, `lsof`) that requires live processes to test meaningfully — unit tests for this module are not practical without spawning real subprocesses.
+
+Note: `PREVIEW_TEXT_MAX_LENGTH` was increased from 200 to 600 characters; the two affected test assertions have been updated accordingly.
 
 ## Tech stack
 
