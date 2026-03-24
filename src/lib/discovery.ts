@@ -2,7 +2,7 @@ import { readdir, stat } from "fs/promises";
 import { join } from "path";
 import { ClaudeSession, ConversationPreview } from "./types";
 import { ProcessInfo, getAllProcessInfos } from "./process-utils";
-import { buildProcessTree, findClaudePidsFromTree, evictStaleTerminalCache, detectAllTmuxPanes, getTtysForPids, isOrphaned } from "./terminal/detect";
+import { buildProcessTree, findClaudePidsFromTree, evictStaleTerminalCache, detectAllTmuxPanes, detectTmuxClients, getTtysForPids, isOrphaned } from "./terminal/detect";
 import { ORPHAN_CHECK_INTERVAL_MS } from "./constants";
 import { workingDirToProjectDir, repoNameFromPath } from "./paths";
 import {
@@ -169,12 +169,16 @@ export async function discoverSessions(): Promise<ClaudeSession[]> {
   const now = Date.now();
   if (now - lastOrphanCheck >= ORPHAN_CHECK_INTERVAL_MS) {
     lastOrphanCheck = now;
-    const [ttyMap, tmuxPanes] = await Promise.all([getTtysForPids(pids), detectAllTmuxPanes()]);
+    const [ttyMap, tmuxPanes, tmuxClients] = await Promise.all([getTtysForPids(pids), detectAllTmuxPanes(), detectTmuxClients()]);
+    // Build set of tmux session names that have at least one attached client
+    const attachedTmuxSessions = new Set(tmuxClients.map((c) => c.sessionName));
     const newOrphaned = new Set<number>();
     for (const pid of pids) {
       const tty = ttyMap.get(pid);
-      const paneInTmux = tty ? tmuxPanes.has(tty) : false;
-      if (isOrphaned(pid, processTree, paneInTmux)) {
+      const paneInfo = tty ? tmuxPanes.get(tty) : undefined;
+      const inTmux = paneInfo !== undefined;
+      const tmuxSessionHasClient = paneInfo ? attachedTmuxSessions.has(paneInfo.sessionName) : false;
+      if (isOrphaned(pid, processTree, inTmux, tmuxSessionHasClient)) {
         newOrphaned.add(pid);
       }
     }

@@ -173,12 +173,20 @@ describe("isOrphaned", () => {
     expect(isOrphaned(100, tree, false)).toBe(true);
   });
 
-  it("returns false when session is in tmux (even without terminal ancestor)", () => {
+  it("returns false when session is in tmux with attached client", () => {
     const tree = new Map<number, ProcessTreeEntry>([
       [100, { ppid: 200, cpuPercent: 5, comm: "claude" }],
       [200, { ppid: 1, cpuPercent: 0, comm: "zsh" }],
     ]);
-    expect(isOrphaned(100, tree, true)).toBe(false);
+    expect(isOrphaned(100, tree, true, true)).toBe(false);
+  });
+
+  it("returns true when session is in tmux but detached (no client)", () => {
+    const tree = new Map<number, ProcessTreeEntry>([
+      [100, { ppid: 200, cpuPercent: 5, comm: "claude" }],
+      [200, { ppid: 1, cpuPercent: 0, comm: "zsh" }],
+    ]);
+    expect(isOrphaned(100, tree, true, false)).toBe(true);
   });
 
   it("returns false when pid is not in the tree", () => {

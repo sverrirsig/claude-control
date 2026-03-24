@@ -295,13 +295,20 @@ const NON_ORPHAN_ANCESTORS = new Set(["sshd", "ssh"]);
  * Check if a claude process is orphaned — its parent terminal has been closed.
  * Walks the process tree upward looking for a known terminal. If none is found
  * and the session is not in tmux or SSH, it's orphaned.
+ *
+ * For tmux sessions, checks if the tmux session has an attached client.
+ * A detached tmux session (no clients) is considered orphaned.
  */
 export function isOrphaned(
   pid: number,
   processTree: Map<number, ProcessTreeEntry>,
   inTmux: boolean,
+  tmuxSessionHasClient?: boolean,
 ): boolean {
-  if (inTmux) return false;
+  // In tmux with an attached client — not orphaned
+  if (inTmux && tmuxSessionHasClient) return false;
+  // In tmux but detached — orphaned
+  if (inTmux && !tmuxSessionHasClient) return true;
   if (!processTree.has(pid)) return false;
 
   // Check for known terminal
