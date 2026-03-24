@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { ConversationMessage } from "@/lib/types";
 
 function MessageBubble({ message }: { message: ConversationMessage }) {
@@ -37,8 +38,35 @@ function MessageBubble({ message }: { message: ConversationMessage }) {
   );
 }
 
-export function ConversationView({ messages }: { messages: ConversationMessage[] }) {
-  if (messages.length === 0) {
+function StreamingCursor() {
+  return (
+    <div className="flex justify-start">
+      <div className="rounded-xl px-4 py-3 bg-white/3 border border-white/6">
+        <div className="flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-zinc-500 animate-bounce [animation-delay:0ms]" />
+          <span className="w-1.5 h-1.5 rounded-full bg-zinc-500 animate-bounce [animation-delay:150ms]" />
+          <span className="w-1.5 h-1.5 rounded-full bg-zinc-500 animate-bounce [animation-delay:300ms]" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function ConversationView({
+  messages,
+  isStreaming,
+}: {
+  messages: ConversationMessage[];
+  isStreaming?: boolean;
+}) {
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages.length, isStreaming]);
+
+  if (messages.length === 0 && !isStreaming) {
     return (
       <div className="flex items-center justify-center py-12 text-zinc-600 text-sm">
         No conversation data available.
@@ -47,10 +75,12 @@ export function ConversationView({ messages }: { messages: ConversationMessage[]
   }
 
   return (
-    <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-2">
+    <div ref={containerRef} className="space-y-3 max-h-[70vh] overflow-y-auto pr-2">
       {messages.map((msg, i) => (
         <MessageBubble key={i} message={msg} />
       ))}
+      {isStreaming && <StreamingCursor />}
+      <div ref={bottomRef} />
     </div>
   );
 }

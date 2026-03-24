@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { useSession } from "@/hooks/useSession";
+import { useSessionStream } from "@/hooks/useSessionStream";
 import { StatusBadge } from "@/components/StatusBadge";
 import { GitSummary } from "@/components/GitSummary";
 import { ConversationView } from "@/components/ConversationView";
@@ -12,7 +12,7 @@ import { QuickActions } from "@/components/QuickActions";
 export default function SessionDetailPage() {
   const params = useParams();
   const id = typeof params.id === "string" ? decodeURIComponent(params.id) : "";
-  const { session, isLoading, error } = useSession(id);
+  const { session, isLoading, error, isStreaming } = useSessionStream(id);
   const [targetScreen, setTargetScreen] = useState<number | null>(() => {
     if (typeof window === "undefined") return null;
     const saved = localStorage.getItem("targetScreen");
@@ -91,7 +91,7 @@ export default function SessionDetailPage() {
       {/* Conversation panel */}
       <div className="p-5 rounded-xl bg-[#0a0a0f]/80 border border-zinc-800/50 backdrop-blur-xs">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-4">Conversation</h2>
-        <ConversationView messages={session.conversation} />
+        <ConversationView messages={session.conversation} isStreaming={isStreaming} />
       </div>
     </div>
   );
