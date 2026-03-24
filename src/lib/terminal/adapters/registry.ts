@@ -1,12 +1,12 @@
 import type { TerminalApp } from "../types";
-import type { TerminalAdapter } from "./types";
-import { itermAdapter } from "./iterm";
-import { terminalAppAdapter } from "./terminal-app";
-import { ghosttyAdapter } from "./ghostty";
-import { kittyAdapter } from "./kitty";
-import { weztermAdapter } from "./wezterm";
 import { alacrittyAdapter } from "./alacritty";
+import { ghosttyAdapter } from "./ghostty";
+import { itermAdapter } from "./iterm";
+import { kittyAdapter } from "./kitty";
+import { terminalAppAdapter } from "./terminal-app";
+import type { TerminalAdapter } from "./types";
 import { warpAdapter } from "./warp";
+import { weztermAdapter } from "./wezterm";
 
 const adapters: Partial<Record<TerminalApp, TerminalAdapter>> = {
   iterm: itermAdapter,

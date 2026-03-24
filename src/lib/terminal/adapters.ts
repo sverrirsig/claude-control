@@ -1,16 +1,15 @@
 import { execFile } from "child_process";
 import { promisify } from "util";
-import type { TerminalInfo, TerminalApp } from "./types";
-import { detectTmuxClients, buildProcessTree, findTerminalInTree } from "./detect";
 import { PROCESS_TIMEOUT_MS } from "../constants";
 import { getAdapter } from "./adapters/registry";
 import { shellEscape, shellEscapeDouble } from "./adapters/shared";
+import { buildProcessTree, detectTmuxClients, findTerminalInTree } from "./detect";
+import type { TerminalApp, TerminalInfo } from "./types";
 
 const execFileAsync = promisify(execFile);
 
-export type { CreateSessionOpts } from "./adapters/types";
-export type { TerminalAdapter } from "./adapters/types";
 export { getAdapter, registerAdapter } from "./adapters/registry";
+export type { CreateSessionOpts, TerminalAdapter } from "./adapters/types";
 
 // ────────────────────────────────────────────────────────────────────────────
 // Public API — handles tmux cross-cutting logic, then delegates to adapters

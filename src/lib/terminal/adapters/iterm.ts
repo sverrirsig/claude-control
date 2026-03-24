@@ -1,14 +1,14 @@
+import { APPLESCRIPT_FOCUS_DELAY_S } from "../../constants";
 import type { TerminalInfo } from "../types";
-import type { TerminalAdapter, CreateSessionOpts } from "./types";
 import {
-  execFileAsync,
-  OSASCRIPT_TIMEOUT_MS,
   escapeForAppleScript,
+  execFileAsync,
   mapKeystrokeToSystemEvents,
+  OSASCRIPT_TIMEOUT_MS,
   systemEventsScript,
   withFocusDelay,
 } from "./shared";
-import { APPLESCRIPT_FOCUS_DELAY_S } from "../../constants";
+import type { CreateSessionOpts, TerminalAdapter } from "./types";
 
 function focusScript(ttyPath: string): string {
   const safeTty = escapeForAppleScript(ttyPath);

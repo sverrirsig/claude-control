@@ -1,7 +1,7 @@
 import { execFile } from "child_process";
 import { promisify } from "util";
-import type { ProcessTreeEntry } from "./terminal/types";
 import { PROCESS_TIMEOUT_MS } from "./constants";
+import type { ProcessTreeEntry } from "./terminal/types";
 
 const execFileAsync = promisify(execFile);
 

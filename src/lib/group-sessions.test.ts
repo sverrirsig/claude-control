@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { groupSessions, flattenGroupedSessions } from "./group-sessions";
+import { describe, expect, it } from "vitest";
+import { flattenGroupedSessions, groupSessions } from "./group-sessions";
 import { ClaudeSession } from "./types";
 
 function makeSession(overrides: Partial<ClaudeSession> = {}): ClaudeSession {

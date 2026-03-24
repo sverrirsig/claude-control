@@ -1,13 +1,13 @@
-import { NextResponse } from "next/server";
 import { execFile } from "child_process";
+import { NextResponse } from "next/server";
 import { promisify } from "util";
 import {
-  loadConfig,
-  saveConfig,
   AppConfig,
+  BROWSER_OPTIONS,
   EDITOR_OPTIONS,
   GIT_GUI_OPTIONS,
-  BROWSER_OPTIONS,
+  loadConfig,
+  saveConfig,
   TERMINAL_APP_OPTIONS,
   TERMINAL_OPEN_IN_OPTIONS,
   TERMINAL_TMUX_MODE_OPTIONS,

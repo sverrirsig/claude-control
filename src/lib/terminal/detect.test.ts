@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { findTerminalInTree, matchTerminal, findClaudePidsFromTree, isOrphaned } from "./detect";
+import { describe, expect, it } from "vitest";
+import { findClaudePidsFromTree, findTerminalInTree, isOrphaned, matchTerminal } from "./detect";
 import type { ProcessTreeEntry } from "./types";
 
 describe("matchTerminal", () => {

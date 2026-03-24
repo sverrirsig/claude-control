@@ -1,9 +1,9 @@
-import { readdirSync } from "fs";
 import { spawn } from "child_process";
+import { readdirSync } from "fs";
 import type { TerminalInfo } from "../types";
-import type { TerminalAdapter, CreateSessionOpts } from "./types";
-import { execFileAsync, OSASCRIPT_TIMEOUT_MS } from "./shared";
 import { createGenericAdapter } from "./generic";
+import { execFileAsync, OSASCRIPT_TIMEOUT_MS } from "./shared";
+import type { CreateSessionOpts, TerminalAdapter } from "./types";
 
 // ── kitten @ ls response types ──────────────────────────────────────────────
 // Partial types for the JSON returned by `kitten @ ls`. Only the fields we

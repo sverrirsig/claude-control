@@ -1,7 +1,7 @@
 "use client";
 
-import { ClaudeSession } from "@/lib/types";
 import { useSettings } from "@/hooks/useSettings";
+import { ClaudeSession } from "@/lib/types";
 
 function Kbd({ children }: { children: React.ReactNode }) {
   return (

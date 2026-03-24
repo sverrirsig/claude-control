@@ -1,7 +1,7 @@
 import { execFile } from "child_process";
 import { promisify } from "util";
-import type { TerminalApp, TerminalInfo, TmuxPaneInfo, TmuxClientInfo, ProcessTreeEntry } from "./types";
 import { PROCESS_TIMEOUT_MS } from "../constants";
+import type { ProcessTreeEntry, TerminalApp, TerminalInfo, TmuxClientInfo, TmuxPaneInfo } from "./types";
 
 const execFileAsync = promisify(execFile);
 

@@ -1,6 +1,6 @@
 import useSWR from "swr";
-import { SessionDetail } from "@/lib/types";
 import { POLL_INTERVAL_MS } from "@/lib/constants";
+import { SessionDetail } from "@/lib/types";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 

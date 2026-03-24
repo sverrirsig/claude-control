@@ -1,6 +1,6 @@
-import { readFile, writeFile, mkdir, stat } from "fs/promises";
-import { join } from "path";
+import { mkdir, readFile, stat, writeFile } from "fs/promises";
 import { homedir } from "os";
+import { join } from "path";
 
 const CONFIG_DIR = join(homedir(), ".claude-control");
 const META_FILE = join(CONFIG_DIR, "session-meta.json");

@@ -1,7 +1,7 @@
-import useSWR from "swr";
 import { usePathname } from "next/navigation";
-import { ClaudeSession } from "@/lib/types";
+import useSWR from "swr";
 import { POLL_INTERVAL_MS } from "@/lib/constants";
+import { ClaudeSession } from "@/lib/types";
 
 const fetcher = (url: string) =>
   fetch(url).then((r) => {

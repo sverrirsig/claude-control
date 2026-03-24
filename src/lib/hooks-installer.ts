@@ -1,7 +1,7 @@
+import { constants } from "fs";
+import { access, chmod, mkdir, readFile, writeFile } from "fs/promises";
 import { homedir } from "os";
 import { join } from "path";
-import { readFile, writeFile, mkdir, chmod, access } from "fs/promises";
-import { constants } from "fs";
 
 const CLAUDE_SETTINGS_PATH = join(homedir(), ".claude", "settings.json");
 const HOOKS_DIR = join(homedir(), ".claude-control", "hooks");

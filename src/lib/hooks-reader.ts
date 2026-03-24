@@ -1,6 +1,6 @@
+import { readdir, readFile, stat, unlink } from "fs/promises";
 import { homedir } from "os";
 import { join } from "path";
-import { readdir, stat, readFile, unlink } from "fs/promises";
 import { SessionStatus } from "./types";
 
 const EVENTS_DIR = join(homedir(), ".claude-control", "events");

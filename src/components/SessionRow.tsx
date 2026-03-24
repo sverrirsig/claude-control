@@ -1,6 +1,6 @@
 "use client";
 
-import { ClaudeSession, SessionStatus, PrStatus, statusLabels } from "@/lib/types";
+import { ClaudeSession, PrStatus, SessionStatus, statusLabels } from "@/lib/types";
 import { PrStatusBadge } from "./PrStatusBadge";
 
 const statusColors: Record<SessionStatus, { dot: string; text: string }> = {
@@ -68,9 +68,7 @@ export function SessionRow({
         </span>
         <span className={`text-xs font-medium ${colors.text}`}>{statusLabels[displayStatus]}</span>
         {session.orphaned && (
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-orange-400">
-            Orphaned
-          </span>
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-orange-400">Orphaned</span>
         )}
       </div>
 

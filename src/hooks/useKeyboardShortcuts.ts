@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useCallback, useState, useMemo } from "react";
-import { ClaudeSession, ViewMode } from "@/lib/types";
-import { flattenGroupedSessions } from "@/lib/group-sessions";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { sendKeystrokeAction } from "@/lib/actions";
+import { flattenGroupedSessions } from "@/lib/group-sessions";
+import { ClaudeSession, ViewMode } from "@/lib/types";
 import { useSettings } from "./useSettings";
 
 interface UseKeyboardShortcutsOptions {

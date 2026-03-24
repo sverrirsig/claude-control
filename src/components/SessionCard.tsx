@@ -1,14 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { ClaudeSession, SessionStatus, PrStatus } from "@/lib/types";
-import { StatusBadge } from "./StatusBadge";
+import { ClaudeSession, PrStatus, SessionStatus } from "@/lib/types";
 import { GitSummary } from "./GitSummary";
 import { OutputPreview } from "./OutputPreview";
-import { TaskSummaryView } from "./TaskSummaryView";
 import { PrStatusBadge } from "./PrStatusBadge";
 import { QuickActions } from "./QuickActions";
 import { QuickReply } from "./QuickReply";
+import { StatusBadge } from "./StatusBadge";
+import { TaskSummaryView } from "./TaskSummaryView";
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
