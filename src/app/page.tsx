@@ -1,20 +1,19 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { useSessions } from "@/hooks/useSessions";
-import { useNotificationSound } from "@/hooks/useNotificationSound";
+import Link from "next/link";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { DashboardHeader } from "@/components/DashboardHeader";
+import { KeyboardHints } from "@/components/KeyboardHints";
+import { NewSessionModal } from "@/components/NewSessionModal";
+import { SessionGrid } from "@/components/SessionGrid";
 import { useDesktopNotification } from "@/hooks/useDesktopNotification";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { useNotificationSound } from "@/hooks/useNotificationSound";
 import { usePrStatus } from "@/hooks/usePrStatus";
+import { useSessions } from "@/hooks/useSessions";
 import { useSettings } from "@/hooks/useSettings";
-import { DashboardHeader } from "@/components/DashboardHeader";
-import { ViewMode } from "@/lib/types";
-import { SessionGrid } from "@/components/SessionGrid";
-import { NewSessionModal } from "@/components/NewSessionModal";
-import { KeyboardHints } from "@/components/KeyboardHints";
-import { SessionStatus } from "@/lib/types";
 import { flattenGroupedSessions } from "@/lib/group-sessions";
-import Link from "next/link";
+import { SessionStatus, ViewMode } from "@/lib/types";
 
 export default function Dashboard() {
   const { sessions, isLoading, error, hooksActive, refresh } = useSessions();

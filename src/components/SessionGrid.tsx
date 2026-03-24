@@ -1,11 +1,10 @@
 "use client";
 
+import { sendKeystrokeAction } from "@/lib/actions";
+import { groupSessions } from "@/lib/group-sessions";
 import { ClaudeSession, PrStatus, ViewMode } from "@/lib/types";
 import { SessionCard } from "./SessionCard";
 import { SessionRow } from "./SessionRow";
-import { sendKeystrokeAction } from "@/lib/actions";
-
-import { groupSessions } from "@/lib/group-sessions";
 
 function prettifyName(name: string): string {
   return name.replace(/[-_]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());

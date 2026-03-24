@@ -1,16 +1,15 @@
 import { execFile } from "child_process";
 import { promisify } from "util";
-import type { TerminalInfo, TerminalApp } from "./types";
-import { detectTmuxClients, buildProcessTree, findTerminalInTree } from "./detect";
 import { PROCESS_TIMEOUT_MS } from "../constants";
 import { getAdapter } from "./adapters/registry";
 import { shellEscape, shellEscapeDouble } from "./adapters/shared";
+import { buildProcessTree, detectTmuxClients, findTerminalInTree } from "./detect";
+import type { TerminalApp, TerminalInfo } from "./types";
 
 const execFileAsync = promisify(execFile);
 
-export type { CreateSessionOpts } from "./adapters/types";
-export type { TerminalAdapter } from "./adapters/types";
 export { getAdapter, registerAdapter } from "./adapters/registry";
+export type { CreateSessionOpts, TerminalAdapter } from "./adapters/types";
 
 // ────────────────────────────────────────────────────────────────────────────
 // Public API — handles tmux cross-cutting logic, then delegates to adapters
@@ -28,6 +27,7 @@ export async function focusSession(info: TerminalInfo): Promise<void> {
   const effectiveInfo = info.inTmux && info.tmux?.clientTty ? { ...info, tty: info.tmux.clientTty } : info;
 
   const adapter = getAdapter(effectiveInfo.app);
+  if (!adapter) return; // Unknown terminal — nothing to focus
   await adapter.focus(effectiveInfo);
 }
 
@@ -41,6 +41,7 @@ export async function sendText(info: TerminalInfo, text: string): Promise<void> 
   }
 
   const adapter = getAdapter(info.app);
+  if (!adapter) return;
   await adapter.sendText(info, text);
 }
 
@@ -62,6 +63,7 @@ export async function sendKeystroke(info: TerminalInfo, keystroke: string): Prom
   }
 
   const adapter = getAdapter(info.app);
+  if (!adapter) return;
   await adapter.sendKeystroke(info, keystroke);
 }
 
@@ -124,6 +126,7 @@ export async function createSession(opts: CreateSessionPublicOpts): Promise<void
   }
 
   const adapter = getAdapter(terminalApp);
+  if (!adapter) throw new Error(`No adapter for terminal: ${terminalApp}`);
   await adapter.createSession(effectiveCommand, { openIn, useTmux, tmuxSession, cwd, prompt });
 }
 

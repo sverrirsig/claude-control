@@ -1,31 +1,29 @@
-export type {
-  TerminalApp,
-  TerminalOpenIn,
-  TerminalInfo,
-  TmuxPaneInfo,
-  TmuxClientInfo,
-  ProcessTreeEntry,
-} from "./types";
-
+export type { CreateSessionPublicOpts as CreateSessionOpts } from "./adapters";
+export {
+  createSession,
+  focusSession,
+  listTmuxSessions,
+  sendKeystroke,
+  sendText,
+} from "./adapters";
 export {
   buildProcessTree,
+  detectAllTmuxPanes,
+  detectTerminal,
+  detectTmuxClients,
+  evictStaleTerminalCache,
   findClaudePidsFromTree,
+  findTerminalInTree,
+  getTerminalAppName,
   getTtyForPid,
   getTtysForPids,
-  detectAllTmuxPanes,
-  detectTmuxClients,
-  detectTerminal,
-  findTerminalInTree,
   matchTerminal,
-  evictStaleTerminalCache,
-  getTerminalAppName,
 } from "./detect";
-
-export {
-  focusSession,
-  sendText,
-  sendKeystroke,
-  createSession,
-  listTmuxSessions,
-} from "./adapters";
-export type { CreateSessionPublicOpts as CreateSessionOpts } from "./adapters";
+export type {
+  ProcessTreeEntry,
+  TerminalApp,
+  TerminalInfo,
+  TerminalOpenIn,
+  TmuxClientInfo,
+  TmuxPaneInfo,
+} from "./types";

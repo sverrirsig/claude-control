@@ -1,29 +1,37 @@
 import { readdir, stat } from "fs/promises";
 import { join } from "path";
-import { ClaudeSession, ConversationPreview } from "./types";
-import { ProcessInfo, getAllProcessInfos } from "./process-utils";
-import { buildProcessTree, findClaudePidsFromTree, evictStaleTerminalCache } from "./terminal/detect";
-import { workingDirToProjectDir, repoNameFromPath } from "./paths";
+import { ORPHAN_CHECK_INTERVAL_MS } from "./constants";
+import { getGitDiff, getGitSummary, getMainWorktreePath, getPrUrl } from "./git-info";
+import { type HookStatus, readAllHookStatuses } from "./hooks-reader";
+import { repoNameFromPath, workingDirToProjectDir } from "./paths";
+import { getAllProcessInfos, ProcessInfo } from "./process-utils";
+import { loadSessionMeta } from "./session-meta";
 import {
-  readJsonlTail,
-  readJsonlHead,
-  readFullConversation,
-  extractSessionId,
-  extractStartedAt,
   extractBranch,
   extractPreview,
+  extractSessionId,
+  extractStartedAt,
   extractTaskSummary,
-  lastMessageHasError,
-  isAskingForInput,
-  hasPendingToolUse,
   getJsonlMtime,
+  hasPendingToolUse,
+  isAskingForInput,
+  lastMessageHasError,
   linesToConversation,
+  readFullConversation,
+  readJsonlHead,
+  readJsonlTail,
 } from "./session-reader";
-import { getGitSummary, getGitDiff, getMainWorktreePath, getPrUrl } from "./git-info";
 import { classifyStatus } from "./status-classifier";
-import { readAllHookStatuses, type HookStatus } from "./hooks-reader";
-import { loadSessionMeta } from "./session-meta";
-import { SessionDetail } from "./types";
+import {
+  buildProcessTree,
+  detectAllTmuxPanes,
+  detectTmuxClients,
+  evictStaleTerminalCache,
+  findClaudePidsFromTree,
+  getTtysForPids,
+  isOrphaned,
+} from "./terminal/detect";
+import { ClaudeSession, ConversationPreview, SessionDetail } from "./types";
 
 async function findLatestJsonl(projectDir: string, excludePaths?: Set<string>): Promise<string | null> {
   try {
@@ -50,10 +58,17 @@ async function findLatestJsonl(projectDir: string, excludePaths?: Set<string>): 
   }
 }
 
+// Orphan check runs on a slower cadence than the main poll
+let lastOrphanCheck = 0;
+let orphanedPids = new Set<number>();
+let pidTmuxSession = new Map<number, string>();
+
 async function buildSession(
   info: ProcessInfo,
   hookStatus: HookStatus | undefined,
   claimedPaths: Set<string>,
+  orphaned: boolean,
+  tmuxSession: string | null,
 ): Promise<ClaudeSession | null> {
   if (!info.workingDirectory) return null;
 
@@ -140,6 +155,8 @@ async function buildSession(
     taskSummary,
     jsonlPath,
     prUrl,
+    orphaned,
+    tmuxSession,
   };
 }
 
@@ -158,6 +175,35 @@ export async function discoverSessions(): Promise<ClaudeSession[]> {
   const activePids = new Set(pids);
   evictStaleTerminalCache(activePids);
 
+  // Orphan check on slower interval — batched to minimize subprocess calls
+  const now = Date.now();
+  if (now - lastOrphanCheck >= ORPHAN_CHECK_INTERVAL_MS) {
+    lastOrphanCheck = now;
+    const [ttyMap, tmuxPanes, tmuxClients] = await Promise.all([
+      getTtysForPids(pids),
+      detectAllTmuxPanes(),
+      detectTmuxClients(),
+    ]);
+    // Build set of tmux session names that have at least one attached client
+    const attachedTmuxSessions = new Set(tmuxClients.map((c) => c.sessionName));
+    const newOrphaned = new Set<number>();
+    const newPidTmuxSession = new Map<number, string>();
+    for (const pid of pids) {
+      const tty = ttyMap.get(pid);
+      const paneInfo = tty ? tmuxPanes.get(tty) : undefined;
+      const inTmux = paneInfo !== undefined;
+      const tmuxSessionHasClient = paneInfo ? attachedTmuxSessions.has(paneInfo.sessionName) : false;
+      if (isOrphaned(pid, processTree, inTmux, tmuxSessionHasClient)) {
+        newOrphaned.add(pid);
+      }
+      if (paneInfo) {
+        newPidTmuxSession.set(pid, paneInfo.sessionName);
+      }
+    }
+    orphanedPids = newOrphaned;
+    pidTmuxSession = newPidTmuxSession;
+  }
+
   // Collect transcript paths claimed by hook events so fallback doesn't reuse them
   const claimedPaths = new Set<string>();
   for (const [pid, hook] of hookStatuses) {
@@ -169,7 +215,15 @@ export async function discoverSessions(): Promise<ClaudeSession[]> {
   const results = await Promise.all(
     processInfos
       .filter((info) => info.workingDirectory !== null)
-      .map((info) => buildSession(info, hookStatuses.get(info.pid), claimedPaths)),
+      .map((info) =>
+        buildSession(
+          info,
+          hookStatuses.get(info.pid),
+          claimedPaths,
+          orphanedPids.has(info.pid),
+          pidTmuxSession.get(info.pid) ?? null,
+        ),
+      ),
   );
 
   const sessions = results.filter((s): s is ClaudeSession => s !== null);

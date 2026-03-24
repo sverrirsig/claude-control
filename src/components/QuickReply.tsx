@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useRef, useState } from "react";
 import { refreshAfterAction, sendKeystrokeAction } from "@/lib/actions";
 import type { ToolInfo } from "@/lib/types";
 

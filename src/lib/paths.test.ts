@@ -1,7 +1,7 @@
-import { describe, it, expect } from "vitest";
-import { workingDirToEscapedPath, escapedPathToProjectDir, workingDirToProjectDir, repoNameFromPath } from "./paths";
-import { CLAUDE_PROJECTS_DIR } from "./constants";
 import { join } from "path";
+import { describe, expect, it } from "vitest";
+import { CLAUDE_PROJECTS_DIR } from "./constants";
+import { escapedPathToProjectDir, repoNameFromPath, workingDirToEscapedPath, workingDirToProjectDir } from "./paths";
 
 describe("workingDirToEscapedPath", () => {
   it("replaces slashes with dashes", () => {

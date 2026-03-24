@@ -1,14 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { ClaudeSession, SessionStatus, PrStatus } from "@/lib/types";
-import { StatusBadge } from "./StatusBadge";
+import { ClaudeSession, PrStatus, SessionStatus } from "@/lib/types";
 import { GitSummary } from "./GitSummary";
 import { OutputPreview } from "./OutputPreview";
-import { TaskSummaryView } from "./TaskSummaryView";
 import { PrStatusBadge } from "./PrStatusBadge";
 import { QuickActions } from "./QuickActions";
 import { QuickReply } from "./QuickReply";
+import { StatusBadge } from "./StatusBadge";
+import { TaskSummaryView } from "./TaskSummaryView";
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -206,7 +206,7 @@ export function SessionCard({
                 {session.workingDirectory.replace(/.*\/([^/]+\/[^/]+)$/, "$1")}
               </p>
             </div>
-            <StatusBadge status={displayStatus} />
+            <StatusBadge status={displayStatus} orphaned={session.orphaned} />
           </div>
 
           {/* Git info + PR status */}
@@ -295,6 +295,8 @@ export function SessionCard({
               targetScreen={targetScreen}
               status={displayStatus}
               prUrl={session.prUrl}
+              orphaned={session.orphaned}
+              tmuxSession={session.tmuxSession}
               onCleanup={canCleanup ? handleCleanup : undefined}
             />
           )}

@@ -27,6 +27,8 @@ export interface ClaudeSession {
   hasPendingToolUse: boolean;
   jsonlPath: string | null;
   prUrl: string | null;
+  orphaned: boolean;
+  tmuxSession: string | null;
 }
 
 export interface GitSummary {

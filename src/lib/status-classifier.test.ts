@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { classifyStatus } from "./status-classifier";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { APPROVAL_SETTLE_MS, WORKING_THRESHOLD_MS } from "./constants";
+import { classifyStatus } from "./status-classifier";
 
 function makeInput(
   overrides: Partial<{

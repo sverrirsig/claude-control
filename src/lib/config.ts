@@ -1,6 +1,6 @@
-import { readFile, writeFile, mkdir } from "fs/promises";
-import { join } from "path";
+import { mkdir, readFile, writeFile } from "fs/promises";
 import { homedir } from "os";
+import { join } from "path";
 import type { TerminalApp, TerminalOpenIn } from "./terminal/types";
 
 const CONFIG_DIR = join(homedir(), ".claude-control");

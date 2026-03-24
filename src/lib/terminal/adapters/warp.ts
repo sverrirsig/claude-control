@@ -1,15 +1,15 @@
+import { APPLESCRIPT_FOCUS_DELAY_S } from "../../constants";
 import type { TerminalInfo } from "../types";
-import type { TerminalAdapter, CreateSessionOpts } from "./types";
 import {
-  execFileAsync,
-  OSASCRIPT_TIMEOUT_MS,
   escapeForAppleScript,
+  execFileAsync,
+  genericActivateScript,
   mapKeystrokeToSystemEvents,
+  OSASCRIPT_TIMEOUT_MS,
   systemEventsScript,
   withFocusDelay,
-  genericActivateScript,
 } from "./shared";
-import { APPLESCRIPT_FOCUS_DELAY_S } from "../../constants";
+import type { CreateSessionOpts, TerminalAdapter } from "./types";
 
 export const warpAdapter: TerminalAdapter = {
   async focus(): Promise<void> {

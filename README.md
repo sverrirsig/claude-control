@@ -25,7 +25,7 @@ When you're running several Claude Code instances across different repos and wor
 - **Desktop notifications** — Native macOS notifications when sessions finish working or need attention (configurable)
 - **Notification sounds** — Subtle two-tone chime on status transitions (configurable)
 - **Quick actions** — One-click buttons to focus the terminal tab, open your editor, git GUI, Finder, or PR link for any session
-- **Multiple terminal support** — Full tab-level control for iTerm2, Terminal.app, and kitty; basic support for Ghostty, WezTerm, Warp, and Alacritty (see [Terminal support](#terminal-support))
+- **Multiple terminal support** — Full tab-level control for iTerm2, Terminal.app, kitty, and WezTerm; basic support for Ghostty, Warp, and Alacritty (see [Terminal support](#terminal-support))
 - **tmux integration** — Run sessions inside tmux with per-project session grouping or manual session selection; approve/reject without terminal focus via `send-keys`
 - **Configurable tools** — Choose your preferred terminal, code editor (VS Code, Cursor, Zed, etc.), git GUI (Fork, Sublime Merge, etc.), and browser (Chrome, Arc, Safari, etc.)
 - **New session creation** — Create new Claude Code sessions with git worktree support, repo browsing, and custom initial prompts
@@ -148,7 +148,8 @@ These terminals support tab-level focus, text input, and keystroke sending — c
 |---|---|---|
 | [**Terminal.app**](https://support.apple.com/guide/terminal/) | AppleScript (TTY matching) | Matches tabs by TTY, uses System Events for keystrokes. Works out of the box. |
 | [**iTerm2**](https://iterm2.com/) | AppleScript (TTY matching) | Iterates windows/tabs/sessions, matches by TTY path. Native `write text` for keystrokes. Works out of the box. |
-| [**kitty**](https://sw.kovidgoyal.net/kitty/) | Remote control (Unix socket) | Uses `kitten @` IPC to resolve window by PID, then focus by window ID. Requires configuration (see below). |
+| [**kitty**](https://sw.kovidgoyal.net/kitty/) | Remote control (Unix socket) | Uses `kitten @` IPC to resolve window by PID, then focus by window ID. Supports tmux-in-kitty matching. Requires configuration (see below). |
+| [**WezTerm**](https://wezfurlong.org/wezterm/) | CLI (`wezterm cli`) | Uses `wezterm cli` to list panes, focus by pane ID, and send text directly. Works out of the box. |
 
 #### kitty configuration
 
@@ -179,7 +180,6 @@ These terminals are detected and can be activated, but focus goes to the app —
 | Terminal | Notes |
 |---|---|
 | [**Ghostty**](https://ghostty.org/) | Has AppleScript support since v1.3 but lacks PID/TTY properties for tab matching ([#10756](https://github.com/ghostty-org/ghostty/issues/10756)). Full support expected when 1.4 ships. |
-| [**WezTerm**](https://wezfurlong.org/wezterm/) | No tab-level IPC available. |
 | [**Warp**](https://www.warp.dev/) | No tab-level IPC available. |
 | [**Alacritty**](https://alacritty.org/) | No tabs by design — use tmux for multi-session workflows. |
 

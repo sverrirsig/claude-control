@@ -1,7 +1,7 @@
-import { NextResponse } from "next/server";
 import { execFile } from "child_process";
+import { NextResponse } from "next/server";
 import { promisify } from "util";
-import { PrStatus, PrChecks } from "@/lib/types";
+import { PrChecks, PrStatus } from "@/lib/types";
 
 const execFileAsync = promisify(execFile);
 

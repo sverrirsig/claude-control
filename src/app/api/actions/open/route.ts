@@ -1,15 +1,15 @@
-import { NextResponse } from "next/server";
-import { execFile, exec } from "child_process";
-import { promisify } from "util";
+import { exec, execFile } from "child_process";
 import { stat } from "fs/promises";
-import { loadConfig, EDITOR_OPTIONS, GIT_GUI_OPTIONS, BROWSER_OPTIONS } from "@/lib/config";
+import { NextResponse } from "next/server";
+import { promisify } from "util";
+import { BROWSER_OPTIONS, EDITOR_OPTIONS, GIT_GUI_OPTIONS, loadConfig } from "@/lib/config";
 import {
   buildProcessTree,
   detectAllTmuxPanes,
   detectTerminal,
   focusSession,
-  sendText,
   sendKeystroke,
+  sendText,
 } from "@/lib/terminal";
 
 const execFileAsync = promisify(execFile);

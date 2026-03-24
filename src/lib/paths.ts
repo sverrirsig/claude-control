@@ -1,5 +1,5 @@
-import { CLAUDE_PROJECTS_DIR } from "./constants";
 import { join } from "path";
+import { CLAUDE_PROJECTS_DIR } from "./constants";
 
 export function workingDirToEscapedPath(workingDir: string): string {
   return workingDir.replace(/\//g, "-");

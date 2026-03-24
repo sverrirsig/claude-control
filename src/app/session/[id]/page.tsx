@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { useParams } from "next/navigation";
 import Link from "next/link";
-import { useSession } from "@/hooks/useSession";
-import { StatusBadge } from "@/components/StatusBadge";
-import { GitSummary } from "@/components/GitSummary";
+import { useParams } from "next/navigation";
+import { useState } from "react";
 import { ConversationView } from "@/components/ConversationView";
+import { GitSummary } from "@/components/GitSummary";
 import { QuickActions } from "@/components/QuickActions";
+import { StatusBadge } from "@/components/StatusBadge";
+import { useSession } from "@/hooks/useSession";
 
 export default function SessionDetailPage() {
   const params = useParams();

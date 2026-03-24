@@ -1,5 +1,5 @@
-import { SessionStatus } from "./types";
 import { APPROVAL_SETTLE_MS, WORKING_THRESHOLD_MS } from "./constants";
+import { SessionStatus } from "./types";
 
 interface ClassifyInput {
   pid: number | null;

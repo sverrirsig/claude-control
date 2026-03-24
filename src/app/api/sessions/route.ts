@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { discoverSessions } from "@/lib/discovery";
-import { ensureHooksInstalled, areHooksInstalled } from "@/lib/hooks-installer";
+import { areHooksInstalled, ensureHooksInstalled } from "@/lib/hooks-installer";
 
 export const dynamic = "force-dynamic";
 

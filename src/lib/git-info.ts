@@ -1,7 +1,7 @@
 import { execFile } from "child_process";
 import { promisify } from "util";
-import { GitSummary } from "./types";
 import { GIT_TIMEOUT_MS } from "./constants";
+import { GitSummary } from "./types";
 
 const execFileAsync = promisify(execFile);
 

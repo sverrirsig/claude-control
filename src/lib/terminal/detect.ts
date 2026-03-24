@@ -1,7 +1,7 @@
 import { execFile } from "child_process";
 import { promisify } from "util";
-import type { TerminalApp, TerminalInfo, TmuxPaneInfo, TmuxClientInfo, ProcessTreeEntry } from "./types";
 import { PROCESS_TIMEOUT_MS } from "../constants";
+import type { ProcessTreeEntry, TerminalApp, TerminalInfo, TmuxClientInfo, TmuxPaneInfo } from "./types";
 
 const execFileAsync = promisify(execFile);
 
@@ -286,6 +286,48 @@ export async function detectTerminal(
   } catch {
     return { ...UNKNOWN_TERMINAL, pid, inTmux: false, tty: "" };
   }
+}
+
+/** Process names that indicate a remote/non-GUI session (not orphaned). */
+const NON_ORPHAN_ANCESTORS = new Set(["sshd", "ssh"]);
+
+/**
+ * Check if a claude process is orphaned — its parent terminal has been closed.
+ * Walks the process tree upward looking for a known terminal. If none is found
+ * and the session is not in tmux or SSH, it's orphaned.
+ *
+ * For tmux sessions, checks if the tmux session has an attached client.
+ * A detached tmux session (no clients) is considered orphaned.
+ */
+export function isOrphaned(
+  pid: number,
+  processTree: Map<number, ProcessTreeEntry>,
+  inTmux: boolean,
+  tmuxSessionHasClient?: boolean,
+): boolean {
+  // In tmux with an attached client — not orphaned
+  if (inTmux && tmuxSessionHasClient) return false;
+  // In tmux but detached — orphaned
+  if (inTmux && !tmuxSessionHasClient) return true;
+  if (!processTree.has(pid)) return false;
+
+  // Check for known terminal
+  const result = findTerminalInTree(pid, processTree);
+  if (result.app !== "unknown") return false;
+
+  // Check for non-GUI ancestors (SSH, etc.) — these aren't orphaned, just remote
+  let currentPid = pid;
+  const visited = new Set<number>();
+  while (currentPid > 1 && !visited.has(currentPid)) {
+    visited.add(currentPid);
+    const entry = processTree.get(currentPid);
+    if (!entry) break;
+    const basename = entry.comm.includes("/") ? entry.comm.split("/").pop() || entry.comm : entry.comm;
+    if (NON_ORPHAN_ANCESTORS.has(basename.toLowerCase())) return false;
+    currentPid = entry.ppid;
+  }
+
+  return true;
 }
 
 /**

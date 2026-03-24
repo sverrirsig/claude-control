@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { findTerminalInTree, matchTerminal, findClaudePidsFromTree } from "./detect";
+import { describe, expect, it } from "vitest";
+import { findClaudePidsFromTree, findTerminalInTree, isOrphaned, matchTerminal } from "./detect";
 import type { ProcessTreeEntry } from "./types";
 
 describe("matchTerminal", () => {
@@ -152,5 +152,63 @@ describe("findClaudePidsFromTree", () => {
   it("does not match partial names like claude-code", () => {
     const tree = new Map<number, ProcessTreeEntry>([[100, { ppid: 50, comm: "claude-code", cpuPercent: 0 }]]);
     expect(findClaudePidsFromTree(tree)).toHaveLength(0);
+  });
+});
+
+describe("isOrphaned", () => {
+  it("returns false when a known terminal is in the ancestor chain", () => {
+    const tree = new Map<number, ProcessTreeEntry>([
+      [100, { ppid: 200, cpuPercent: 5, comm: "claude" }],
+      [200, { ppid: 300, cpuPercent: 0, comm: "zsh" }],
+      [300, { ppid: 1, cpuPercent: 1, comm: "iTerm2" }],
+    ]);
+    expect(isOrphaned(100, tree, false)).toBe(false);
+  });
+
+  it("returns true when no known terminal is in the ancestor chain", () => {
+    const tree = new Map<number, ProcessTreeEntry>([
+      [100, { ppid: 200, cpuPercent: 5, comm: "claude" }],
+      [200, { ppid: 1, cpuPercent: 0, comm: "zsh" }],
+    ]);
+    expect(isOrphaned(100, tree, false)).toBe(true);
+  });
+
+  it("returns false when session is in tmux with attached client", () => {
+    const tree = new Map<number, ProcessTreeEntry>([
+      [100, { ppid: 200, cpuPercent: 5, comm: "claude" }],
+      [200, { ppid: 1, cpuPercent: 0, comm: "zsh" }],
+    ]);
+    expect(isOrphaned(100, tree, true, true)).toBe(false);
+  });
+
+  it("returns true when session is in tmux but detached (no client)", () => {
+    const tree = new Map<number, ProcessTreeEntry>([
+      [100, { ppid: 200, cpuPercent: 5, comm: "claude" }],
+      [200, { ppid: 1, cpuPercent: 0, comm: "zsh" }],
+    ]);
+    expect(isOrphaned(100, tree, true, false)).toBe(true);
+  });
+
+  it("returns false when pid is not in the tree", () => {
+    const tree = new Map<number, ProcessTreeEntry>();
+    expect(isOrphaned(999, tree, false)).toBe(false);
+  });
+
+  it("returns false when sshd is in the ancestor chain (SSH session)", () => {
+    const tree = new Map<number, ProcessTreeEntry>([
+      [100, { ppid: 200, cpuPercent: 5, comm: "claude" }],
+      [200, { ppid: 300, cpuPercent: 0, comm: "bash" }],
+      [300, { ppid: 1, cpuPercent: 0, comm: "sshd" }],
+    ]);
+    expect(isOrphaned(100, tree, false)).toBe(false);
+  });
+
+  it("returns true when ancestor chain ends at launchd (PID 1) with no terminal", () => {
+    const tree = new Map<number, ProcessTreeEntry>([
+      [100, { ppid: 200, cpuPercent: 5, comm: "claude" }],
+      [200, { ppid: 1, cpuPercent: 0, comm: "zsh" }],
+      [1, { ppid: 0, cpuPercent: 0, comm: "launchd" }],
+    ]);
+    expect(isOrphaned(100, tree, false)).toBe(true);
   });
 });

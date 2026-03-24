@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { TerminalApp } from "./types";
 
 // ── Registry tests ──────────────────────────────────────────────────────────
@@ -15,17 +15,17 @@ describe("adapter registry", () => {
 
     for (const app of knownApps) {
       const adapter = getAdapter(app);
-      expect(adapter).toBeDefined();
-      expect(typeof adapter.focus).toBe("function");
-      expect(typeof adapter.sendText).toBe("function");
-      expect(typeof adapter.sendKeystroke).toBe("function");
-      expect(typeof adapter.createSession).toBe("function");
+      expect(adapter).not.toBeNull();
+      expect(typeof adapter!.focus).toBe("function");
+      expect(typeof adapter!.sendText).toBe("function");
+      expect(typeof adapter!.sendKeystroke).toBe("function");
+      expect(typeof adapter!.createSession).toBe("function");
     }
   });
 
-  it("throws for unknown terminal", async () => {
+  it("returns null for unknown terminal", async () => {
     const { getAdapter } = await import("./adapters/registry");
-    expect(() => getAdapter("unknown")).toThrow("No adapter for terminal: unknown");
+    expect(getAdapter("unknown")).toBeNull();
   });
 
   it("allows registering a custom adapter", async () => {
@@ -37,8 +37,8 @@ describe("adapter registry", () => {
       createSession: vi.fn(),
     };
 
-    // Should throw before registration
-    expect(() => getAdapter("unknown")).toThrow();
+    // Should return null before registration
+    expect(getAdapter("unknown")).toBeNull();
 
     registerAdapter("unknown", mockAdapter);
     expect(getAdapter("unknown")).toBe(mockAdapter);

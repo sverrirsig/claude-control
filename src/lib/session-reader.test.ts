@@ -1,13 +1,13 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
-  extractSessionId,
-  extractStartedAt,
   extractBranch,
   extractPreview,
+  extractSessionId,
+  extractStartedAt,
   extractTaskSummary,
-  lastMessageHasError,
   hasPendingToolUse,
   isAskingForInput,
+  lastMessageHasError,
   linesToConversation,
 } from "./session-reader";
 
