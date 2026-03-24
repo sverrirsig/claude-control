@@ -12,6 +12,11 @@ export interface ProcessBridgeConfig {
   maxAgeMs: number;
 }
 
+export interface ActionBridgeConfig {
+  enabled: boolean;
+  port: number;
+}
+
 export interface AppConfig {
   codeDirectories: string[];
   editor: string;
@@ -29,6 +34,7 @@ export interface AppConfig {
   defaultBaseBranch: string;
   showKeyboardHints: boolean;
   processBridge: ProcessBridgeConfig;
+  actionBridge: ActionBridgeConfig;
 }
 
 export const DEFAULT_INITIAL_PROMPT = "Implement the feature or fix referenced in the branch name. Think step-by-step: first understand the codebase and requirements, then plan your approach, then implement with tests.";
@@ -102,6 +108,10 @@ const DEFAULT_CONFIG: AppConfig = {
     enabled: false,
     intervalMs: 1000,
     maxAgeMs: 5000,
+  },
+  actionBridge: {
+    enabled: false,
+    port: 27184,
   },
 };
 

@@ -117,6 +117,7 @@ export async function PUT(request: Request) {
       defaultBaseBranch: body.defaultBaseBranch ?? current.defaultBaseBranch,
       showKeyboardHints: body.showKeyboardHints !== undefined ? body.showKeyboardHints : current.showKeyboardHints,
       processBridge: body.processBridge !== undefined ? body.processBridge : current.processBridge,
+      actionBridge: body.actionBridge !== undefined ? body.actionBridge : current.actionBridge,
     };
 
     await saveConfig(updated);

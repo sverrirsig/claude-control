@@ -65,6 +65,25 @@ return "ok"
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+
+    // If the action bridge is enabled, forward the request to the host companion.
+    // This allows a containerized instance to perform macOS desktop actions.
+    const config = await loadConfig();
+    if (config.actionBridge?.enabled) {
+      const bridgeUrl = `http://host.docker.internal:${config.actionBridge.port ?? 27184}/action`;
+      try {
+        const res = await fetch(bridgeUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(10000),
+        });
+        if (res.ok) return NextResponse.json({ ok: true });
+      } catch {
+        // Bridge unavailable — fall through to local execution
+      }
+    }
+
     const { action, path, pid, targetScreen, message, url, keystroke } = body as {
       action: ActionType;
       path?: string;
