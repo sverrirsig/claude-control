@@ -25,6 +25,7 @@ import {
 } from "./session-reader";
 import { getGitSummary, getGitDiff, getMainWorktreePath, getPrUrl } from "./git-info";
 import { classifyStatus } from "./status-classifier";
+import { WORKING_THRESHOLD_MS } from "./constants";
 import { readAllHookStatuses, type HookStatus } from "./hooks-reader";
 import { loadSessionMeta } from "./session-meta";
 import { SessionDetail } from "./types";
@@ -115,7 +116,20 @@ async function buildSession(
   // APPROVAL_SETTLE_MS), because PermissionRequest hooks fire for auto-approved tools too.
   // If the hook status is available (and not null, meaning PermissionRequest was ignored),
   // use it; otherwise fall back to the heuristic classifier.
-  const hookDerivedStatus = hookStatus?.status ?? null;
+  //
+  // Exception: a "working" hook status is only trusted if the event file was written
+  // recently. If it is stale (e.g. the Stop hook never fired because hooks are not
+  // installed in a containerized environment), fall back to the classifier so sessions
+  // don't permanently show "working" after Claude has gone idle.
+  let hookDerivedStatus = hookStatus?.status ?? null;
+  if (
+    hookDerivedStatus === "working" &&
+    hookStatus &&
+    Date.now() - hookStatus.fileMtime > WORKING_THRESHOLD_MS * 3
+  ) {
+    hookDerivedStatus = null;
+  }
+
   const status: ClaudeSession["status"] = hookDerivedStatus
     ?? classifyStatus({
         pid: info.pid,

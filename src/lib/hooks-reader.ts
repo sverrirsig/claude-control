@@ -11,6 +11,7 @@ export interface HookStatus {
   status: SessionStatus | null;
   event: string;
   ts: number;
+  fileMtime: number;
   cwd: string | null;
   sessionId: string | null;
   transcriptPath: string | null;
@@ -51,9 +52,11 @@ export async function readAllHookStatuses(): Promise<Map<number, HookStatus>> {
         const filePath = join(EVENTS_DIR, filename);
 
         // Clean up stale files
+        let fileMtime = 0;
         try {
           const s = await stat(filePath);
-          if (now - s.mtimeMs > STALE_THRESHOLD_MS) {
+          fileMtime = s.mtimeMs;
+          if (now - fileMtime > STALE_THRESHOLD_MS) {
             await unlink(filePath).catch(() => {});
             return;
           }
@@ -89,6 +92,7 @@ export async function readAllHookStatuses(): Promise<Map<number, HookStatus>> {
             status,
             event: data.event,
             ts: data.ts ?? 0,
+            fileMtime,
             cwd: data.cwd ? normalizeHostPath(data.cwd) : null,
             sessionId: data.session_id || null,
             transcriptPath: data.transcript_path ? normalizeHostPath(data.transcript_path) : null,
