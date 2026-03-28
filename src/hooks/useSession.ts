@@ -1,19 +1,39 @@
-import useSWR from "swr";
+import { useState, useEffect } from "react";
 import { SessionDetail } from "@/lib/types";
-import { POLL_INTERVAL_MS } from "@/lib/constants";
-
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 export function useSession(id: string) {
-  const { data, error, isLoading } = useSWR<SessionDetail>(
-    `/api/sessions/${encodeURIComponent(id)}`,
-    fetcher,
-    { refreshInterval: POLL_INTERVAL_MS }
-  );
+  const [session, setSession] = useState<SessionDetail | null>(null);
+  const [error, setError] = useState<Error | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  return {
-    session: data ?? null,
-    error,
-    isLoading,
-  };
+  useEffect(() => {
+    if (!id) return;
+
+    const es = new EventSource(`/api/sessions/${encodeURIComponent(id)}/stream`);
+
+    es.addEventListener("session", (e) => {
+      try {
+        const data = JSON.parse((e as MessageEvent).data);
+        setSession(data);
+        setError(null);
+        setIsLoading(false);
+      } catch {
+        // ignore parse errors
+      }
+    });
+
+    es.addEventListener("error", (e) => {
+      try {
+        const data = JSON.parse((e as MessageEvent).data ?? "{}");
+        setError(new Error(data.error ?? "Stream error"));
+        setIsLoading(false);
+      } catch {
+        // connection-level error — EventSource will auto-reconnect
+      }
+    });
+
+    return () => es.close();
+  }, [id]);
+
+  return { session, error, isLoading };
 }

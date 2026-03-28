@@ -14,16 +14,18 @@ When you're running several Claude Code instances across different repos and wor
 
 ## Features
 
-- **Auto-discovery** — Detects all running `claude` CLI processes via the process table, uses hook events for authoritative PID-to-JSONL mapping with mtime-based fallback
+- **Auto-discovery** — Detects all running `claude` CLI processes via the process table, uses hook events for authoritative PID-to-JSONL mapping with mtime-based fallback; optionally reads from a macOS process bridge file for use when running containerized
+- **Token usage** — Shows per-model input, output, and cache token counts on each session card
 - **Live status** — Classifies each session as Working, Idle, Waiting (needs input), Errored, or Finished using real-time hook events from Claude Code, with CPU/JSONL heuristic fallback
 - **Git integration** — Shows branch name, changed files, additions/deletions, and detects open pull requests via `gh`
 - **PR status badges** — Live CI check rollup (passing/failing/pending), review decision, unresolved threads, merge conflicts, and merged/closed state
 - **Task context** — Extracts Linear issue titles and descriptions from MCP tool results to show what each session is working on
-- **Conversation preview** — Shows the last assistant message, active tool, and user prompt for each session
+- **Conversation preview** — Status-aware preview on each card: working sessions show the active prompt prominently; idle sessions show the completion summary with bullet-point formatting; waiting sessions show the assistant's question
 - **Approve/reject from dashboard** — Approve or reject tool-use permission prompts directly from the dashboard without switching to the terminal
 - **Keyboard shortcuts** — Number keys (1-9) to select sessions, Tab/Shift+Tab to cycle, A/X to approve/reject, Enter to focus terminal, E/G/F/P for editor/git/finder/PR
 - **Desktop notifications** — Native macOS notifications when sessions finish working or need attention (configurable)
 - **Notification sounds** — Subtle two-tone chime on status transitions (configurable)
+- **Action bridge** — Optional HTTP companion server (`npm run bridge:start`) proxies desktop actions (focus, editor, Finder, git GUI, URL) from a Docker container to the host Mac via `host.docker.internal`
 - **Quick actions** — One-click buttons to focus the terminal tab, open your editor, git GUI, Finder, or PR link for any session
 - **Multiple terminal support** — Works with iTerm2, Terminal.app, Ghostty, kitty, WezTerm, and Alacritty
 - **tmux integration** — Run sessions inside tmux with per-project session grouping or manual session selection; approve/reject without terminal focus via `send-keys`
@@ -65,7 +67,7 @@ npm run electron:dev
 npm run electron:build
 ```
 
-The development server runs on port 3200. The Electron shell loads it automatically.
+The development server runs on port 2875 (mnemonic: CTRL on a phone keypad). The Electron shell loads it automatically.
 
 ### Scripts
 
@@ -80,6 +82,63 @@ The development server runs on port 3200. The Electron shell loads it automatica
 | `npm run test:watch` | Run tests in watch mode |
 | `npm run lint` | Run ESLint |
 | `npm run typecheck` | Run TypeScript type checking |
+| `npm run bridge:start` | Start the macOS process bridge (background) |
+| `npm run bridge:stop` | Stop the process bridge |
+| `npm run bridge:restart` | Restart the process bridge |
+| `npm run bridge:status` | Show bridge status and last write age |
+
+## Running in Docker
+
+The app can run as a containerized web server. This is useful for accessing the dashboard from any browser on the same machine, or for running headlessly without Electron.
+
+```bash
+# Build and start
+docker compose up -d
+
+# Dashboard is available at:
+open http://localhost:2875
+```
+
+The container mounts `~/.claude` (read-only) and `~/.claude-control` (read-write). Because Docker on macOS cannot see host processes directly, you must run the process bridge natively so the container can discover Claude sessions:
+
+```bash
+npm run bridge:start
+```
+
+The bridge polls the macOS process table every second and writes `~/.claude-control/processes.json`. The container reads this file (freshness-checked) and falls back to its own process scan if the file is absent or stale.
+
+Enable the process bridge in settings or directly in `~/.claude-control/config.json`:
+
+```json
+{
+  "processBridge": {
+    "enabled": true,
+    "intervalMs": 1000,
+    "maxAgeMs": 5000
+  }
+}
+```
+
+### Action bridge (Docker)
+
+When running in Docker, desktop actions (open terminal, editor, Finder, git GUI, browser URLs) cannot execute macOS commands directly. The same `bridge.js` daemon also serves an HTTP action proxy on port 27184.
+
+Enable it in settings or in `~/.claude-control/config.json`:
+
+```json
+{
+  "actionBridge": {
+    "enabled": true,
+    "port": 27184
+  }
+}
+```
+
+With both bridges enabled the dashboard inside Docker has full feature parity with the native Electron app — session discovery, status, and all quick actions work transparently.
+
+The `docker-compose.yml` injects `HOST_HOME` from the host shell so that session paths (stored internally as `/root/...`) are reverse-mapped back to the host path (e.g. `/Users/name/...`) before being sent to the bridge. This is required for Finder and Editor actions to locate the correct directory on macOS.
+
+When the action bridge is enabled, the Settings page dependency and installed-app checks are also proxied through the bridge so they reflect what is actually installed on the host rather than inside the container.
 
 ## How it works
 
@@ -93,6 +152,8 @@ The development server runs on port 3200. The Electron shell loads it automatica
 6. Reads the tail of each JSONL file to extract conversation preview and task context
 
 Hook events are installed automatically into `~/.claude/settings.json` on first launch. Each Claude process writes its status, session ID, and transcript path to a `<pid>.json` file on every lifecycle event.
+
+The hook script uses `$HOME` to locate the events directory at runtime, so it works correctly whether the dashboard runs natively on macOS or inside Docker (where the app's home is `/root` but the hooks execute on the host with a different home path).
 
 ### Status classification
 
@@ -118,23 +179,44 @@ Hook events are installed automatically into `~/.claude/settings.json` on first 
 ### Architecture
 
 ```
-Electron shell (macOS native window)
+Electron shell (macOS native window)  |  Docker container
+    ↓                                  |      ↓
+Browser (SSE connection to /api/sessions/stream)
     ↓
-Browser (SWR polls /api/sessions every 1s)
+Next.js API Routes (standalone server, port 2875)
     ↓
-Next.js API Routes (standalone server)
-    ↓
-┌──────────────────────────────────────────┐
-│  discovery.ts  →  process-utils.ts       │  ps, lsof
-│                →  hooks-reader.ts        │  <pid>.json → status + transcript
-│                →  paths.ts               │  ~/.claude/projects mapping
-│                →  session-reader.ts       │  JSONL parsing
-│                →  git-info.ts            │  git status, diff, PR detection
-│                →  status-classifier.ts   │  Heuristic fallback
-└──────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────┐
+│  discovery.ts  →  process-utils.ts                   │  ps, lsof (native)
+│                →  process-bridge.ts                  │  ~/.claude-control/processes.json (Docker)
+│                →  hooks-reader.ts                    │  <pid>.json → status + transcript
+│                →  paths.ts                           │  normalizeHostPath() + toHostPath() for Docker path remapping
+│                →  session-reader.ts                  │  JSONL parsing, token usage
+│                →  git-info.ts                        │  git status, diff, PR detection
+│                →  status-classifier.ts               │  Heuristic fallback
+└──────────────────────────────────────────────────────┘
+        ↑
+macOS process bridge (scripts/bridge.js)
+  polls ps/lsof → writes ~/.claude-control/processes.json
 ```
 
-No database — all state is derived from the process table, hook event files, and JSONL transcripts on every request.
+No database — all state is derived from the process table, hook event files, and JSONL transcripts on every poll cycle.
+
+#### Real-time streaming
+
+The dashboard and session detail view use Server-Sent Events (SSE) rather than client-side polling. The server polls discovery every second and pushes updates over a persistent HTTP connection. This eliminates the client round-trip delay and keeps the UI in sync as JSONL transcripts are written.
+
+- `GET /api/sessions/stream` — streams `event: sessions` frames with the full session list
+- `GET /api/sessions/:id/stream` — streams `event: session` frames with full session detail
+
+Both endpoints send a 2 KB padding comment on connect to flush Node.js's internal write buffer immediately, and set `Cache-Control: no-cache, no-transform` plus `X-Accel-Buffering: no` to prevent proxy and CDN buffering.
+
+### Token usage
+
+For each session that has a JSONL transcript, the app scans all assistant messages and aggregates token counts by model. The session card footer shows:
+
+- Model name (e.g. `sonnet-4-6`)
+- Input tokens (↑), output tokens (↓)
+- Combined cache tokens (⚡) when non-zero
 
 ## First-time setup
 
@@ -147,21 +229,39 @@ You can add multiple code directories. The app scans up to two levels deep for g
 ```
 ├── electron/
 │   └── main.js                  # Electron main process
+├── scripts/
+│   ├── bridge.js                # macOS process bridge (polls ps/lsof, writes processes.json)
+│   ├── bridge-ctl.sh            # start/stop/restart/status for the bridge daemon
+│   ├── prepare-build.js         # Assembles standalone Next.js app
+│   └── after-pack.js            # Copies into Electron resources
 ├── src/
 │   ├── app/
 │   │   ├── page.tsx             # Dashboard
 │   │   ├── session/[id]/        # Session detail view
 │   │   ├── settings/            # Settings page
-│   │   └── api/                 # API routes (sessions, actions, repos, PR status)
+│   │   └── api/                 # API routes (sessions, sessions/stream, actions, repos, PR status)
 │   ├── components/              # React components
-│   ├── hooks/                   # SWR hooks, keyboard shortcuts, notifications
+│   ├── hooks/                   # SSE hooks, keyboard shortcuts, notifications
 │   └── lib/                     # Core logic (discovery, git, JSONL parsing)
-├── scripts/
-│   ├── prepare-build.js         # Assembles standalone Next.js app
-│   └── after-pack.js            # Copies into Electron resources
+│       ├── process-bridge.ts    # Reads ~/.claude-control/processes.json (Docker bridge)
+│       └── paths.ts             # Path helpers including normalizeHostPath()
+├── Dockerfile                   # Multi-stage build (node:24-alpine, standalone output)
+├── docker-compose.yml           # Mounts ~/.claude and ~/.claude-control
 └── public/
     └── icon.png
 ```
+
+## Test coverage
+
+| Package | Statements | Branches | Functions | Tests |
+|---|---|---|---|---|
+| `src/components` | 60.7% | 58.7% | 38.5% | 31 |
+| `src/lib` | 93.5% | 86.6% | 97.5% | 159 |
+| `src/lib/terminal` | 29.8% | 26.9% | 25.0% | (see note) |
+
+`lib/terminal/detect.ts` coverage is low because it exercises OS-level process tree construction (`ps`, `lsof`) and AppleScript-based terminal focus that requires live macOS processes — unit tests for this module are not practical without spawning real subprocesses.
+
+`src/components` coverage excludes `TaskSummaryView` edit/expand interactions and the token usage footer, which require controlled UI state that is impractical to drive without a full browser renderer.
 
 ## Tech stack
 
@@ -169,7 +269,7 @@ You can add multiple code directories. The app scans up to two levels deep for g
 - **Next.js 14** (App Router, standalone output) — Serves both API and UI from a single process
 - **TypeScript** (strict)
 - **Tailwind CSS 3** — Dark theme
-- **SWR** — Client-side polling with 1-second intervals
+- **SWR** — Used for PR status and settings; session data uses native `EventSource` (SSE) instead of polling
 
 ## Contributing
 

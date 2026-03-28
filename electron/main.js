@@ -4,7 +4,7 @@ const path = require("path");
 const net = require("net");
 const http = require("http");
 
-const PORT = 3200;
+const PORT = 2875;
 let nextProcess = null;
 
 // Electron apps launched from Finder/dock get a minimal PATH (/usr/bin:/bin:/usr/sbin:/sbin).

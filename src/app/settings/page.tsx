@@ -38,6 +38,10 @@ interface SettingsData {
     createPrPrompt: string;
     defaultBaseBranch: string;
     showKeyboardHints: boolean;
+    actionBridge: {
+      enabled: boolean;
+      port: number;
+    };
   };
   options: {
     editors: AppOptionDef[];
@@ -426,6 +430,47 @@ export default function SettingsPage() {
               className="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-700/50 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-hidden focus:border-zinc-600 transition-colors"
             />
           </div>
+        </div>
+      </section>
+
+      {/* Action Bridge section */}
+      <section className="mb-10">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-3">Action Bridge</h2>
+        <div className="rounded-xl border border-white/6 bg-[#0a0a0f]/80 px-5">
+          <Toggle
+            label="Enable Action Bridge"
+            description="Proxy desktop actions (Terminal, Finder, Editor) through a companion process running natively on the host Mac. Required when running in Docker."
+            enabled={data.config.actionBridge?.enabled ?? false}
+            onChange={(enabled) => save({ actionBridge: { ...data.config.actionBridge, enabled } } as Partial<SettingsData["config"]>)}
+          />
+          {data.config.actionBridge?.enabled && (
+            <div className="py-4 border-t border-white/4">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h3 className="text-sm font-medium text-zinc-200">Bridge Port</h3>
+                  <p className="text-xs text-zinc-500 mt-0.5">Port the companion listens on (must match what you run on the host)</p>
+                </div>
+                <input
+                  type="number"
+                  min={1024}
+                  max={65535}
+                  value={data.config.actionBridge?.port ?? 27184}
+                  onChange={(e) => {
+                    const port = parseInt(e.target.value, 10);
+                    if (port >= 1024 && port <= 65535) {
+                      save({ actionBridge: { ...data.config.actionBridge, port } } as Partial<SettingsData["config"]>);
+                    }
+                  }}
+                  className="w-28 bg-zinc-900 border border-zinc-700/50 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-hidden focus:border-zinc-600 text-right"
+                />
+              </div>
+              <div className="rounded-lg bg-black/30 border border-white/4 px-3 py-2.5">
+                <p className="text-[11px] text-zinc-500 mb-1.5">Run this on your Mac to start the bridge:</p>
+                <code className="text-[11px] text-emerald-400 font-mono">npm run bridge:start</code>
+                <p className="text-[11px] text-zinc-600 mt-1.5">The bridge handles Terminal focus, Finder, Editor, and Git GUI actions from the container.</p>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 

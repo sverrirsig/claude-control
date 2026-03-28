@@ -1,5 +1,5 @@
 import { readFile, stat, open } from "fs/promises";
-import { ConversationMessage, ConversationPreview, TaskSummary, ToolInfo } from "./types";
+import { ConversationMessage, ConversationPreview, ModelTokenUsage, TaskSummary, TokenUsage, ToolInfo } from "./types";
 import {
   JSONL_TAIL_LINES,
   JSONL_HEAD_LINES,
@@ -19,8 +19,15 @@ interface JsonlLine {
   timestamp?: string;
   message?: {
     role?: string;
+    model?: string;
     stop_reason?: string;
     content?: string | Array<{ type: string; text?: string; name?: string; input?: Record<string, unknown> }>;
+    usage?: {
+      input_tokens?: number;
+      output_tokens?: number;
+      cache_creation_input_tokens?: number;
+      cache_read_input_tokens?: number;
+    };
   };
 }
 
@@ -296,6 +303,41 @@ export function linesToConversation(lines: JsonlLine[]): ConversationMessage[] {
   }
 
   return messages;
+}
+
+/**
+ * Scan the full JSONL file for token usage aggregated by model.
+ * Uses a string pre-check before JSON.parse to stay fast on large files.
+ */
+export async function readTokenUsage(jsonlPath: string): Promise<TokenUsage | null> {
+  try {
+    const content = await readFile(jsonlPath, "utf-8");
+    const usage: Record<string, ModelTokenUsage> = {};
+
+    for (const line of content.split("\n")) {
+      if (!line.includes('"type":"assistant"') && !line.includes('"type": "assistant"')) continue;
+      if (!line.includes('"usage"')) continue;
+      try {
+        const parsed: JsonlLine = JSON.parse(line);
+        const model = parsed.message?.model;
+        const u = parsed.message?.usage;
+        if (!model || !u) continue;
+        if (!usage[model]) {
+          usage[model] = { inputTokens: 0, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0 };
+        }
+        usage[model].inputTokens += u.input_tokens ?? 0;
+        usage[model].outputTokens += u.output_tokens ?? 0;
+        usage[model].cacheCreationTokens += u.cache_creation_input_tokens ?? 0;
+        usage[model].cacheReadTokens += u.cache_read_input_tokens ?? 0;
+      } catch {
+        // skip malformed lines
+      }
+    }
+
+    return Object.keys(usage).length > 0 ? usage : null;
+  } catch {
+    return null;
+  }
 }
 
 export function lastMessageHasError(lines: JsonlLine[]): boolean {

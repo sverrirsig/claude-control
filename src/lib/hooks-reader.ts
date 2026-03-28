@@ -2,6 +2,7 @@ import { homedir } from "os";
 import { join } from "path";
 import { readdir, stat, readFile, unlink } from "fs/promises";
 import { SessionStatus } from "./types";
+import { normalizeHostPath } from "./paths";
 
 const EVENTS_DIR = join(homedir(), ".claude-control", "events");
 const STALE_THRESHOLD_MS = 24 * 60 * 60 * 1000;
@@ -10,6 +11,7 @@ export interface HookStatus {
   status: SessionStatus | null;
   event: string;
   ts: number;
+  fileMtime: number;
   cwd: string | null;
   sessionId: string | null;
   transcriptPath: string | null;
@@ -50,9 +52,11 @@ export async function readAllHookStatuses(): Promise<Map<number, HookStatus>> {
         const filePath = join(EVENTS_DIR, filename);
 
         // Clean up stale files
+        let fileMtime = 0;
         try {
           const s = await stat(filePath);
-          if (now - s.mtimeMs > STALE_THRESHOLD_MS) {
+          fileMtime = s.mtimeMs;
+          if (now - fileMtime > STALE_THRESHOLD_MS) {
             await unlink(filePath).catch(() => {});
             return;
           }
@@ -88,9 +92,10 @@ export async function readAllHookStatuses(): Promise<Map<number, HookStatus>> {
             status,
             event: data.event,
             ts: data.ts ?? 0,
-            cwd: data.cwd || null,
+            fileMtime,
+            cwd: data.cwd ? normalizeHostPath(data.cwd) : null,
             sessionId: data.session_id || null,
-            transcriptPath: data.transcript_path || null,
+            transcriptPath: data.transcript_path ? normalizeHostPath(data.transcript_path) : null,
           });
         } catch {
           // Invalid JSON — skip

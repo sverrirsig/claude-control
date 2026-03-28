@@ -1,4 +1,38 @@
+"use client";
+
 import { ConversationPreview, SessionStatus } from "@/lib/types";
+
+function FormattedSummary({ text }: { text: string }) {
+  const hasBullets = /\n[-•*]\s/.test(text);
+
+  if (!hasBullets) {
+    return (
+      <p className="text-[11px] text-zinc-400 leading-relaxed line-clamp-5">{text}</p>
+    );
+  }
+
+  const lines = text.split("\n");
+  const elements: React.ReactNode[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim()) continue;
+    if (/^[-•*]\s/.test(line)) {
+      elements.push(
+        <div key={i} className="flex gap-1.5 items-start">
+          <span className="shrink-0 mt-[3px] w-1 h-1 rounded-full bg-zinc-500" />
+          <span className="text-[11px] text-zinc-400 leading-relaxed">{line.replace(/^[-•*]\s/, "")}</span>
+        </div>
+      );
+    } else {
+      elements.push(
+        <p key={i} className="text-[11px] text-zinc-500 leading-relaxed">{line}</p>
+      );
+    }
+  }
+
+  return <div className="space-y-1 max-h-[120px] overflow-hidden">{elements}</div>;
+}
 
 export function OutputPreview({ preview, status }: { preview: ConversationPreview; status?: SessionStatus }) {
   if (preview.messageCount === 0) {
@@ -12,17 +46,60 @@ export function OutputPreview({ preview, status }: { preview: ConversationPrevie
     );
   }
 
+  // Idle: show the completion summary (last assistant response) prominently
+  if (status === "idle" && preview.assistantIsNewer && preview.lastAssistantText) {
+    return (
+      <div className="space-y-1.5">
+        {preview.lastUserMessage && (
+          <p className="text-[10px] text-zinc-600 truncate font-mono leading-tight">{preview.lastUserMessage}</p>
+        )}
+        <FormattedSummary text={preview.lastAssistantText} />
+      </div>
+    );
+  }
+
   const showTools = preview.lastTools.length > 0 && (status === "working" || status === "waiting");
 
+  // Working: show live tool activity as a log stream; fall back to prompt + assistant text
+  if (status === "working" && showTools) {
+    return (
+      <div className="space-y-1">
+        {preview.lastUserMessage && (
+          <p className="text-[10px] text-zinc-600 truncate font-mono leading-tight mb-1.5">
+            {preview.lastUserMessage}
+          </p>
+        )}
+        {preview.lastTools.map((tool, i) => (
+          <div key={i} className="flex items-start gap-1.5 font-mono text-[10px] leading-snug">
+            <span className="shrink-0 text-violet-400">{tool.name}</span>
+            {tool.input && (
+              <span className="text-zinc-500 truncate">{tool.input}</span>
+            )}
+          </div>
+        ))}
+        {preview.assistantIsNewer && preview.lastAssistantText && (
+          <p className="text-[11px] text-zinc-500 leading-relaxed line-clamp-2 mt-1">
+            {preview.lastAssistantText}
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  // Working with no tools yet (first turn) or waiting/other: show prompt + assistant text
   return (
     <div className="space-y-1.5">
       {preview.lastUserMessage && (
-        <p className="text-xs text-zinc-300 line-clamp-2 leading-relaxed">{preview.lastUserMessage}</p>
+        <p className={`text-xs leading-relaxed ${status === "working" ? "text-zinc-200 line-clamp-3" : "text-zinc-300 line-clamp-2"}`}>
+          {preview.lastUserMessage}
+        </p>
       )}
       {preview.assistantIsNewer && preview.lastAssistantText && (
-        <p className="text-[11px] text-zinc-500 line-clamp-1 leading-relaxed">{preview.lastAssistantText}</p>
+        <p className={`text-[11px] leading-relaxed ${status === "working" ? "text-zinc-500 line-clamp-2" : "text-zinc-400 line-clamp-3"}`}>
+          {preview.lastAssistantText}
+        </p>
       )}
-      {showTools && (
+      {status === "waiting" && showTools && (
         <div className="flex items-center gap-1.5 text-xs flex-wrap">
           {preview.lastTools.map((tool, i) => (
             <span key={i} className="inline-flex items-center px-1.5 py-0.5 rounded-sm bg-violet-500/10 border border-violet-500/20 text-violet-300 font-mono text-[10px]">

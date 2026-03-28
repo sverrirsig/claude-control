@@ -1,5 +1,6 @@
-import { describe, it, expect } from "vitest";
-import { workingDirToEscapedPath, escapedPathToProjectDir, workingDirToProjectDir, repoNameFromPath } from "./paths";
+import { describe, it, expect, afterEach, vi } from "vitest";
+import { homedir } from "os";
+import { workingDirToEscapedPath, escapedPathToProjectDir, workingDirToProjectDir, repoNameFromPath, normalizeHostPath, toHostPath } from "./paths";
 import { CLAUDE_PROJECTS_DIR } from "./constants";
 import { join } from "path";
 
@@ -48,5 +49,66 @@ describe("repoNameFromPath", () => {
 
   it("returns original string for root path", () => {
     expect(repoNameFromPath("/")).toBe("/");
+  });
+});
+
+describe("normalizeHostPath", () => {
+  const home = homedir();
+
+  it("returns null for null input", () => {
+    expect(normalizeHostPath(null)).toBeNull();
+  });
+
+  it("returns path unchanged if already under current homedir", () => {
+    const p = `${home}/projects/foo`;
+    expect(normalizeHostPath(p)).toBe(p);
+  });
+
+  it("remaps /Users/<name>/... to current homedir", () => {
+    expect(normalizeHostPath("/Users/otheruser/Repos/myapp")).toBe(`${home}/Repos/myapp`);
+  });
+
+  it("remaps /home/<name>/... to current homedir", () => {
+    expect(normalizeHostPath("/home/otheruser/Repos/myapp")).toBe(`${home}/Repos/myapp`);
+  });
+
+  it("remaps path with no trailing segment", () => {
+    expect(normalizeHostPath("/Users/otheruser")).toBe(home);
+  });
+
+  it("returns path unchanged when it does not match any home pattern", () => {
+    expect(normalizeHostPath("/tmp/somefile")).toBe("/tmp/somefile");
+  });
+
+  it("returns empty string unchanged", () => {
+    expect(normalizeHostPath("")).toBe("");
+  });
+});
+
+describe("toHostPath", () => {
+  const containerHome = homedir();
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("returns path unchanged when HOST_HOME is not set", () => {
+    vi.stubEnv("HOST_HOME", "");
+    expect(toHostPath(`${containerHome}/Repos/myapp`)).toBe(`${containerHome}/Repos/myapp`);
+  });
+
+  it("replaces container homedir prefix with HOST_HOME", () => {
+    vi.stubEnv("HOST_HOME", "/Users/alice");
+    expect(toHostPath(`${containerHome}/Repos/myapp`)).toBe("/Users/alice/Repos/myapp");
+  });
+
+  it("handles exact homedir match", () => {
+    vi.stubEnv("HOST_HOME", "/Users/alice");
+    expect(toHostPath(containerHome)).toBe("/Users/alice");
+  });
+
+  it("returns path unchanged when it does not start with container homedir", () => {
+    vi.stubEnv("HOST_HOME", "/Users/alice");
+    expect(toHostPath("/tmp/somefile")).toBe("/tmp/somefile");
   });
 });

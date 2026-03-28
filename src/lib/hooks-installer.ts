@@ -22,7 +22,9 @@ const HOOK_SCRIPT = `#!/bin/bash
 # claude-control status hook — writes session events for real-time status detection
 set -e
 
-EVENTS_DIR="${EVENTS_DIR}"
+# Use $HOME so this script works on the host (macOS/Linux) regardless of
+# whether the app itself runs in a container with a different home path.
+EVENTS_DIR="$HOME/.claude-control/events"
 mkdir -p "$EVENTS_DIR"
 
 # Read JSON from stdin

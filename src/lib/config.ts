@@ -6,6 +6,17 @@ import type { TerminalApp, TerminalOpenIn } from "./terminal/types";
 const CONFIG_DIR = join(homedir(), ".claude-control");
 const CONFIG_FILE = join(CONFIG_DIR, "config.json");
 
+export interface ProcessBridgeConfig {
+  enabled: boolean;
+  intervalMs: number;
+  maxAgeMs: number;
+}
+
+export interface ActionBridgeConfig {
+  enabled: boolean;
+  port: number;
+}
+
 export interface AppConfig {
   codeDirectories: string[];
   editor: string;
@@ -22,6 +33,8 @@ export interface AppConfig {
   createPrPrompt: string;
   defaultBaseBranch: string;
   showKeyboardHints: boolean;
+  processBridge: ProcessBridgeConfig;
+  actionBridge: ActionBridgeConfig;
 }
 
 export const DEFAULT_INITIAL_PROMPT = "Implement the feature or fix referenced in the branch name. Think step-by-step: first understand the codebase and requirements, then plan your approach, then implement with tests.";
@@ -91,6 +104,15 @@ const DEFAULT_CONFIG: AppConfig = {
   createPrPrompt: DEFAULT_CREATE_PR_PROMPT,
   defaultBaseBranch: "main",
   showKeyboardHints: true,
+  processBridge: {
+    enabled: false,
+    intervalMs: 1000,
+    maxAgeMs: 5000,
+  },
+  actionBridge: {
+    enabled: false,
+    port: 27184,
+  },
 };
 
 export async function loadConfig(): Promise<AppConfig> {

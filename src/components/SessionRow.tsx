@@ -109,10 +109,13 @@ export function SessionRow({
         </div>
       )}
 
-      {/* Task title — only when NOT waiting (waiting shows tool context instead) */}
-      {!isWaiting && session.taskSummary && (
-        <span className="shrink-0 hidden lg:block text-[11px] text-zinc-600 truncate max-w-[180px]">
-          {session.taskSummary.title}
+      {/* Task title / prompt snippet — only when NOT waiting */}
+      {!isWaiting && (
+        <span className="shrink-0 hidden lg:block text-[11px] text-zinc-600 truncate max-w-[220px]">
+          {session.taskSummary?.title ||
+            (displayStatus === "working" && session.preview.lastUserMessage) ||
+            (displayStatus === "idle" && session.preview.assistantIsNewer && session.preview.lastAssistantText) ||
+            null}
         </span>
       )}
 
