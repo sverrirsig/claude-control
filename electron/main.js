@@ -1,4 +1,4 @@
-const { app, BrowserWindow, shell, utilityProcess, dialog, ipcMain } = require("electron");
+const { app, BrowserWindow, screen, shell, utilityProcess, dialog, ipcMain } = require("electron");
 const { spawn } = require("child_process");
 const path = require("path");
 const net = require("net");
@@ -168,15 +168,29 @@ ipcMain.handle("dialog:pickFolder", async () => {
   return { path: result.filePaths[0] };
 });
 
+function isPositionOnScreen(x, y) {
+  if (x === undefined || y === undefined) return false;
+  const displays = screen.getAllDisplays();
+  return displays.some((display) => {
+    const { x: dx, y: dy, width, height } = display.bounds;
+    return x >= dx && x < dx + width && y >= dy && y < dy + height;
+  });
+}
+
 function createWindow() {
   const windowState = windowStateKeeper({
     defaultWidth: 1400,
     defaultHeight: 900,
+    fullScreen: true,
   });
 
+  // Only restore position if it's on a currently visible display
+  const positionOpts = isPositionOnScreen(windowState.x, windowState.y)
+    ? { x: windowState.x, y: windowState.y }
+    : {};
+
   mainWindow = new BrowserWindow({
-    x: windowState.x,
-    y: windowState.y,
+    ...positionOpts,
     width: windowState.width,
     height: windowState.height,
     minWidth: 800,
