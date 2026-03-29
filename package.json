@@ -1,6 +1,6 @@
 {
   "name": "claude-control",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "description": "Desktop dashboard for monitoring and managing multiple Claude Code sessions",
   "author": "sverrirsig",
   "license": "MIT",
@@ -47,8 +47,8 @@
     "wait-on": "^9.0.4"
   },
   "build": {
-    "appId": "com.claude-control.app",
-    "productName": "Claude Control",
+    "appId": "com.claudio-control.app",
+    "productName": "Claudio Control",
     "directories": {
       "output": "dist"
     },

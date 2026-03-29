@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 18" shape-rendering="crispEdges">
+  <!-- Background -->
+  <rect width="20" height="18" rx="2" fill="#2a2a2a"/>
+
+  <!-- Comb (red/terracotta crown) -->
+  <rect x="10" y="1" width="2" height="2" fill="#D97757"/>
+  <rect x="12" y="0" width="2" height="2" fill="#D97757"/>
+  <rect x="14" y="1" width="2" height="2" fill="#D97757"/>
+
+  <!-- Head -->
+  <rect x="10" y="3" width="6" height="4" fill="#D97757"/>
+
+  <!-- Eye -->
+  <rect x="14" y="4" width="2" height="2" fill="#2a2a2a"/>
+
+  <!-- Beak -->
+  <rect x="16" y="5" width="2" height="2" fill="#E8C170"/>
+
+  <!-- Wattle -->
+  <rect x="14" y="7" width="2" height="2" fill="#B5533D"/>
+
+  <!-- Body -->
+  <rect x="4" y="7" width="12" height="6" fill="#D97757"/>
+
+  <!-- Wing (darker) -->
+  <rect x="6" y="9" width="6" height="3" fill="#B5533D"/>
+
+  <!-- Tail feathers -->
+  <rect x="2" y="5" width="2" height="2" fill="#D97757"/>
+  <rect x="0" y="3" width="2" height="2" fill="#D97757"/>
+  <rect x="2" y="7" width="2" height="2" fill="#D97757"/>
+  <rect x="4" y="5" width="2" height="2" fill="#D97757"/>
+
+  <!-- Legs -->
+  <rect x="7" y="13" width="2" height="3" fill="#E8C170"/>
+  <rect x="11" y="13" width="2" height="3" fill="#E8C170"/>
+
+  <!-- Feet -->
+  <rect x="5" y="16" width="2" height="2" fill="#E8C170"/>
+  <rect x="7" y="16" width="2" height="2" fill="#E8C170"/>
+  <rect x="9" y="16" width="2" height="2" fill="#E8C170"/>
+  <rect x="11" y="16" width="2" height="2" fill="#E8C170"/>
+  <rect x="13" y="16" width="2" height="2" fill="#E8C170"/>
+</svg>

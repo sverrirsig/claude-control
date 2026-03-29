@@ -1,7 +1,18 @@
 import type { Metadata } from "next";
+import { Press_Start_2P, Space_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
 
+const pressStart = Press_Start_2P({
+  weight: "400",
+  subsets: ["latin"],
+  variable: "--font-pixel",
+});
+const spaceMono = Space_Mono({
+  weight: ["400", "700"],
+  subsets: ["latin"],
+  variable: "--font-space-mono",
+});
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
   variable: "--font-geist-sans",
@@ -14,11 +25,11 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Claude Control",
-  description: "Dashboard for monitoring Claude Code sessions",
+  title: "Claudio Control",
+  description: "Dashboard for monitoring and managing Claude Code sessions",
   icons: {
-    icon: "/icon.png",
-    apple: "/icon.png",
+    icon: "/logo.png",
+    apple: "/logo.png",
   },
 };
 
@@ -30,7 +41,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} font-(family-name:--font-geist-sans) antialiased bg-[#050508] text-zinc-100 min-h-screen bg-grid`}
+        className={`${pressStart.variable} ${spaceMono.className} ${geistSans.variable} ${geistMono.variable} antialiased bg-[#050508] text-zinc-100 min-h-screen bg-grid`}
       >
         <div className="min-h-screen">
           {/* Draggable title bar for Electron (invisible in browser) */}

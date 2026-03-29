@@ -14,9 +14,9 @@ export function DashboardHeader({ sessionCount, onNewSession, viewMode, onViewMo
     <header className="mb-10">
       <div className="flex items-end justify-between">
         <div className="flex items-center gap-3.5">
-          <Image src="/icon.png" alt="Claude Control" width={44} height={44} className="rounded-xl" />
+          <Image src="/logo.png" alt="Claudio Control" width={44} height={44} className="rounded-xl" unoptimized />
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-gradient">Claude Control</h1>
+            <h1 className="text-2xl tracking-tight font-(family-name:--font-pixel) text-gradient">Claudio Control</h1>
             <p className="text-sm text-zinc-500 mt-0.5">
               {sessionCount === 0
                 ? "No active sessions"
