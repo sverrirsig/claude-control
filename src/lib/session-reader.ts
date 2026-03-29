@@ -24,6 +24,9 @@ interface JsonlLine {
   };
 }
 
+// Mtime-based cache for JSONL reads — skip re-reading unchanged files
+const jsonlCache = new Map<string, { mtimeMs: number; head: JsonlLine[]; tail: JsonlLine[]; mtime: Date }>();
+
 export async function getJsonlMtime(jsonlPath: string): Promise<Date | null> {
   try {
     const s = await stat(jsonlPath);
@@ -33,7 +36,24 @@ export async function getJsonlMtime(jsonlPath: string): Promise<Date | null> {
   }
 }
 
+async function getJsonlMtimeMs(jsonlPath: string): Promise<number | null> {
+  try {
+    const s = await stat(jsonlPath);
+    return s.mtimeMs;
+  } catch {
+    return null;
+  }
+}
+
 export async function readJsonlHead(jsonlPath: string, lines = JSONL_HEAD_LINES): Promise<JsonlLine[]> {
+  const mtimeMs = await getJsonlMtimeMs(jsonlPath);
+  if (mtimeMs !== null) {
+    const cached = jsonlCache.get(jsonlPath);
+    if (cached && cached.mtimeMs === mtimeMs && cached.head.length > 0) {
+      return cached.head;
+    }
+  }
+
   try {
     const chunkSize = lines * HEAD_CHUNK_BYTES_PER_LINE;
     const fh = await open(jsonlPath, "r");
@@ -51,6 +71,15 @@ export async function readJsonlHead(jsonlPath: string, lines = JSONL_HEAD_LINES)
           // skip
         }
       }
+      if (mtimeMs !== null) {
+        const existing = jsonlCache.get(jsonlPath);
+        jsonlCache.set(jsonlPath, {
+          mtimeMs,
+          head: parsed,
+          tail: existing?.tail ?? [],
+          mtime: existing?.mtime ?? new Date(mtimeMs),
+        });
+      }
       return parsed;
     } finally {
       await fh.close();
@@ -61,6 +90,14 @@ export async function readJsonlHead(jsonlPath: string, lines = JSONL_HEAD_LINES)
 }
 
 export async function readJsonlTail(jsonlPath: string, lines = JSONL_TAIL_LINES): Promise<JsonlLine[]> {
+  const mtimeMs = await getJsonlMtimeMs(jsonlPath);
+  if (mtimeMs !== null) {
+    const cached = jsonlCache.get(jsonlPath);
+    if (cached && cached.mtimeMs === mtimeMs && cached.tail.length > 0) {
+      return cached.tail;
+    }
+  }
+
   try {
     const fh = await open(jsonlPath, "r");
     try {
@@ -80,6 +117,15 @@ export async function readJsonlTail(jsonlPath: string, lines = JSONL_TAIL_LINES)
         } catch {
           // skip malformed lines
         }
+      }
+      if (mtimeMs !== null) {
+        const existing = jsonlCache.get(jsonlPath);
+        jsonlCache.set(jsonlPath, {
+          mtimeMs,
+          head: existing?.head ?? [],
+          tail: parsed,
+          mtime: existing?.mtime ?? new Date(mtimeMs),
+        });
       }
       return parsed;
     } finally {

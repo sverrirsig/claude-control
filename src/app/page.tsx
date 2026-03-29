@@ -6,6 +6,7 @@ import { DashboardHeader } from "@/components/DashboardHeader";
 import { KeyboardHints } from "@/components/KeyboardHints";
 import { NewSessionModal } from "@/components/NewSessionModal";
 import { SessionGrid } from "@/components/SessionGrid";
+import { useDashboardLayout } from "@/hooks/useDashboardLayout";
 import { useDesktopNotification } from "@/hooks/useDesktopNotification";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useNotificationSound } from "@/hooks/useNotificationSound";
@@ -15,8 +16,11 @@ import { useSettings } from "@/hooks/useSettings";
 import { flattenGroupedSessions } from "@/lib/group-sessions";
 import { SessionStatus, ViewMode } from "@/lib/types";
 
+const EMPTY_SET: Set<string> = new Set();
+
 export default function Dashboard() {
   const { sessions, isLoading, error, hooksActive, refresh } = useSessions();
+  const { layout, reorderSections, reorderCards } = useDashboardLayout();
   const [targetScreen, setTargetScreen] = useState<number | null>(() => {
     if (typeof window === "undefined") return null;
     const saved = localStorage.getItem("targetScreen");
@@ -88,6 +92,7 @@ export default function Dashboard() {
     onApproveReject: handleApproveReject,
     onViewModeChange: handleViewModeChange,
     onStartEdit: handleStartEdit,
+    layout,
   });
 
   // Clear optimistic state when backend catches up or after timeout
@@ -190,7 +195,7 @@ export default function Dashboard() {
                   if (s) sendNotification(s, s.status);
                 }
                 setFreshlyChanged(new Set([sid]));
-                setTimeout(() => setFreshlyChanged(new Set()), 2000);
+                setTimeout(() => setFreshlyChanged(EMPTY_SET), 2000);
               }, 6000);
               pendingIdleNotifications.current.set(sid, timer);
             }
@@ -238,7 +243,7 @@ export default function Dashboard() {
       }
       // eslint-disable-next-line react-hooks/set-state-in-effect -- notification highlight with delayed clear
       setFreshlyChanged(changed);
-      setTimeout(() => setFreshlyChanged(new Set()), 2000);
+      setTimeout(() => setFreshlyChanged(EMPTY_SET), 2000);
     }
   }, [sessions, hooksActive, playChime, sendNotification, soundEnabled, notificationsEnabled]);
 
@@ -290,6 +295,9 @@ export default function Dashboard() {
           onStartEdit={handleStartEdit}
           onSaveMeta={handleSaveMeta}
           onCancelEdit={handleCancelEdit}
+          layout={layout}
+          onReorderSections={reorderSections}
+          onReorderCards={reorderCards}
         />
       )}
 

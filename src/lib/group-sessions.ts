@@ -1,3 +1,5 @@
+import { applyLayout } from "./apply-layout";
+import type { DashboardLayout } from "./dashboard-layout";
 import { ClaudeSession, SessionGroup } from "./types";
 
 export function groupSessions(sessions: ClaudeSession[]): SessionGroup[] {
@@ -20,10 +22,11 @@ export function groupSessions(sessions: ClaudeSession[]): SessionGroup[] {
 }
 
 /** Flatten sessions in the same order the grid displays them. */
-export function flattenGroupedSessions(sessions: ClaudeSession[]): ClaudeSession[] {
+export function flattenGroupedSessions(sessions: ClaudeSession[], layout?: DashboardLayout | null): ClaudeSession[] {
   const groups = groupSessions(sessions);
+  const ordered = layout ? applyLayout(groups, layout) : groups;
   const flat: ClaudeSession[] = [];
-  for (const group of groups) {
+  for (const group of ordered) {
     for (const session of group.sessions) {
       flat.push(session);
     }
