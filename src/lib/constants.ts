@@ -3,12 +3,12 @@ import { join } from "path";
 
 export const CLAUDE_PROJECTS_DIR = join(homedir(), ".claude", "projects");
 export const CLAUDE_HISTORY_FILE = join(homedir(), ".claude", "history.jsonl");
-export const POLL_INTERVAL_MS = 2000;
+export const POLL_INTERVAL_MS = 3000;
 export const FINISHED_SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 export const JSONL_TAIL_LINES = 50;
 export const JSONL_HEAD_LINES = 30;
 export const HEAD_CHUNK_BYTES_PER_LINE = 2048;
-export const TAIL_CHUNK_BYTES_PER_LINE = 10240;
+export const TAIL_CHUNK_BYTES_PER_LINE = 4096;
 export const PREVIEW_TEXT_MAX_LENGTH = 200;
 export const TASK_TITLE_MAX_LENGTH = 120;
 export const TASK_DESCRIPTION_MAX_LENGTH = 300;

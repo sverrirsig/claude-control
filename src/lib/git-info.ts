@@ -22,14 +22,27 @@ export async function getGitBranch(cwd: string): Promise<string | null> {
   return branch || null;
 }
 
+// TTL cache for git summary — git status doesn't change meaningfully every 2s
+const gitSummaryCache = new Map<string, { result: GitSummary | null; ts: number }>();
+const GIT_SUMMARY_TTL_MS = 10_000;
+
 export async function getGitSummary(cwd: string): Promise<GitSummary | null> {
+  const now = Date.now();
+  const cached = gitSummaryCache.get(cwd);
+  if (cached && now - cached.ts < GIT_SUMMARY_TTL_MS) {
+    return cached.result;
+  }
+
   const [branch, porcelain, shortStat] = await Promise.all([
     gitCommand(["rev-parse", "--abbrev-ref", "HEAD"], cwd),
     gitCommand(["status", "--porcelain"], cwd),
     gitCommand(["diff", "--shortstat"], cwd),
   ]);
 
-  if (!branch) return null;
+  if (!branch) {
+    gitSummaryCache.set(cwd, { result: null, ts: now });
+    return null;
+  }
 
   const lines = porcelain.split("\n").filter(Boolean);
   const untrackedFiles = lines.filter((l) => l.startsWith("??")).length;
@@ -42,7 +55,7 @@ export async function getGitSummary(cwd: string): Promise<GitSummary | null> {
   if (statMatch) additions = parseInt(statMatch[1], 10);
   if (delMatch) deletions = parseInt(delMatch[1], 10);
 
-  return {
+  const result: GitSummary = {
     branch,
     changedFiles,
     additions,
@@ -50,6 +63,8 @@ export async function getGitSummary(cwd: string): Promise<GitSummary | null> {
     untrackedFiles,
     shortStat: shortStat || "clean",
   };
+  gitSummaryCache.set(cwd, { result, ts: now });
+  return result;
 }
 
 export async function getGitDiff(cwd: string): Promise<string | null> {
@@ -87,10 +102,25 @@ export async function getPrUrl(cwd: string, branch: string): Promise<string | nu
   }
 }
 
+// TTL cache for worktree path — essentially static
+const worktreeCache = new Map<string, { result: string | null; ts: number }>();
+const WORKTREE_TTL_MS = 60_000;
+
 export async function getMainWorktreePath(cwd: string): Promise<string | null> {
+  const now = Date.now();
+  const cached = worktreeCache.get(cwd);
+  if (cached && now - cached.ts < WORKTREE_TTL_MS) {
+    return cached.result;
+  }
+
   const output = await gitCommand(["worktree", "list", "--porcelain"], cwd);
-  if (!output) return null;
+  if (!output) {
+    worktreeCache.set(cwd, { result: null, ts: now });
+    return null;
+  }
   // First "worktree" line is always the main worktree
   const match = output.match(/^worktree (.+)$/m);
-  return match ? match[1] : null;
+  const result = match ? match[1] : null;
+  worktreeCache.set(cwd, { result, ts: now });
+  return result;
 }

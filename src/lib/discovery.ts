@@ -160,7 +160,17 @@ async function buildSession(
   };
 }
 
+// Discovery result cache — avoids re-running full discovery on rapid polls
+let cachedSessions: ClaudeSession[] = [];
+let cacheTimestamp = 0;
+const CACHE_TTL_MS = 1500;
+
 export async function discoverSessions(): Promise<ClaudeSession[]> {
+  const now = Date.now();
+  if (now - cacheTimestamp < CACHE_TTL_MS && cachedSessions.length > 0) {
+    return cachedSessions;
+  }
+
   // Single ps call builds the full tree (pid, ppid, %cpu, comm) —
   // extract claude PIDs and their CPU% from it, then one lsof for cwds
   const [processTree, hookStatuses, meta] = await Promise.all([
@@ -176,9 +186,9 @@ export async function discoverSessions(): Promise<ClaudeSession[]> {
   evictStaleTerminalCache(activePids);
 
   // Orphan check on slower interval — batched to minimize subprocess calls
-  const now = Date.now();
-  if (now - lastOrphanCheck >= ORPHAN_CHECK_INTERVAL_MS) {
-    lastOrphanCheck = now;
+  const orphanNow = Date.now();
+  if (orphanNow - lastOrphanCheck >= ORPHAN_CHECK_INTERVAL_MS) {
+    lastOrphanCheck = orphanNow;
     const [ttyMap, tmuxPanes, tmuxClients] = await Promise.all([
       getTtysForPids(pids),
       detectAllTmuxPanes(),
@@ -244,6 +254,8 @@ export async function discoverSessions(): Promise<ClaudeSession[]> {
     }
   }
 
+  cachedSessions = sessions;
+  cacheTimestamp = Date.now();
   return sessions;
 }
 

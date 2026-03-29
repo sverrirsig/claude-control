@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { sendKeystrokeAction } from "@/lib/actions";
+import type { DashboardLayout } from "@/lib/dashboard-layout";
 import { flattenGroupedSessions } from "@/lib/group-sessions";
 import { ClaudeSession, ViewMode } from "@/lib/types";
 import { useSettings } from "./useSettings";
@@ -14,6 +15,7 @@ interface UseKeyboardShortcutsOptions {
   onApproveReject?: (sessionId: string, action: "approve" | "reject") => void;
   onViewModeChange?: (mode: ViewMode) => void;
   onStartEdit?: (sessionId: string) => void;
+  layout?: DashboardLayout | null;
 }
 
 export function useKeyboardShortcuts({
@@ -24,13 +26,14 @@ export function useKeyboardShortcuts({
   onApproveReject,
   onViewModeChange,
   onStartEdit,
+  layout,
 }: UseKeyboardShortcutsOptions) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [actionFeedback, setActionFeedback] = useState<{ label: string; color: string } | null>(null);
   const { editorAvailable, gitGuiAvailable } = useSettings();
 
   // Use the same grouped+flattened order as the grid renders
-  const orderedSessions = useMemo(() => flattenGroupedSessions(sessions), [sessions]);
+  const orderedSessions = useMemo(() => flattenGroupedSessions(sessions, layout), [sessions, layout]);
 
   // Clamp selection when sessions change (React 19 "adjust state during render" pattern)
   const [prevLength, setPrevLength] = useState(orderedSessions.length);

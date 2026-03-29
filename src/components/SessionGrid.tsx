@@ -1,10 +1,33 @@
 "use client";
 
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  KeyboardSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  rectSortingStrategy,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { sendKeystrokeAction } from "@/lib/actions";
+import { applyLayout } from "@/lib/apply-layout";
+import type { DashboardLayout } from "@/lib/dashboard-layout";
 import { groupSessions } from "@/lib/group-sessions";
 import { ClaudeSession, PrStatus, ViewMode } from "@/lib/types";
+import { useRef, useState } from "react";
 import { SessionCard } from "./SessionCard";
 import { SessionRow } from "./SessionRow";
+import { SortableCard } from "./SortableCard";
+import { SortableSection } from "./SortableSection";
 
 function prettifyName(name: string): string {
   return name.replace(/[-_]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -73,23 +96,13 @@ const REPO_ACCENTS = [
   },
 ];
 
-// Assign accents by position among visible groups so no two adjacent groups share a color.
-// Uses a hash to pick a starting offset for consistency when groups change, then spaces
-// assignments evenly across the palette to maximize visual distance.
+// Assign accents by hashing each group name individually so colors stay stable after reorder.
 function buildAccentMap(groupNames: string[]): Map<string, (typeof REPO_ACCENTS)[0]> {
   const map = new Map<string, (typeof REPO_ACCENTS)[0]>();
-  if (groupNames.length === 0) return map;
-
-  // Use first group name to seed a stable starting offset
-  let seed = 0;
-  const first = groupNames[0];
-  for (let i = 0; i < first.length; i++) seed = ((seed << 5) - seed + first.charCodeAt(i)) | 0;
-  const start = Math.abs(seed) % REPO_ACCENTS.length;
-
-  // Space colors evenly to maximize visual distance
-  const step = Math.max(1, Math.floor(REPO_ACCENTS.length / groupNames.length));
-  for (let i = 0; i < groupNames.length; i++) {
-    map.set(groupNames[i], REPO_ACCENTS[(start + i * step) % REPO_ACCENTS.length]);
+  for (const name of groupNames) {
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
+    map.set(name, REPO_ACCENTS[Math.abs(hash) % REPO_ACCENTS.length]);
   }
   return map;
 }
@@ -110,6 +123,9 @@ export function SessionGrid({
   onStartEdit,
   onSaveMeta,
   onCancelEdit,
+  layout,
+  onReorderSections,
+  onReorderCards,
 }: {
   sessions: ClaudeSession[];
   viewMode: ViewMode;
@@ -126,7 +142,19 @@ export function SessionGrid({
   onStartEdit?: (sessionId: string) => void;
   onSaveMeta?: (sessionId: string, updates: { title?: string; description?: string }) => void;
   onCancelEdit?: () => void;
+  layout?: DashboardLayout | null;
+  onReorderSections?: (newOrder: string[]) => void;
+  onReorderCards?: (repoPath: string, newOrder: string[]) => void;
 }) {
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  const [activeDragType, setActiveDragType] = useState<"section" | "card" | null>(null);
+  const isDragging = activeDragId !== null;
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
   if (sessions.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-32">
@@ -147,12 +175,20 @@ export function SessionGrid({
     );
   }
 
-  const groups = groupSessions(sessions);
+  const rawGroups = groupSessions(sessions);
+  const groups = applyLayout(rawGroups, layout ?? null);
+
+  // Freeze groups during drag to prevent SWR poll from disrupting layout
+  const stableGroupsRef = useRef(groups);
+  if (!isDragging) {
+    stableGroupsRef.current = groups;
+  }
+  const displayGroups = stableGroupsRef.current;
 
   // Build a flat index map: session id → flat index (for keyboard shortcuts)
   const flatIndexMap = new Map<string, number>();
   let flatIdx = 0;
-  for (const group of groups) {
+  for (const group of displayGroups) {
     for (const session of group.sessions) {
       flatIndexMap.set(`${session.id}-${session.pid}`, flatIdx);
       flatIdx++;
@@ -233,23 +269,36 @@ export function SessionGrid({
     );
   };
 
-  const renderSessions = (items: ClaudeSession[]) =>
-    viewMode === "list" ? (
-      <div className="space-y-1">{items.map(renderRow)}</div>
-    ) : (
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 items-start">{items.map(renderCard)}</div>
+  const renderSortableCards = (items: ClaudeSession[], repoPath: string) => {
+    const sessionIds = items.map((s) => s.id);
+    const strategy = viewMode === "list" ? verticalListSortingStrategy : rectSortingStrategy;
+
+    return (
+      <SortableContext items={sessionIds} strategy={strategy}>
+        {viewMode === "list" ? (
+          <div className="space-y-1">
+            {items.map((session) => (
+              <SortableCard key={`${session.id}-${session.pid}`} id={session.id}>
+                {renderRow(session)}
+              </SortableCard>
+            ))}
+          </div>
+        ) : (
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 items-start">
+            {items.map((session) => (
+              <SortableCard key={`${session.id}-${session.pid}`} id={session.id}>
+                {renderCard(session)}
+              </SortableCard>
+            ))}
+          </div>
+        )}
+      </SortableContext>
     );
+  };
 
-  // If there's only one group with one session, skip the grouping chrome
-  if (groups.length === 1 && groups[0].sessions.length === 1) {
-    return renderSessions(sessions);
-  }
+  const accentMap = buildAccentMap(displayGroups.map((g) => g.repoName));
 
-  const multiSessionGroups = groups.filter((g) => g.sessions.length > 1);
-  const singleSessionGroups = groups.filter((g) => g.sessions.length === 1);
-  const accentMap = buildAccentMap(groups.map((g) => g.repoName));
-
-  const renderGroupHeader = (group: (typeof groups)[0], showCount = true) => {
+  const renderGroupHeader = (group: (typeof displayGroups)[0], showCount = true) => {
     const accent = accentMap.get(group.repoName) ?? REPO_ACCENTS[0];
     return (
       <div className={`flex items-center gap-3 ${viewMode === "list" ? "mb-2" : "mb-4"}`}>
@@ -278,39 +327,151 @@ export function SessionGrid({
     );
   };
 
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event;
+    const type = active.data.current?.type as "section" | "card" | undefined;
+    setActiveDragId(active.id as string);
+    setActiveDragType(type ?? null);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveDragId(null);
+    setActiveDragType(null);
+
+    if (!over || active.id === over.id) return;
+
+    const activeType = active.data.current?.type;
+
+    if (activeType === "section") {
+      const sectionIds = displayGroups.map((g) => g.repoPath);
+      const oldIndex = sectionIds.indexOf(active.id as string);
+      const overType = over.data.current?.type;
+      let newIndex: number;
+      if (overType === "section") {
+        newIndex = sectionIds.indexOf(over.id as string);
+      } else {
+        return;
+      }
+      if (oldIndex === -1 || newIndex === -1) return;
+      const newOrder = arrayMove(sectionIds, oldIndex, newIndex);
+      onReorderSections?.(newOrder);
+    } else if (activeType === "card") {
+      // Find which group the active card belongs to
+      for (const group of displayGroups) {
+        const sessionIds = group.sessions.map((s) => s.id);
+        const oldIndex = sessionIds.indexOf(active.id as string);
+        if (oldIndex === -1) continue;
+
+        const newIndex = sessionIds.indexOf(over.id as string);
+        if (newIndex === -1) return;
+
+        const newOrder = arrayMove(sessionIds, oldIndex, newIndex);
+        onReorderCards?.(group.repoPath, newOrder);
+        break;
+      }
+    }
+  };
+
+  // If there's only one group with one session, skip the grouping chrome
+  if (displayGroups.length === 1 && displayGroups[0].sessions.length === 1) {
+    return viewMode === "list" ? (
+      <div className="space-y-1">{displayGroups[0].sessions.map(renderRow)}</div>
+    ) : (
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 items-start">
+        {displayGroups[0].sessions.map(renderCard)}
+      </div>
+    );
+  }
+
+  const sectionIds = displayGroups.map((g) => g.repoPath);
+  const hasCustomOrder = layout && layout.sectionOrder.length > 0;
+
+  // When custom order exists, render all groups uniformly in a single vertical list
+  if (hasCustomOrder) {
+    return (
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext items={sectionIds} strategy={verticalListSortingStrategy}>
+          <div className="space-y-8">
+            {displayGroups.map((group) => (
+              <SortableSection key={group.repoPath} id={group.repoPath} header={renderGroupHeader(group)}>
+                {renderSortableCards(group.sessions, group.repoPath)}
+              </SortableSection>
+            ))}
+          </div>
+        </SortableContext>
+
+        <DragOverlay>
+          {activeDragId && activeDragType === "section" && (
+            <div className="bg-zinc-900/90 backdrop-blur-sm rounded-lg px-4 py-2 border border-zinc-700 shadow-xl">
+              <span className="text-sm text-zinc-300">
+                {prettifyName(displayGroups.find((g) => g.repoPath === activeDragId)?.repoName ?? "")}
+              </span>
+            </div>
+          )}
+        </DragOverlay>
+      </DndContext>
+    );
+  }
+
+  // Default layout: sections are sortable, cards within sections are sortable
+  const multiSessionGroups = displayGroups.filter((g) => g.sessions.length > 1);
+  const singleSessionGroups = displayGroups.filter((g) => g.sessions.length === 1);
+
   return (
-    <div className="space-y-8">
-      {/* Multi-session groups: full-width with their own grid */}
-      {multiSessionGroups.map((group) => (
-        <div key={group.repoPath}>
-          {renderGroupHeader(group)}
-          {renderSessions(group.sessions)}
-        </div>
-      ))}
-
-      {/* Single-session groups: compact side-by-side layout */}
-      {singleSessionGroups.length > 0 && viewMode === "grid" && (
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 items-start">
-          {singleSessionGroups.map((group) => (
-            <div key={group.repoPath}>
-              {renderGroupHeader(group, false)}
-              {renderCard(group.sessions[0])}
-            </div>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
+      <SortableContext items={sectionIds} strategy={verticalListSortingStrategy}>
+        <div className="space-y-8">
+          {/* Multi-session groups: full-width with their own grid */}
+          {multiSessionGroups.map((group) => (
+            <SortableSection key={group.repoPath} id={group.repoPath} header={renderGroupHeader(group)}>
+              {renderSortableCards(group.sessions, group.repoPath)}
+            </SortableSection>
           ))}
-        </div>
-      )}
 
-      {/* Single-session groups in list mode: keep stacked */}
-      {singleSessionGroups.length > 0 && viewMode === "list" && (
-        <>
-          {singleSessionGroups.map((group) => (
-            <div key={group.repoPath}>
-              {renderGroupHeader(group)}
-              {renderSessions(group.sessions)}
+          {/* Single-session groups: compact side-by-side layout */}
+          {singleSessionGroups.length > 0 && viewMode === "grid" && (
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 items-start">
+              {singleSessionGroups.map((group) => (
+                <SortableSection key={group.repoPath} id={group.repoPath} header={renderGroupHeader(group, false)}>
+                  {renderCard(group.sessions[0])}
+                </SortableSection>
+              ))}
             </div>
-          ))}
-        </>
-      )}
-    </div>
+          )}
+
+          {/* Single-session groups in list mode: keep stacked */}
+          {singleSessionGroups.length > 0 && viewMode === "list" && (
+            <>
+              {singleSessionGroups.map((group) => (
+                <SortableSection key={group.repoPath} id={group.repoPath} header={renderGroupHeader(group)}>
+                  <div className="space-y-1">{group.sessions.map(renderRow)}</div>
+                </SortableSection>
+              ))}
+            </>
+          )}
+        </div>
+      </SortableContext>
+
+      <DragOverlay>
+        {activeDragId && activeDragType === "section" && (
+          <div className="bg-zinc-900/90 backdrop-blur-sm rounded-lg px-4 py-2 border border-zinc-700 shadow-xl">
+            <span className="text-sm text-zinc-300">
+              {prettifyName(displayGroups.find((g) => g.repoPath === activeDragId)?.repoName ?? "")}
+            </span>
+          </div>
+        )}
+      </DragOverlay>
+    </DndContext>
   );
 }

@@ -14,12 +14,16 @@
     "format:check": "biome format",
     "typecheck": "tsc --noEmit",
     "electron:dev": "concurrently --kill-others \"next dev -p 3200\" \"wait-on http://localhost:3200 && electron .\"",
-    "electron:build": "next build && node scripts/prepare-build.js && electron-builder --mac --publish never",
-    "electron:pack": "next build && node scripts/prepare-build.js && electron-builder --mac --dir",
+    "electron:build": "node scripts/prepare-build.js --clean && next build && node scripts/prepare-build.js && electron-builder --mac --publish never",
+    "electron:pack": "node scripts/prepare-build.js --clean && next build && node scripts/prepare-build.js && electron-builder --mac --dir",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "babel-plugin-react-compiler": "^1.0.0",
     "next": "^16.2.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
@@ -38,7 +42,7 @@
     "eslint-config-next": "^16.2.0",
     "postcss": "^8",
     "tailwindcss": "^4.2.2",
-    "typescript": "^5",
+    "typescript": "^5.9.3",
     "vitest": "^4.1.0",
     "wait-on": "^9.0.4"
   },
@@ -51,11 +55,9 @@
     "mac": {
       "category": "public.app-category.developer-tools",
       "icon": "public/icon.png",
-      "hardenedRuntime": true,
+      "hardenedRuntime": false,
       "gatekeeperAssess": false,
-      "entitlements": "build/entitlements.mac.plist",
-      "entitlementsInherit": "build/entitlements.mac.plist",
-      "notarize": true,
+      "notarize": false,
       "target": [
         {
           "target": "dmg",

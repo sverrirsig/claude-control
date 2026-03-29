@@ -7,10 +7,22 @@ const standaloneDir = path.join(projectRoot, ".next", "standalone");
 const staticDir = path.join(projectRoot, ".next", "static");
 const publicDir = path.join(projectRoot, "public");
 const outDir = path.join(projectRoot, "next-app-dist");
+const distDir = path.join(projectRoot, "dist");
 
-// Clean output
+// Clean output directories to prevent recursive nesting.
+// If these exist when `next build` runs, they get included in .next/standalone
+// (which mirrors the project dir), causing deeply nested copies that break codesign.
 if (fs.existsSync(outDir)) {
   fs.rmSync(outDir, { recursive: true });
+}
+if (fs.existsSync(distDir)) {
+  fs.rmSync(distDir, { recursive: true });
+}
+
+// With --clean flag, only remove stale dirs (run before `next build`)
+if (process.argv.includes("--clean")) {
+  console.log("Cleaned next-app-dist and dist directories.");
+  process.exit(0);
 }
 
 console.log("Assembling standalone Next.js app...");
