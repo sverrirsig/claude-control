@@ -37,6 +37,7 @@ export function TerminalInstance({
   const fitAddonRef = useRef<FitAddon | null>(null);
   const ptyIdRef = useRef<number | null>(null);
   const [exited, setExited] = useState(false);
+  const [dragging, setDragging] = useState(false);
 
   // Spawn PTY and set up xterm on mount, clean up on unmount.
   // Uses a `cancelled` flag to handle React 18 strict mode double-mount:
@@ -180,12 +181,92 @@ export function TerminalInstance({
     });
   }, [visible]);
 
+  // Drag-and-drop: use capture-phase native listeners so we intercept
+  // events before xterm.js's internal elements can swallow them.
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  // Prevent Electron's default file-drop-navigates behavior globally
+  useEffect(() => {
+    const prevent = (e: Event) => e.preventDefault();
+    document.addEventListener("dragover", prevent);
+    document.addEventListener("drop", prevent);
+    return () => {
+      document.removeEventListener("dragover", prevent);
+      document.removeEventListener("drop", prevent);
+    };
+  }, []);
+
+  const handleDrop = (e: DragEvent | React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragging(false);
+    const api = getElectronAPI();
+    const id = ptyIdRef.current;
+    const dt = "nativeEvent" in e ? (e as React.DragEvent).nativeEvent.dataTransfer : e.dataTransfer;
+    if (!api || id === null || !dt) return;
+
+    const files = Array.from(dt.files);
+    if (files.length === 0) return;
+
+    const paths = files
+      .map((f) => (f as File & { path?: string }).path)
+      .filter(Boolean) as string[];
+    if (paths.length > 0) {
+      // Shell-escape paths that contain spaces, then write to PTY
+      const escaped = paths.map((p) => (p.includes(" ") ? `"${p}"` : p));
+      api.ptyWrite(id, escaped.join(" "));
+    }
+  };
+
+  useEffect(() => {
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+
+    const onDragEnter = (e: DragEvent) => {
+      e.preventDefault();
+      setDragging(true);
+    };
+    const onDragOver = (e: DragEvent) => {
+      e.preventDefault();
+    };
+    const onDragLeave = (e: DragEvent) => {
+      if (!wrapper.contains(e.relatedTarget as Node)) setDragging(false);
+    };
+
+    wrapper.addEventListener("dragenter", onDragEnter, { capture: true });
+    wrapper.addEventListener("dragover", onDragOver, { capture: true });
+    wrapper.addEventListener("dragleave", onDragLeave, { capture: true });
+    wrapper.addEventListener("drop", handleDrop as EventListener, { capture: true });
+
+    return () => {
+      wrapper.removeEventListener("dragenter", onDragEnter, { capture: true });
+      wrapper.removeEventListener("dragover", onDragOver, { capture: true });
+      wrapper.removeEventListener("dragleave", onDragLeave, { capture: true });
+      wrapper.removeEventListener("drop", handleDrop as EventListener, { capture: true });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div
-      ref={containerRef}
-      className="absolute inset-0 px-1 py-1"
+      ref={wrapperRef}
+      className="absolute inset-0"
       style={{ display: visible ? "block" : "none" }}
-      data-exited={exited ? "true" : undefined}
-    />
+    >
+      <div
+        ref={containerRef}
+        className="absolute inset-0 px-1 py-1"
+        data-exited={exited ? "true" : undefined}
+      />
+      {dragging && (
+        <div
+          className="absolute inset-0 z-50 flex items-center justify-center bg-blue-500/10 border-2 border-dashed border-blue-500/50 rounded"
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => handleDrop(e)}
+        >
+          <span className="text-blue-400 text-sm font-medium pointer-events-none">Drop file to paste path</span>
+        </div>
+      )}
+    </div>
   );
 }
