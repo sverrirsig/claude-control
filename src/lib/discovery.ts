@@ -165,6 +165,10 @@ let cachedSessions: ClaudeSession[] = [];
 let cacheTimestamp = 0;
 const CACHE_TTL_MS = 1500;
 
+export function invalidateSessionCache() {
+  cacheTimestamp = 0;
+}
+
 export async function discoverSessions(): Promise<ClaudeSession[]> {
   const now = Date.now();
   if (now - cacheTimestamp < CACHE_TTL_MS && cachedSessions.length > 0) {

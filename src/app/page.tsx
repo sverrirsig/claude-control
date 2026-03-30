@@ -335,7 +335,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {modal && <NewSessionModal repoPath={modal.repoPath} repoName={modal.repoName} onClose={() => setModal(null)} />}
+      {modal && <NewSessionModal repoPath={modal.repoPath} repoName={modal.repoName} onClose={() => setModal(null)} onCreated={refresh} />}
     </>
   );
 }

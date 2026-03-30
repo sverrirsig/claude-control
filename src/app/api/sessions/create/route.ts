@@ -3,6 +3,7 @@ import { stat } from "fs/promises";
 import { NextResponse } from "next/server";
 import { promisify } from "util";
 import { loadConfig } from "@/lib/config";
+import { invalidateSessionCache } from "@/lib/discovery";
 import { createSession } from "@/lib/terminal";
 
 const execFileAsync = promisify(execFile);
@@ -111,6 +112,9 @@ export async function POST(request: Request) {
 
     // Open terminal with claude in the target directory
     await openTerminalWithClaude(targetPath, repoPath, prompt, tmuxSession);
+
+    // Invalidate server cache so the next poll picks up the new session immediately
+    invalidateSessionCache();
 
     return NextResponse.json({ ok: true, path: targetPath });
   } catch (error: unknown) {

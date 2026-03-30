@@ -406,7 +406,7 @@ export function SessionGrid({
           </div>
         </SortableContext>
 
-        <DragOverlay>
+        <DragOverlay dropAnimation={null}>
           {activeDragId && activeDragType === "section" && (
             <div className="bg-zinc-900/90 backdrop-blur-sm rounded-lg px-4 py-2 border border-zinc-700 shadow-xl">
               <span className="text-sm text-zinc-300">
@@ -414,6 +414,15 @@ export function SessionGrid({
               </span>
             </div>
           )}
+          {activeDragId && activeDragType === "card" && (() => {
+            const session = sessions.find((s) => s.id === activeDragId);
+            if (!session) return null;
+            return (
+              <div className="pointer-events-none opacity-90 shadow-2xl shadow-black/50 rounded-xl ring-1 ring-white/10" style={{ width: viewMode === "list" ? "100%" : 380 }}>
+                {viewMode === "list" ? renderRow(session) : renderCard(session)}
+              </div>
+            );
+          })()}
         </DragOverlay>
       </DndContext>
     );
@@ -463,7 +472,7 @@ export function SessionGrid({
         </div>
       </SortableContext>
 
-      <DragOverlay>
+      <DragOverlay dropAnimation={null}>
         {activeDragId && activeDragType === "section" && (
           <div className="bg-zinc-900/90 backdrop-blur-sm rounded-lg px-4 py-2 border border-zinc-700 shadow-xl">
             <span className="text-sm text-zinc-300">
@@ -471,6 +480,15 @@ export function SessionGrid({
             </span>
           </div>
         )}
+        {activeDragId && activeDragType === "card" && (() => {
+          const session = sessions.find((s) => s.id === activeDragId);
+          if (!session) return null;
+          return (
+            <div className="pointer-events-none opacity-90 shadow-2xl shadow-black/50 rounded-xl ring-1 ring-white/10" style={{ width: viewMode === "list" ? "100%" : 380 }}>
+              {viewMode === "list" ? renderRow(session) : renderCard(session)}
+            </div>
+          );
+        })()}
       </DragOverlay>
     </DndContext>
   );

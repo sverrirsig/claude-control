@@ -1,6 +1,6 @@
 {
   "name": "claude-control",
-  "version": "0.12.2",
+  "version": "0.13.0",
   "description": "Desktop dashboard for monitoring and managing multiple Claude Code sessions",
   "author": "sverrirsig",
   "license": "MIT",

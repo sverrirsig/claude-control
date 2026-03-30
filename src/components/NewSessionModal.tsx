@@ -23,9 +23,10 @@ interface Props {
   repoPath?: string;
   repoName?: string;
   onClose: () => void;
+  onCreated?: () => void;
 }
 
-export function NewSessionModal({ repoPath, repoName, onClose }: Props) {
+export function NewSessionModal({ repoPath, repoName, onClose, onCreated }: Props) {
   const [branchName, setBranchName] = useState("");
   const [baseBranch, setBaseBranch] = useState("");
   const [prompt, setPrompt] = useState<string | null>(null);
@@ -276,6 +277,7 @@ export function NewSessionModal({ repoPath, repoName, onClose }: Props) {
       }
 
       onClose();
+      onCreated?.();
     } catch {
       setError("Failed to create session");
       setLoading(false);
