@@ -95,10 +95,17 @@ export default function Dashboard() {
     setTerminalSession((prev) => {
       if (!prev) return session; // No terminal open → open
       if (prev.id === session.id) return null; // Same session → toggle close
-      if (prev.workingDirectory === session.workingDirectory) return session; // Same dir (inline→real) → update metadata, keep PTY
+      if (prev.workingDirectory === session.workingDirectory) return session; // Same dir → update metadata, keep PTY
       return session; // Different directory → switch
     });
   }, []);
+
+  // Auto-upgrade synthetic inline session to the real discovered session
+  useEffect(() => {
+    if (!terminalSession || terminalSession.pid !== null) return;
+    const real = sessions.find((s) => s.workingDirectory === terminalSession.workingDirectory && s.pid !== null);
+    if (real) setTerminalSession(real);
+  }, [sessions, terminalSession]);
 
   const handleInlineSession = useCallback((cwd: string, prompt?: string) => {
     const cmd = prompt ? `claude '${prompt.replace(/'/g, "'\\''")}'` : "claude";
@@ -324,7 +331,7 @@ export default function Dashboard() {
 
       {!(isLoading && sessions.length === 0) && (
         <SessionGrid
-          sessions={sessions}
+          sessions={terminalSession ? sessions.filter((s) => s.workingDirectory !== terminalSession.workingDirectory) : sessions}
           viewMode={viewMode}
           targetScreen={targetScreen}
           freshlyChanged={freshlyChanged}
