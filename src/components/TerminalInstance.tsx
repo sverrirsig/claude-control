@@ -42,7 +42,6 @@ export function TerminalInstance({
   const fitAddonRef = useRef<FitAddon | null>(null);
   const ptyIdRef = useRef<number | null>(null);
   const [exited, setExited] = useState(false);
-  const [dragging, setDragging] = useState(false);
 
   // Spawn or reattach PTY and set up xterm on mount.
   // On unmount: cleanup xterm and listeners but DON'T kill the PTY —
@@ -92,14 +91,15 @@ export function TerminalInstance({
     term.loadAddon(fitAddon);
     term.open(containerRef.current);
 
-    requestAnimationFrame(() => {
+    // Double-RAF ensures the container has its final layout dimensions before fitting
+    requestAnimationFrame(() => requestAnimationFrame(() => {
       fitAddon.fit();
       try {
         term.loadAddon(new WebglAddon());
       } catch {
         // WebGL not available, fall back to canvas renderer
       }
-    });
+    }));
 
     let cleanupData: (() => void) | null = null;
     let cleanupExit: (() => void) | null = null;
@@ -134,11 +134,11 @@ export function TerminalInstance({
             if (result.buffer) term.write(result.buffer);
             attachToPty(existingPtyId!);
             onPtySpawned(entry.workingDirectory, existingPtyId!);
-            // Trigger resize to refresh terminal content
-            requestAnimationFrame(() => {
+            // Trigger resize to refresh terminal content (double-RAF for layout settle)
+            requestAnimationFrame(() => requestAnimationFrame(() => {
               fitAddon.fit();
               api!.ptyResize(existingPtyId!, term.cols, term.rows);
-            });
+            }));
           } else {
             // PTY died while we were away — mark as exited
             term.write("\x1b[90m[Session ended]\x1b[0m\r\n");
@@ -169,6 +169,11 @@ export function TerminalInstance({
           }
           attachToPty(result.ptyId);
           onPtySpawned(entry.workingDirectory, result.ptyId);
+          // Re-fit after attach to send correct dimensions to the PTY (double-RAF for layout settle)
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            fitAddon.fit();
+            api.ptyResize(result.ptyId, term.cols, term.rows);
+          }));
         })
         .catch((err) => {
           if (!cancelled) {
@@ -187,8 +192,19 @@ export function TerminalInstance({
     });
     observer.observe(containerRef.current);
 
+    // Safety-net fit after layout has fully settled (covers startup/recovery)
+    const safetyFit = setTimeout(() => {
+      if (!cancelled) {
+        fitAddon.fit();
+        if (ptyIdRef.current !== null) {
+          api.ptyResize(ptyIdRef.current, term.cols, term.rows);
+        }
+      }
+    }, 200);
+
     return () => {
       cancelled = true;
+      clearTimeout(safetyFit);
       observer.disconnect();
       cleanupData?.();
       cleanupExit?.();
@@ -202,17 +218,35 @@ export function TerminalInstance({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entry.workingDirectory]);
 
-  // Re-fit when becoming visible
+  // Re-fit when becoming visible (double-RAF to ensure layout is settled)
   useEffect(() => {
     if (!visible) return;
-    requestAnimationFrame(() => {
+    const doFit = () => {
       fitAddonRef.current?.fit();
       const api = getElectronAPI();
       const term = termRef.current;
       if (api && term && ptyIdRef.current !== null) {
         api.ptyResize(ptyIdRef.current, term.cols, term.rows);
       }
-    });
+    };
+    requestAnimationFrame(() => requestAnimationFrame(doFit));
+  }, [visible]);
+
+  // Re-fit on window resize (fullscreen toggle, etc.)
+  useEffect(() => {
+    if (!visible) return;
+    const onResize = () => {
+      requestAnimationFrame(() => {
+        fitAddonRef.current?.fit();
+        const api = getElectronAPI();
+        const term = termRef.current;
+        if (api && term && ptyIdRef.current !== null) {
+          api.ptyResize(ptyIdRef.current, term.cols, term.rows);
+        }
+      });
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
   }, [visible]);
 
   // Drag-and-drop: use capture-phase native listeners so we intercept
@@ -233,7 +267,6 @@ export function TerminalInstance({
   const handleDrop = (e: DragEvent | React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setDragging(false);
     const term = termRef.current;
     const api = getElectronAPI();
     const id = ptyIdRef.current;
@@ -261,26 +294,15 @@ export function TerminalInstance({
     const wrapper = wrapperRef.current;
     if (!wrapper) return;
 
-    const onDragEnter = (e: DragEvent) => {
-      e.preventDefault();
-      setDragging(true);
-    };
     const onDragOver = (e: DragEvent) => {
       e.preventDefault();
     };
-    const onDragLeave = (e: DragEvent) => {
-      if (!wrapper.contains(e.relatedTarget as Node)) setDragging(false);
-    };
 
-    wrapper.addEventListener("dragenter", onDragEnter, { capture: true });
     wrapper.addEventListener("dragover", onDragOver, { capture: true });
-    wrapper.addEventListener("dragleave", onDragLeave, { capture: true });
     wrapper.addEventListener("drop", handleDrop as EventListener, { capture: true });
 
     return () => {
-      wrapper.removeEventListener("dragenter", onDragEnter, { capture: true });
       wrapper.removeEventListener("dragover", onDragOver, { capture: true });
-      wrapper.removeEventListener("dragleave", onDragLeave, { capture: true });
       wrapper.removeEventListener("drop", handleDrop as EventListener, { capture: true });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -297,14 +319,6 @@ export function TerminalInstance({
         className="absolute inset-0 px-1 py-1"
         data-exited={exited ? "true" : undefined}
       />
-      {dragging && (
-        <div
-          className="absolute inset-0 z-50 flex items-center justify-center bg-blue-500/10 border-2 border-dashed border-blue-500/50 rounded"
-          onDragOver={(e) => e.preventDefault()}
-        >
-          <span className="text-blue-400 text-sm font-medium pointer-events-none">Drop file to paste path</span>
-        </div>
-      )}
     </div>
   );
 }

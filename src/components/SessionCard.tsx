@@ -209,6 +209,11 @@ export function SessionCard({
                     worktree
                   </span>
                 )}
+                {session.tmuxSession && (
+                  <span className="shrink-0 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider rounded-sm bg-sky-500/10 border border-sky-500/20 text-sky-400">
+                    tmux
+                  </span>
+                )}
               </div>
               <p className="text-[11px] text-zinc-600 truncate font-(family-name:--font-geist-mono) mt-0.5">
                 {session.workingDirectory.replace(/.*\/([^/]+\/[^/]+)$/, "$1")}

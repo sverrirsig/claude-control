@@ -220,6 +220,15 @@ export default function Dashboard() {
     });
   }, [terminals, activeTerminalDir, terminalMinimized, terminalHeight]);
 
+  // Re-clamp terminal height on window resize (e.g. fullscreen toggle)
+  useEffect(() => {
+    const onResize = () => {
+      setTerminalHeight((prev) => Math.max(150, Math.min(prev, window.innerHeight * 0.8)));
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
   // Recover surviving tmux inline sessions on mount
   useEffect(() => {
     const api = (window as unknown as { electronAPI?: { ptyListInlineTmux?: () => Promise<Array<{ name: string; cwd: string; dead: boolean }>> } }).electronAPI;

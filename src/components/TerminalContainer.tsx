@@ -53,6 +53,7 @@ export function TerminalContainer({
     <button
       key={dir}
       onClick={() => onSwitch(dir)}
+      onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); onClose(dir); } }}
       className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-(family-name:--font-geist-mono) whitespace-nowrap transition-colors ${
         dir === activeDir
           ? "bg-white/8 text-zinc-300 border border-white/10"
