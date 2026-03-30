@@ -96,3 +96,12 @@ export interface SessionGroup {
   repoPath: string;
   sessions: ClaudeSession[];
 }
+
+export interface TerminalEntry {
+  sessionId: string;
+  workingDirectory: string;
+  ptyId: number | null;
+  spawnCommand?: string;
+  tmuxSession?: string;
+  exited: boolean;
+}

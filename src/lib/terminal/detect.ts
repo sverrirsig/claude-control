@@ -61,14 +61,35 @@ export async function buildProcessTree(): Promise<Map<number, ProcessTreeEntry>>
 
 /**
  * Extract PIDs from the process tree where comm is exactly "claude".
+ * Excludes subagent processes (a claude process whose parent is also claude).
  */
 export function findClaudePidsFromTree(processTree: Map<number, ProcessTreeEntry>): number[] {
-  const pids: number[] = [];
-  Array.from(processTree.entries()).forEach(([pid, entry]) => {
+  // First pass: collect all claude PIDs
+  const claudePids = new Set<number>();
+  for (const [pid, entry] of processTree) {
     if (entry.comm === "claude") {
+      claudePids.add(pid);
+    }
+  }
+  // Second pass: exclude claude processes whose parent (or grandparent) is also claude.
+  // These are subagents spawned by a top-level claude session.
+  const pids: number[] = [];
+  for (const pid of claudePids) {
+    let ancestor = processTree.get(pid)?.ppid;
+    let isChild = false;
+    // Walk up a few levels — subagents may be direct children or separated
+    // by an intermediate shell/node process.
+    for (let depth = 0; depth < 4 && ancestor && ancestor > 1; depth++) {
+      if (claudePids.has(ancestor)) {
+        isChild = true;
+        break;
+      }
+      ancestor = processTree.get(ancestor)?.ppid;
+    }
+    if (!isChild) {
       pids.push(pid);
     }
-  });
+  }
   return pids;
 }
 

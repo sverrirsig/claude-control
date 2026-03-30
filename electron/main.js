@@ -17,6 +17,21 @@ let nextProcess = null;
 let ptyIdCounter = 0;
 const ptyProcesses = new Map();
 
+// Recursively kill a process and all its descendants (depth-first)
+function killProcessTree(pid) {
+  try {
+    const { execFileSync } = require("child_process");
+    const stdout = execFileSync("pgrep", ["-P", String(pid)], { timeout: 3000, encoding: "utf-8" });
+    const childPids = stdout.trim().split("\n").filter(Boolean);
+    for (const cpid of childPids) {
+      killProcessTree(Number(cpid));
+    }
+  } catch {
+    // pgrep returns exit code 1 if no children found
+  }
+  try { process.kill(pid, "SIGTERM"); } catch {}
+}
+
 // Electron apps launched from Finder/dock get a minimal PATH (/usr/bin:/bin:/usr/sbin:/sbin).
 // Augment it so child processes can find tools like `gh` installed via Homebrew or other managers.
 const EXTRA_PATHS = ["/opt/homebrew/bin", "/usr/local/bin", "/opt/homebrew/sbin"];
@@ -225,16 +240,28 @@ ipcMain.on("pty:resize", (_event, { ptyId, cols, rows }) => {
   if (proc) proc.resize(cols, rows);
 });
 
-ipcMain.handle("pty:kill", (_event, { ptyId }) => {
+ipcMain.handle("pty:kill", async (_event, { ptyId }) => {
   const proc = ptyProcesses.get(ptyId);
   if (proc) {
+    const rootPid = proc.pid;
+    killProcessTree(rootPid);
     proc.kill();
     ptyProcesses.delete(ptyId);
+    // Force-kill any survivors after a short delay
+    setTimeout(() => {
+      try {
+        process.kill(rootPid, 0); // throws if dead
+        process.kill(rootPid, "SIGKILL");
+      } catch {
+        // Already dead — good
+      }
+    }, 1000);
   }
 });
 
 function killAllPtys() {
   for (const [id, proc] of ptyProcesses) {
+    try { killProcessTree(proc.pid); } catch {}
     try { proc.kill(); } catch {}
     ptyProcesses.delete(id);
   }

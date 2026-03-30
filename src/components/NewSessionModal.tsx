@@ -280,10 +280,14 @@ export function NewSessionModal({ repoPath, repoName, onClose, onCreated, onInli
 
       onClose();
       onCreated?.();
-      refreshAfterAction();
 
       if (data.inline && onInlineSession) {
+        // Inline mode: the process hasn't started yet (PTY spawns it),
+        // so don't burst-refresh — normal polling will pick it up.
         onInlineSession(data.path, data.prompt ?? undefined);
+      } else {
+        // External terminal: burst-refresh to detect the new process quickly.
+        refreshAfterAction();
       }
     } catch {
       setError("Failed to create session");

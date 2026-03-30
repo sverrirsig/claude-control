@@ -7,7 +7,7 @@ import { KeyboardHints } from "@/components/KeyboardHints";
 import { NewSessionModal } from "@/components/NewSessionModal";
 import { ResizeDivider } from "@/components/ResizeDivider";
 import { SessionGrid } from "@/components/SessionGrid";
-import { TerminalPanel } from "@/components/TerminalPanel";
+import { TerminalContainer } from "@/components/TerminalContainer";
 import { useDashboardLayout } from "@/hooks/useDashboardLayout";
 import { useDesktopNotification } from "@/hooks/useDesktopNotification";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
@@ -16,7 +16,7 @@ import { usePrStatus } from "@/hooks/usePrStatus";
 import { useSessions } from "@/hooks/useSessions";
 import { useSettings } from "@/hooks/useSettings";
 import { flattenGroupedSessions } from "@/lib/group-sessions";
-import { ClaudeSession, SessionStatus, ViewMode } from "@/lib/types";
+import { ClaudeSession, SessionStatus, TerminalEntry, ViewMode } from "@/lib/types";
 
 const EMPTY_SET: Set<string> = new Set();
 
@@ -43,10 +43,10 @@ export default function Dashboard() {
   // Optimistic approve/reject state: sessionId → { action, timestamp }
   const [actedSessions, setActedSessions] = useState<Record<string, { action: "approve" | "reject"; at: number }>>({});
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
-  const [terminalSession, setTerminalSession] = useState<ClaudeSession | null>(null);
+  const [terminals, setTerminals] = useState<Map<string, TerminalEntry>>(() => new Map());
+  const [activeTerminalDir, setActiveTerminalDir] = useState<string | null>(null);
+  const [terminalMinimized, setTerminalMinimized] = useState(false);
   const [terminalHeight, setTerminalHeight] = useState(400);
-  const [terminalSpawnCommand, setTerminalSpawnCommand] = useState<string | undefined>(undefined);
-  const [terminalRestartKey, setTerminalRestartKey] = useState(0);
 
   const handleApproveReject = useCallback((sessionId: string, action: "approve" | "reject") => {
     setActedSessions((prev) => ({ ...prev, [sessionId]: { action, at: Date.now() } }));
@@ -91,47 +91,110 @@ export default function Dashboard() {
   }, []);
 
   const handleOpenTerminal = useCallback((session: ClaudeSession) => {
-    setTerminalSpawnCommand(undefined);
-    setTerminalSession((prev) => {
-      if (!prev) return session; // No terminal open → open
-      if (prev.id === session.id) return null; // Same session → toggle close
-      if (prev.workingDirectory === session.workingDirectory) return session; // Same dir → update metadata, keep PTY
-      return session; // Different directory → switch
+    const dir = session.workingDirectory;
+    setTerminals((prev) => {
+      const existing = prev.get(dir);
+      if (existing) {
+        // Terminal exists for this dir — update sessionId to the clicked session
+        if (existing.sessionId === session.id) return prev;
+        const next = new Map(prev);
+        next.set(dir, { ...existing, sessionId: session.id });
+        return next;
+      }
+      const next = new Map(prev);
+      next.set(dir, {
+        sessionId: session.id,
+        workingDirectory: dir,
+        ptyId: null,
+        tmuxSession: session.tmuxSession ?? undefined,
+        exited: false,
+      });
+      return next;
+    });
+    setActiveTerminalDir(dir);
+    setTerminalMinimized(false);
+  }, []);
+
+  const handleCloseTerminal = useCallback((dir: string) => {
+    setTerminals((prev) => {
+      const next = new Map(prev);
+      next.delete(dir);
+      return next;
+    });
+    setActiveTerminalDir((prev) => (prev === dir ? null : prev));
+    // Refresh session list after process dies
+    setTimeout(() => refresh(), 1500);
+  }, [refresh]);
+
+  const handleMinimizeTerminal = useCallback(() => {
+    setTerminalMinimized(true);
+  }, []);
+
+  const handleSwitchTerminal = useCallback((dir: string) => {
+    setActiveTerminalDir(dir);
+    setTerminalMinimized(false);
+  }, []);
+
+  const handlePtySpawned = useCallback((dir: string, ptyId: number) => {
+    setTerminals((prev) => {
+      const entry = prev.get(dir);
+      if (!entry) return prev;
+      const next = new Map(prev);
+      next.set(dir, { ...entry, ptyId });
+      return next;
     });
   }, []);
 
-  // Auto-upgrade synthetic inline session to the real discovered session
-  useEffect(() => {
-    if (!terminalSession || terminalSession.pid !== null) return;
-    const real = sessions.find((s) => s.workingDirectory === terminalSession.workingDirectory && s.pid !== null);
-    if (real) setTerminalSession(real);
-  }, [sessions, terminalSession]);
+  const handlePtyExited = useCallback((dir: string) => {
+    setTerminals((prev) => {
+      const entry = prev.get(dir);
+      if (!entry) return prev;
+      const next = new Map(prev);
+      next.set(dir, { ...entry, exited: true });
+      // Auto-close inline terminals after a brief delay
+      if (entry.spawnCommand) {
+        setTimeout(() => handleCloseTerminal(dir), 1500);
+      }
+      return next;
+    });
+  }, [handleCloseTerminal]);
 
   const handleInlineSession = useCallback((cwd: string, prompt?: string) => {
     const cmd = prompt ? `claude '${prompt.replace(/'/g, "'\\''")}'` : "claude";
-    setTerminalSpawnCommand(cmd);
-    // Create a minimal synthetic session for the terminal panel
-    setTerminalSession({
-      id: `inline-${Date.now()}`,
-      pid: null,
-      workingDirectory: cwd,
-      repoName: cwd.split("/").filter(Boolean).pop() || "session",
-      isWorktree: false,
-      parentRepo: null,
-      branch: null,
-      status: "working",
-      lastActivity: new Date().toISOString(),
-      startedAt: new Date().toISOString(),
-      git: null,
-      preview: { lastUserMessage: null, lastAssistantText: null, assistantIsNewer: false, lastTools: [], messageCount: 0 },
-      hasPendingToolUse: false,
-      jsonlPath: null,
-      prUrl: null,
-      orphaned: false,
-      tmuxSession: null,
-      taskSummary: null,
+    const dir = cwd;
+    setTerminals((prev) => {
+      const next = new Map(prev);
+      next.set(dir, {
+        sessionId: `inline-${Date.now()}`,
+        workingDirectory: dir,
+        ptyId: null,
+        spawnCommand: cmd,
+        exited: false,
+      });
+      return next;
     });
+    setActiveTerminalDir(dir);
+    setTerminalMinimized(false);
   }, []);
+
+  // Keep inline terminal entries synced with the real session ID.
+  // The session ID evolves: "inline-..." → "pid-XXXX" → real UUID.
+  // We continuously sync so hasActiveTerminal always matches.
+  useEffect(() => {
+    setTerminals((prev) => {
+      let changed = false;
+      const next = new Map(prev);
+      for (const [dir, entry] of next) {
+        if (!entry.spawnCommand) continue; // only sync inline-spawned terminals
+        const real = sessions.find((s) => s.workingDirectory === dir && s.pid !== null);
+        if (real && real.id !== entry.sessionId) {
+          next.set(dir, { ...entry, sessionId: real.id });
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [sessions]);
 
   const { selectedIndex, setSelectedIndex, selectedSession, actionFeedback } = useKeyboardShortcuts({
     sessions,
@@ -331,7 +394,7 @@ export default function Dashboard() {
 
       {!(isLoading && sessions.length === 0) && (
         <SessionGrid
-          sessions={terminalSession ? sessions.filter((s) => s.workingDirectory !== terminalSession.workingDirectory) : sessions}
+          sessions={sessions}
           viewMode={viewMode}
           targetScreen={targetScreen}
           freshlyChanged={freshlyChanged}
@@ -350,6 +413,7 @@ export default function Dashboard() {
           onReorderSections={reorderSections}
           onReorderCards={reorderCards}
           onOpenTerminal={handleOpenTerminal}
+          activeTerminalSessionId={activeTerminalDir && !terminalMinimized ? terminals.get(activeTerminalDir)?.sessionId ?? null : null}
         />
       )}
 
@@ -391,16 +455,20 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {terminalSession && (
+      {terminals.size > 0 && (
         <>
-          <ResizeDivider onResize={setTerminalHeight} />
-          <TerminalPanel
-            key={terminalSession.workingDirectory + terminalRestartKey}
-            session={terminalSession}
+          {!terminalMinimized && <ResizeDivider onResize={setTerminalHeight} />}
+          <TerminalContainer
+            terminals={terminals}
+            activeDir={activeTerminalDir}
+            minimized={terminalMinimized}
             height={terminalHeight}
-            onClose={() => { setTerminalSession(null); setTerminalSpawnCommand(undefined); }}
-            onRelaunch={() => setTerminalRestartKey((k) => k + 1)}
-            spawnCommand={terminalSpawnCommand}
+            sessions={sessions}
+            onClose={handleCloseTerminal}
+            onMinimize={handleMinimizeTerminal}
+            onSwitch={handleSwitchTerminal}
+            onPtySpawned={handlePtySpawned}
+            onPtyExited={handlePtyExited}
           />
         </>
       )}

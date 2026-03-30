@@ -44,6 +44,7 @@ export function QuickActions({
   tmuxSession,
   onCleanup,
   onOpenTerminal,
+  hasActiveTerminal,
 }: {
   path: string;
   pid?: number | null;
@@ -54,6 +55,7 @@ export function QuickActions({
   tmuxSession?: string | null;
   onCleanup?: (e: React.MouseEvent) => void;
   onOpenTerminal?: () => void;
+  hasActiveTerminal?: boolean;
 }) {
   const [prSending, setPrSending] = useState(false);
   const [killing, setKilling] = useState(false);
@@ -95,7 +97,7 @@ export function QuickActions({
     setTimeout(() => setReattaching(false), 3000);
   };
 
-  const { editorAvailable, gitGuiAvailable, inlineTerminal } = useSettings();
+  const { editorAvailable, gitGuiAvailable } = useSettings();
 
   const openAction = async (e: React.MouseEvent, action: string) => {
     e.preventDefault();
@@ -225,12 +227,18 @@ export function QuickActions({
         <IconButton onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          if (inlineTerminal && onOpenTerminal) {
+          if (hasActiveTerminal && onOpenTerminal) {
+            // Session already has an inline terminal open — focus it
             onOpenTerminal();
           } else {
+            // Focus the external terminal (iTerm2, Terminal.app, etc.)
             openAction(e, "focus");
           }
-        }} tip="Terminal" className={`flex-1 ${iconBtnClass}`}>
+        }} tip={hasActiveTerminal ? "Show terminal" : "Terminal"} className={`flex-1 flex items-center justify-center h-8 rounded-lg border transition-all duration-150 ${
+          hasActiveTerminal
+            ? "bg-emerald-500/10 hover:bg-emerald-500/22 border-emerald-500/20 hover:border-emerald-500/40 text-emerald-400 hover:text-emerald-300"
+            : "bg-white/4 hover:bg-white/10 border-white/7 hover:border-white/15 text-zinc-500 hover:text-zinc-200"
+        }`}>
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path
               strokeLinecap="round"

@@ -33,12 +33,16 @@ export function useSettings() {
     refreshInterval: 0,
   });
 
+  const config = data?.config as (SettingsResponse["config"] & { terminalUseTmux?: boolean; terminalTmuxMode?: string }) | undefined;
+
   return {
-    notifications: data?.config?.notifications ?? true,
-    notificationSound: data?.config?.notificationSound ?? true,
-    alwaysNotify: data?.config?.alwaysNotify ?? false,
-    editorAvailable: isAppAvailable(data?.options?.editors, data?.config?.editor),
-    gitGuiAvailable: isAppAvailable(data?.options?.gitGuis, data?.config?.gitGui),
-    inlineTerminal: data?.config?.terminalApp === "inline",
+    notifications: config?.notifications ?? true,
+    notificationSound: config?.notificationSound ?? true,
+    alwaysNotify: config?.alwaysNotify ?? false,
+    editorAvailable: isAppAvailable(data?.options?.editors, config?.editor),
+    gitGuiAvailable: isAppAvailable(data?.options?.gitGuis, config?.gitGui),
+    inlineTerminal: config?.terminalApp === "inline",
+    terminalUseTmux: config?.terminalUseTmux ?? false,
+    terminalTmuxMode: (config?.terminalTmuxMode as "per-project" | "choose") ?? "per-project",
   };
 }

@@ -127,6 +127,7 @@ export function SessionGrid({
   onReorderSections,
   onReorderCards,
   onOpenTerminal,
+  activeTerminalSessionId,
 }: {
   sessions: ClaudeSession[];
   viewMode: ViewMode;
@@ -147,6 +148,7 @@ export function SessionGrid({
   onReorderSections?: (newOrder: string[]) => void;
   onReorderCards?: (repoPath: string, newOrder: string[]) => void;
   onOpenTerminal?: (session: ClaudeSession) => void;
+  activeTerminalSessionId?: string | null;
 }) {
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [activeDragType, setActiveDragType] = useState<"section" | "card" | null>(null);
@@ -192,13 +194,13 @@ export function SessionGrid({
   let flatIdx = 0;
   for (const group of displayGroups) {
     for (const session of group.sessions) {
-      flatIndexMap.set(`${session.id}-${session.pid}`, flatIdx);
+      flatIndexMap.set(`session-${session.pid ?? session.id}`, flatIdx);
       flatIdx++;
     }
   }
 
   const getSessionProps = (session: ClaudeSession) => {
-    const key = `${session.id}-${session.pid}`;
+    const key = `session-${session.pid ?? session.id}`;
     const idx = flatIndexMap.get(key) ?? -1;
     const hasSelection = selectedIndex !== null && selectedIndex !== undefined;
     const isSelected = hasSelection && idx === selectedIndex;
@@ -246,6 +248,7 @@ export function SessionGrid({
         onSaveMeta={onSaveMeta ? (updates) => onSaveMeta(session.id, updates) : undefined}
         onCancelEdit={onCancelEdit}
         onOpenTerminal={onOpenTerminal ? () => onOpenTerminal(session) : undefined}
+        hasActiveTerminal={activeTerminalSessionId === session.id}
       />
     );
   };
@@ -281,7 +284,7 @@ export function SessionGrid({
         {viewMode === "list" ? (
           <div className="space-y-1">
             {items.map((session) => (
-              <SortableCard key={`${session.id}-${session.pid}`} id={session.id}>
+              <SortableCard key={`session-${session.pid ?? session.id}`} id={session.id}>
                 {renderRow(session)}
               </SortableCard>
             ))}
@@ -289,7 +292,7 @@ export function SessionGrid({
         ) : (
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 items-start">
             {items.map((session) => (
-              <SortableCard key={`${session.id}-${session.pid}`} id={session.id}>
+              <SortableCard key={`session-${session.pid ?? session.id}`} id={session.id}>
                 {renderCard(session)}
               </SortableCard>
             ))}
