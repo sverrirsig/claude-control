@@ -15,6 +15,8 @@ const KNOWN_TERMINALS: Record<string, { app: TerminalApp; appName: string; proce
   wezterm: { app: "wezterm", appName: "WezTerm", processName: "WezTerm" },
   alacritty: { app: "alacritty", appName: "Alacritty", processName: "alacritty" },
   warp: { app: "warp", appName: "Warp", processName: "Warp" },
+  electron: { app: "inline", appName: "Claudio Control", processName: "Electron" },
+  "claudio control": { app: "inline", appName: "Claudio Control", processName: "Claudio Control" },
 };
 
 const UNKNOWN_TERMINAL: Pick<TerminalInfo, "app" | "appName" | "processName"> = {
