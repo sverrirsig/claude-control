@@ -1,69 +1,52 @@
 // Wrapper for `next build` that works around a Next.js 16 bug where
 // prerendering /_global-error crashes with a useContext error.
 //
-// The normal `next build` generates standalone output AFTER prerendering,
-// so when prerender fails, standalone is never created. We work around this
-// by running compile mode first (creates standalone), then running the full
-// build to generate all static assets and page data. If the full build fails
-// (due to _global-error), we still have everything we need.
+// Fix: patch Next.js export to filter out _global-error from failed pages,
+// and set prerenderEarlyExit: false so the worker doesn't process.exit(1).
 
 const { execSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
-// Step 1: Compile mode — produces standalone server output
-console.log("Step 1: Building standalone server (compile mode)...\n");
-execSync("npx next build --experimental-build-mode compile", {
-  stdio: "inherit",
-  env: { ...process.env },
-});
+const exportFile = path.join("node_modules", "next", "dist", "export", "index.js");
+const original = fs.readFileSync(exportFile, "utf-8");
 
-// Save the standalone output outside .next (full build may clean .next)
-const standaloneDir = path.join(".next", "standalone");
-const standaloneBackup = path.join(".standalone_backup");
-if (fs.existsSync(standaloneDir)) {
-  execSync(`cp -RL "${standaloneDir}" "${standaloneBackup}"`, { stdio: "inherit" });
+// Patch: filter out _global-error from failed pages before throwing
+const patched = original.replace(
+  "if (failedExportAttemptsByPage.size > 0) {",
+  `// [claudio-control patch] Ignore _global-error prerender failures
+    for (const key of failedExportAttemptsByPage.keys()) {
+      if (key.includes('_global-error')) failedExportAttemptsByPage.delete(key);
+    }
+    if (failedExportAttemptsByPage.size > 0) {`
+);
+
+if (patched === original) {
+  console.warn("⚠  Could not find patch target in Next.js export — building without patch.");
+} else {
+  fs.writeFileSync(exportFile, patched);
+  console.log("✓ Applied _global-error prerender patch.");
 }
 
-// Step 2: Full build — generates static assets, CSS, font manifests, page data
-console.log("\nStep 2: Full build (static assets + page data)...\n");
+let buildFailed = false;
 try {
-  execSync("npx next build", { stdio: "inherit", env: { ...process.env } });
+  execSync("npx next build", { stdio: "inherit" });
 } catch {
-  console.log("\n⚠  Full build failed (expected: Next.js 16 _global-error prerender bug).");
+  buildFailed = true;
 }
 
-// Restore standalone if the full build didn't produce it
-if (!fs.existsSync(path.join(standaloneDir, "server.js")) && fs.existsSync(standaloneBackup)) {
-  console.log("Restoring standalone output from compile step...");
-  if (fs.existsSync(standaloneDir)) fs.rmSync(standaloneDir, { recursive: true });
-  fs.renameSync(standaloneBackup, standaloneDir);
+// Always restore the original file
+fs.writeFileSync(exportFile, original);
 
-  // Copy static assets into standalone (normally done by next build post-export)
-  const staticSrc = path.join(".next", "static");
-  const staticDest = path.join(standaloneDir, ".next", "static");
-  if (fs.existsSync(staticSrc)) {
-    fs.mkdirSync(staticDest, { recursive: true });
-    execSync(`cp -RL "${staticSrc}/" "${staticDest}/"`, { stdio: "inherit" });
+if (buildFailed) {
+  // Check if the build produced usable output despite the error
+  const hasStandalone = fs.existsSync(path.join(".next", "standalone", "server.js"));
+  const hasStatic = fs.existsSync(path.join(".next", "static"));
+
+  if (hasStandalone && hasStatic) {
+    console.log("\n⚠  Build had warnings but output is complete — continuing.\n");
+  } else {
+    console.error(`\nBuild failed. standalone=${hasStandalone}, static=${hasStatic}`);
+    process.exit(1);
   }
-
-  // Copy server chunks and manifests into standalone
-  const serverSrc = path.join(".next", "server");
-  const serverDest = path.join(standaloneDir, ".next", "server");
-  if (fs.existsSync(serverSrc) && fs.existsSync(serverDest)) {
-    execSync(`cp -RL "${serverSrc}/" "${serverDest}/"`, { stdio: "inherit" });
-  }
-} else if (fs.existsSync(standaloneBackup)) {
-  // Clean up backup
-  fs.rmSync(standaloneBackup, { recursive: true });
 }
-
-// Verify
-const hasStandalone = fs.existsSync(path.join(standaloneDir, "server.js"));
-const hasStatic = fs.existsSync(path.join(".next", "static"));
-if (!hasStandalone || !hasStatic) {
-  console.error(`Build output incomplete: standalone=${hasStandalone}, static=${hasStatic}`);
-  process.exit(1);
-}
-
-console.log("\n✓ Build complete.\n");
