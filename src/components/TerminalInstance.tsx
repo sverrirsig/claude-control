@@ -52,163 +52,178 @@ export function TerminalInstance({
     const api = getElectronAPI();
     if (!api || !containerRef.current) return;
 
-    const resolvedFont = getComputedStyle(document.documentElement)
-      .getPropertyValue("--font-geist-mono")
-      .trim();
-    const fontFamily = resolvedFont || 'Menlo, Monaco, "Courier New", monospace';
+    // Capture ref before the async boundary — React may null it before cleanup
+    const container = containerRef.current;
 
-    const term = new Terminal({
-      cursorBlink: true,
-      fontSize: 13,
-      fontFamily,
-      theme: {
-        background: "#0a0a0f",
-        foreground: "#e4e4e7",
-        cursor: "#e4e4e7",
-        selectionBackground: "#3b82f640",
-        black: "#09090b",
-        red: "#ef4444",
-        green: "#22c55e",
-        yellow: "#eab308",
-        blue: "#3b82f6",
-        magenta: "#a855f7",
-        cyan: "#06b6d4",
-        white: "#e4e4e7",
-        brightBlack: "#52525b",
-        brightRed: "#f87171",
-        brightGreen: "#4ade80",
-        brightYellow: "#facc15",
-        brightBlue: "#60a5fa",
-        brightMagenta: "#c084fc",
-        brightCyan: "#22d3ee",
-        brightWhite: "#fafafa",
-      },
-    });
-    termRef.current = term;
-
-    const fitAddon = new FitAddon();
-    fitAddonRef.current = fitAddon;
-    term.loadAddon(fitAddon);
-    term.open(containerRef.current);
-
-    // Double-RAF ensures the container has its final layout dimensions before fitting
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      fitAddon.fit();
-      try {
-        term.loadAddon(new WebglAddon());
-      } catch {
-        // WebGL not available, fall back to canvas renderer
-      }
-    }));
-
+    // Hoist variables that cleanup needs access to
     let cleanupData: (() => void) | null = null;
     let cleanupExit: (() => void) | null = null;
+    let observer: ResizeObserver | null = null;
+    let safetyFit: ReturnType<typeof setTimeout> | null = null;
 
-    function attachToPty(id: number) {
-      ptyIdRef.current = id;
+    // Wait for fonts to load before initializing xterm.
+    // xterm.js measures character cell dimensions on open(); if the font
+    // hasn't loaded yet, measurements will be wrong causing misaligned text
+    // and broken box-drawing characters.
+    document.fonts.ready.then(() => {
+      if (cancelled) return;
 
-      cleanupData = api!.onPtyData((evId, data) => {
-        if (evId === id) term.write(data);
+      const resolvedFont = getComputedStyle(document.body)
+        .getPropertyValue("--font-geist-mono")
+        .trim();
+      const fontFamily = resolvedFont || 'Menlo, Monaco, "Courier New", monospace';
+
+      const term = new Terminal({
+        cursorBlink: true,
+        fontSize: 13,
+        fontFamily,
+        theme: {
+          background: "#0a0a0f",
+          foreground: "#e4e4e7",
+          cursor: "#e4e4e7",
+          selectionBackground: "#3b82f640",
+          black: "#09090b",
+          red: "#ef4444",
+          green: "#22c55e",
+          yellow: "#eab308",
+          blue: "#3b82f6",
+          magenta: "#a855f7",
+          cyan: "#06b6d4",
+          white: "#e4e4e7",
+          brightBlack: "#52525b",
+          brightRed: "#f87171",
+          brightGreen: "#4ade80",
+          brightYellow: "#facc15",
+          brightBlue: "#60a5fa",
+          brightMagenta: "#c084fc",
+          brightCyan: "#22d3ee",
+          brightWhite: "#fafafa",
+        },
       });
+      termRef.current = term;
 
-      cleanupExit = api!.onPtyExit((evId) => {
-        if (evId === id) {
-          term.write("\r\n\x1b[90m[Session ended]\x1b[0m\r\n");
-          setExited(true);
-          onPtyExited(entry.workingDirectory);
+      const fitAddon = new FitAddon();
+      fitAddonRef.current = fitAddon;
+      term.loadAddon(fitAddon);
+      term.open(container);
+
+      // Double-RAF ensures the container has its final layout dimensions before fitting
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (cancelled) return;
+        fitAddon.fit();
+        try {
+          term.loadAddon(new WebglAddon());
+        } catch (e) {
+          console.warn("[terminal] WebGL unavailable, using canvas:", e);
         }
-      });
+      }));
 
-      term.onData((data) => {
-        if (ptyIdRef.current !== null) api!.ptyWrite(ptyIdRef.current, data);
-      });
-    }
+      function attachToPty(id: number) {
+        ptyIdRef.current = id;
 
-    // If we have an existing PTY, try to reattach; otherwise spawn fresh
-    if (existingPtyId != null) {
-      api.ptyReattach(existingPtyId)
-        .then((result) => {
-          if (cancelled) return;
-          if (result.alive) {
-            // Write buffered scrollback then attach for live data
-            if (result.buffer) term.write(result.buffer);
-            attachToPty(existingPtyId!);
-            onPtySpawned(entry.workingDirectory, existingPtyId!);
-            // Trigger resize to refresh terminal content (double-RAF for layout settle)
-            requestAnimationFrame(() => requestAnimationFrame(() => {
-              fitAddon.fit();
-              api!.ptyResize(existingPtyId!, term.cols, term.rows);
-            }));
-          } else {
-            // PTY died while we were away — mark as exited
-            term.write("\x1b[90m[Session ended]\x1b[0m\r\n");
+        cleanupData = api!.onPtyData((evId, data) => {
+          if (evId === id) term.write(data);
+        });
+
+        cleanupExit = api!.onPtyExit((evId) => {
+          if (evId === id) {
+            term.write("\r\n\x1b[90m[Session ended]\x1b[0m\r\n");
             setExited(true);
             onPtyExited(entry.workingDirectory);
           }
-        })
-        .catch(() => {
-          if (!cancelled) {
-            term.write("\x1b[31mFailed to reattach terminal\x1b[0m\r\n");
-          }
         });
-    } else {
-      api
-        .ptySpawn({
-          cols: term.cols,
-          rows: term.rows,
-          cwd: entry.workingDirectory,
-          tmuxSession: entry.spawnCommand ? undefined : (entry.tmuxSession ?? undefined),
-          command: entry.spawnCommand,
-          wrapInTmux: entry.wrapInTmux,
-        })
-        .then((result) => {
-          if (cancelled) {
-            // Effect was cleaned up before spawn completed (React 18 strict mode).
-            api.ptyKill(result.ptyId).catch(() => {});
-            return;
-          }
-          attachToPty(result.ptyId);
-          onPtySpawned(entry.workingDirectory, result.ptyId);
-          // Re-fit after attach to send correct dimensions to the PTY (double-RAF for layout settle)
-          requestAnimationFrame(() => requestAnimationFrame(() => {
-            fitAddon.fit();
-            api.ptyResize(result.ptyId, term.cols, term.rows);
-          }));
-        })
-        .catch((err) => {
-          if (!cancelled) {
-            term.write(`\x1b[31mFailed to spawn terminal: ${err.message}\x1b[0m\r\n`);
-          }
+
+        term.onData((data) => {
+          if (ptyIdRef.current !== null) api!.ptyWrite(ptyIdRef.current, data);
         });
-    }
-
-    const observer = new ResizeObserver(() => {
-      requestAnimationFrame(() => {
-        fitAddon.fit();
-        if (ptyIdRef.current !== null) {
-          api.ptyResize(ptyIdRef.current, term.cols, term.rows);
-        }
-      });
-    });
-    observer.observe(containerRef.current);
-
-    // Safety-net fit after layout has fully settled (covers startup/recovery)
-    const safetyFit = setTimeout(() => {
-      if (!cancelled) {
-        fitAddon.fit();
-        if (ptyIdRef.current !== null) {
-          api.ptyResize(ptyIdRef.current, term.cols, term.rows);
-        }
       }
-    }, 200);
+
+      // If we have an existing PTY, try to reattach; otherwise spawn fresh
+      if (existingPtyId != null) {
+        api.ptyReattach(existingPtyId)
+          .then((result) => {
+            if (cancelled) return;
+            if (result.alive) {
+              // Write buffered scrollback then attach for live data
+              if (result.buffer) term.write(result.buffer);
+              attachToPty(existingPtyId!);
+              onPtySpawned(entry.workingDirectory, existingPtyId!);
+              // Trigger resize to refresh terminal content (double-RAF for layout settle)
+              requestAnimationFrame(() => requestAnimationFrame(() => {
+                fitAddon.fit();
+                api!.ptyResize(existingPtyId!, term.cols, term.rows);
+              }));
+            } else {
+              // PTY died while we were away — mark as exited
+              term.write("\x1b[90m[Session ended]\x1b[0m\r\n");
+              setExited(true);
+              onPtyExited(entry.workingDirectory);
+            }
+          })
+          .catch(() => {
+            if (!cancelled) {
+              term.write("\x1b[31mFailed to reattach terminal\x1b[0m\r\n");
+            }
+          });
+      } else {
+        api
+          .ptySpawn({
+            cols: term.cols,
+            rows: term.rows,
+            cwd: entry.workingDirectory,
+            tmuxSession: entry.spawnCommand ? undefined : (entry.tmuxSession ?? undefined),
+            command: entry.spawnCommand,
+            wrapInTmux: entry.wrapInTmux,
+          })
+          .then((result) => {
+            if (cancelled) {
+              // Effect was cleaned up before spawn completed (React 18 strict mode).
+              api.ptyKill(result.ptyId).catch(() => {});
+              return;
+            }
+            attachToPty(result.ptyId);
+            onPtySpawned(entry.workingDirectory, result.ptyId);
+            // Re-fit after attach to send correct dimensions to the PTY (double-RAF for layout settle)
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+              fitAddon.fit();
+              api.ptyResize(result.ptyId, term.cols, term.rows);
+            }));
+          })
+          .catch((err) => {
+            if (!cancelled) {
+              term.write(`\x1b[31mFailed to spawn terminal: ${err.message}\x1b[0m\r\n`);
+            }
+          });
+      }
+
+      observer = new ResizeObserver(() => {
+        requestAnimationFrame(() => {
+          fitAddon.fit();
+          if (ptyIdRef.current !== null) {
+            api.ptyResize(ptyIdRef.current, term.cols, term.rows);
+          }
+        });
+      });
+      observer.observe(container);
+
+      // Safety-net fit after layout has fully settled (covers startup/recovery)
+      safetyFit = setTimeout(() => {
+        if (!cancelled) {
+          fitAddon.fit();
+          if (ptyIdRef.current !== null) {
+            api.ptyResize(ptyIdRef.current, term.cols, term.rows);
+          }
+        }
+      }, 200);
+    });
 
     return () => {
       cancelled = true;
-      clearTimeout(safetyFit);
-      observer.disconnect();
+      if (safetyFit) clearTimeout(safetyFit);
+      observer?.disconnect();
       cleanupData?.();
       cleanupExit?.();
-      term.dispose();
+      termRef.current?.dispose();
       termRef.current = null;
       fitAddonRef.current = null;
       // DON'T kill PTY — it stays alive for reattachment.

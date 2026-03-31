@@ -114,6 +114,18 @@ if (process.env.PATH) {
   process.env.PATH = ["/usr/bin", "/bin", "/usr/sbin", "/sbin", ...EXTRA_PATHS].join(":");
 }
 
+// Ensure critical env vars are present even if shell env loading failed
+if (!process.env.HOME) {
+  process.env.HOME = require("os").homedir();
+  console.warn(`[env] HOME was missing, set to ${process.env.HOME}`);
+}
+if (!process.env.USER) {
+  try { process.env.USER = require("os").userInfo().username; } catch {}
+}
+if (!process.env.LANG) {
+  process.env.LANG = "en_US.UTF-8";
+}
+
 // Resolve tmux binary path once at startup for reliable execution
 let tmuxPath = "tmux";
 try {
@@ -185,6 +197,7 @@ async function startNextServer() {
         PORT: String(PORT),
         HOSTNAME: "localhost",
         NODE_ENV: "production",
+        TMUX_PATH: tmuxPath,
       },
       stdio: "pipe",
     });
@@ -279,9 +292,23 @@ ipcMain.handle("pty:spawn", (_event, { cols, rows, cwd, tmuxSession, command, wr
   let shell, args;
   if (tmuxSession) {
     // Reattach to an existing named tmux session (external or recovered inline)
-    shell = tmuxPath;
-    args = ["attach-session", "-t", tmuxSession];
-    ptyTmuxNames.set(id, tmuxSession);
+    // Verify the session still exists before trying to attach
+    let sessionAlive = false;
+    try {
+      execFileSync(tmuxPath, ["has-session", "-t", tmuxSession], { timeout: 3000 });
+      sessionAlive = true;
+    } catch {
+      console.warn(`[pty:spawn] tmux session "${tmuxSession}" no longer exists`);
+    }
+    if (sessionAlive) {
+      shell = tmuxPath;
+      args = ["attach-session", "-t", tmuxSession];
+      ptyTmuxNames.set(id, tmuxSession);
+    } else {
+      // Session is gone — fall back to a plain shell so the terminal opens
+      shell = process.env.SHELL || "/bin/zsh";
+      args = [];
+    }
   } else if (command && wrapInTmux) {
     // Inline terminal with tmux wrapping (terminalUseTmux is ON)
     // Step 1: Create the tmux session DETACHED so it's fully independent.
@@ -309,11 +336,13 @@ ipcMain.handle("pty:spawn", (_event, { cols, rows, cwd, tmuxSession, command, wr
           "-x", String(cols || 80), "-y", String(rows || 24),
           "-c", cwd || process.env.HOME,
           innerCmd,
-        ], { timeout: 5000, encoding: "utf-8" });
+        ], { timeout: 5000, encoding: "utf-8", env: { ...process.env } });
         console.log(`[pty:spawn] tmux session created successfully`);
         tmuxReady = true;
       } catch (err) {
-        console.error(`[pty:spawn] FAILED to create tmux session:`, err.message, err.stderr);
+        console.error(`[pty:spawn] FAILED to create tmux session:`, err.message);
+        console.error(`[pty:spawn] tmux exit status:`, err.status, `stderr:`, err.stderr?.toString());
+        console.error(`[pty:spawn] PATH=${process.env.PATH} HOME=${process.env.HOME}`);
       }
     }
     if (tmuxReady) {

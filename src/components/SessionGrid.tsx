@@ -23,7 +23,7 @@ import { applyLayout } from "@/lib/apply-layout";
 import type { DashboardLayout } from "@/lib/dashboard-layout";
 import { groupSessions } from "@/lib/group-sessions";
 import { ClaudeSession, PrStatus, ViewMode } from "@/lib/types";
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { SessionCard } from "./SessionCard";
 import { SessionRow } from "./SessionRow";
 import { SortableCard } from "./SortableCard";
@@ -155,6 +155,26 @@ export function SessionGrid({
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [activeDragType, setActiveDragType] = useState<"section" | "card" | null>(null);
   const isDragging = activeDragId !== null;
+
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const stored = localStorage.getItem("claude-control:collapsed-groups");
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  const toggleCollapse = useCallback((repoPath: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(repoPath)) next.delete(repoPath);
+      else next.add(repoPath);
+      localStorage.setItem("claude-control:collapsed-groups", JSON.stringify([...next]));
+      return next;
+    });
+  }, []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -309,12 +329,25 @@ export function SessionGrid({
 
   const renderGroupHeader = (group: (typeof displayGroups)[0], showCount = true) => {
     const accent = accentMap.get(group.repoName) ?? REPO_ACCENTS[0];
+    const isCollapsed = collapsedGroups.has(group.repoPath);
     return (
       <div className={`flex items-center gap-3 ${viewMode === "list" ? "mb-2" : "mb-4"}`}>
-        <div className="flex items-center gap-2.5">
+        <button
+          onClick={() => toggleCollapse(group.repoPath)}
+          className="flex items-center gap-2.5 group/collapse"
+        >
+          <svg
+            className={`w-3 h-3 text-zinc-600 group-hover/collapse:text-zinc-400 transition-transform duration-200 ${isCollapsed ? "-rotate-90" : ""}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2.5}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+          </svg>
           <span className={`w-2 h-2 rounded-full ${accent.dot} ${accent.glow}`} />
           <h2 className={`text-sm font-semibold ${accent.text}`}>{prettifyName(group.repoName)}</h2>
-        </div>
+        </button>
         {showCount && (
           <span className="text-[11px] text-zinc-600 font-(family-name:--font-geist-mono)">
             {group.sessions.length} session{group.sessions.length !== 1 ? "s" : ""}
@@ -387,7 +420,7 @@ export function SessionGrid({
     return viewMode === "list" ? (
       <div className="space-y-1">{displayGroups[0].sessions.map(renderRow)}</div>
     ) : (
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 items-start">
+      <div className="max-w-sm">
         {displayGroups[0].sessions.map(renderCard)}
       </div>
     );
@@ -409,7 +442,7 @@ export function SessionGrid({
           <div className="space-y-8">
             {displayGroups.map((group) => (
               <SortableSection key={group.repoPath} id={group.repoPath} header={renderGroupHeader(group)}>
-                {renderSortableCards(group.sessions, group.repoPath)}
+                {!collapsedGroups.has(group.repoPath) && renderSortableCards(group.sessions, group.repoPath)}
               </SortableSection>
             ))}
           </div>
@@ -453,7 +486,7 @@ export function SessionGrid({
           {/* Multi-session groups: full-width with their own grid */}
           {multiSessionGroups.map((group) => (
             <SortableSection key={group.repoPath} id={group.repoPath} header={renderGroupHeader(group)}>
-              {renderSortableCards(group.sessions, group.repoPath)}
+              {!collapsedGroups.has(group.repoPath) && renderSortableCards(group.sessions, group.repoPath)}
             </SortableSection>
           ))}
 
@@ -462,7 +495,7 @@ export function SessionGrid({
             <div className="grid gap-5 grid-cols-[repeat(auto-fill,minmax(340px,1fr))] items-start">
               {singleSessionGroups.map((group) => (
                 <SortableSection key={group.repoPath} id={group.repoPath} header={renderGroupHeader(group, false)}>
-                  {renderCard(group.sessions[0])}
+                  {!collapsedGroups.has(group.repoPath) && renderCard(group.sessions[0])}
                 </SortableSection>
               ))}
             </div>
@@ -473,7 +506,7 @@ export function SessionGrid({
             <>
               {singleSessionGroups.map((group) => (
                 <SortableSection key={group.repoPath} id={group.repoPath} header={renderGroupHeader(group)}>
-                  <div className="space-y-1">{group.sessions.map(renderRow)}</div>
+                  {!collapsedGroups.has(group.repoPath) && <div className="space-y-1">{group.sessions.map(renderRow)}</div>}
                 </SortableSection>
               ))}
             </>

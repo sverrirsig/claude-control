@@ -15,6 +15,7 @@ export {
   findClaudePidsFromTree,
   findTerminalInTree,
   getTerminalAppName,
+  getTmuxPathSync,
   getTtyForPid,
   getTtysForPids,
   matchTerminal,

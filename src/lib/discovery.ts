@@ -206,6 +206,11 @@ export async function discoverSessions(): Promise<ClaudeSession[]> {
       const tty = ttyMap.get(pid);
       const paneInfo = tty ? tmuxPanes.get(tty) : undefined;
       const inTmux = paneInfo !== undefined;
+      // Inline tmux sessions are managed by our main process — never orphaned
+      if (paneInfo?.sessionName.startsWith("claudio-inline-")) {
+        newPidTmuxSession.set(pid, paneInfo.sessionName);
+        continue;
+      }
       const tmuxSessionHasClient = paneInfo ? attachedTmuxSessions.has(paneInfo.sessionName) : false;
       if (isOrphaned(pid, processTree, inTmux, tmuxSessionHasClient)) {
         newOrphaned.add(pid);
