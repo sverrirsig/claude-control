@@ -1,5 +1,6 @@
 import { execFile } from "child_process";
-import { stat } from "fs/promises";
+import { copyFile, readdir, stat } from "fs/promises";
+import path from "path";
 import { NextResponse } from "next/server";
 import { promisify } from "util";
 import { loadConfig } from "@/lib/config";
@@ -44,7 +45,20 @@ async function createWorktree(repoPath: string, branchName: string, baseBranch?:
     });
   }
 
+  // Copy .env files from the source repo into the new worktree
+  await copyEnvFiles(repoPath, worktreePath);
+
   return worktreePath;
+}
+
+async function copyEnvFiles(srcDir: string, destDir: string): Promise<void> {
+  try {
+    const entries = await readdir(srcDir);
+    const envFiles = entries.filter((f) => f === ".env" || f.startsWith(".env."));
+    await Promise.all(envFiles.map((f) => copyFile(path.join(srcDir, f), path.join(destDir, f))));
+  } catch {
+    // Non-fatal — the session can still work without env files
+  }
 }
 
 function projectNameFromPath(repoPath: string): string {
