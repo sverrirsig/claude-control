@@ -1,32 +1,43 @@
 // Wrapper for `next build` that works around a Next.js 16 bug where
 // prerendering /_global-error crashes with a useContext error.
 //
-// Fix: patch Next.js export to filter out _global-error from failed pages,
-// and set prerenderEarlyExit: false so the worker doesn't process.exit(1).
+// Patches two files temporarily:
+// 1. export/worker.js — skip process.exit(1) for _global-error failures
+// 2. export/index.js — remove _global-error from failed pages list
 
 const { execSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
-const exportFile = path.join("node_modules", "next", "dist", "export", "index.js");
-const original = fs.readFileSync(exportFile, "utf-8");
+const nextDist = path.join("node_modules", "next", "dist", "export");
 
-// Patch: filter out _global-error from failed pages before throwing
-const patched = original.replace(
+// --- Patch worker.js: don't process.exit(1) for _global-error ---
+const workerFile = path.join(nextDist, "worker.js");
+const workerOriginal = fs.readFileSync(workerFile, "utf-8");
+const workerPatched = workerOriginal.replace(
+  /if \(nextConfig\.experimental\.prerenderEarlyExit\) \{\s*console\.error\(`Export encountered an error on \$\{pageKey\}, exiting the build\.`\);\s*process\.exit\(1\);/,
+  `if (nextConfig.experimental.prerenderEarlyExit && !pageKey.includes('_global-error')) {
+                        console.error(\`Export encountered an error on \${pageKey}, exiting the build.\`);
+                        process.exit(1);`
+);
+
+// --- Patch index.js: filter _global-error from failed pages ---
+const indexFile = path.join(nextDist, "index.js");
+const indexOriginal = fs.readFileSync(indexFile, "utf-8");
+const indexPatched = indexOriginal.replace(
   "if (failedExportAttemptsByPage.size > 0) {",
-  `// [claudio-control patch] Ignore _global-error prerender failures
-    for (const key of failedExportAttemptsByPage.keys()) {
+  `for (const key of failedExportAttemptsByPage.keys()) {
       if (key.includes('_global-error')) failedExportAttemptsByPage.delete(key);
     }
     if (failedExportAttemptsByPage.size > 0) {`
 );
 
-if (patched === original) {
-  console.warn("⚠  Could not find patch target in Next.js export — building without patch.");
-} else {
-  fs.writeFileSync(exportFile, patched);
-  console.log("✓ Applied _global-error prerender patch.");
-}
+const workerOk = workerPatched !== workerOriginal;
+const indexOk = indexPatched !== indexOriginal;
+
+if (workerOk) fs.writeFileSync(workerFile, workerPatched);
+if (indexOk) fs.writeFileSync(indexFile, indexPatched);
+console.log(`✓ Patches applied: worker=${workerOk}, index=${indexOk}`);
 
 let buildFailed = false;
 try {
@@ -35,18 +46,17 @@ try {
   buildFailed = true;
 }
 
-// Always restore the original file
-fs.writeFileSync(exportFile, original);
+// Always restore originals
+fs.writeFileSync(workerFile, workerOriginal);
+fs.writeFileSync(indexFile, indexOriginal);
 
 if (buildFailed) {
-  // Check if the build produced usable output despite the error
   const hasStandalone = fs.existsSync(path.join(".next", "standalone", "server.js"));
   const hasStatic = fs.existsSync(path.join(".next", "static"));
-
   if (hasStandalone && hasStatic) {
-    console.log("\n⚠  Build had warnings but output is complete — continuing.\n");
+    console.log("\n⚠  Build had warnings but output is complete.\n");
   } else {
-    console.error(`\nBuild failed. standalone=${hasStandalone}, static=${hasStatic}`);
+    console.error(`Build failed. standalone=${hasStandalone}, static=${hasStatic}`);
     process.exit(1);
   }
 }
