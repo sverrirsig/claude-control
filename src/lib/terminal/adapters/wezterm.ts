@@ -3,6 +3,7 @@ import { accessSync, constants } from "fs";
 import { APPLESCRIPT_FOCUS_DELAY_S } from "../../constants";
 import type { TerminalInfo } from "../types";
 import {
+  cleanEnvForTerminal,
   execFileAsync,
   genericActivateScript,
   mapKeystrokeToSystemEvents,
@@ -139,6 +140,7 @@ export const weztermAdapter: TerminalAdapter = {
         // New tab in existing window: use `wezterm cli spawn`
         await execFileAsync(bin, ["cli", "spawn", "--", "sh", "-c", command], {
           timeout: OSASCRIPT_TIMEOUT_MS,
+          env: cleanEnvForTerminal(),
         });
         return;
       } catch {
@@ -149,6 +151,7 @@ export const weztermAdapter: TerminalAdapter = {
     const child = spawn(bin, ["start", "--", "sh", "-c", command], {
       detached: true,
       stdio: "ignore",
+      env: cleanEnvForTerminal(),
     });
     child.unref();
     // Poll until WezTerm is ready (cli responds), then bring it to front

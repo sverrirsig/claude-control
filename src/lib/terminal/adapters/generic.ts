@@ -1,6 +1,7 @@
 import { APPLESCRIPT_FOCUS_DELAY_S } from "../../constants";
 import type { TerminalInfo } from "../types";
 import {
+  cleanEnvForTerminal,
   escapeForAppleScript,
   execFileAsync,
   genericActivateScript,
@@ -39,7 +40,7 @@ export function createGenericAdapter(
 
     async createSession(command: string, _opts: CreateSessionOpts): Promise<void> {
       const { bin, args } = createArgs(command);
-      await execFileAsync(bin, args, { timeout: OSASCRIPT_TIMEOUT_MS });
+      await execFileAsync(bin, args, { timeout: OSASCRIPT_TIMEOUT_MS, env: cleanEnvForTerminal() });
     },
   };
 }

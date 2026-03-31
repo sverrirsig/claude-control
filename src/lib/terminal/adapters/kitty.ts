@@ -2,7 +2,7 @@ import { spawn } from "child_process";
 import { readdirSync } from "fs";
 import type { TerminalInfo } from "../types";
 import { createGenericAdapter } from "./generic";
-import { execFileAsync, OSASCRIPT_TIMEOUT_MS } from "./shared";
+import { cleanEnvForTerminal, execFileAsync, OSASCRIPT_TIMEOUT_MS } from "./shared";
 import type { CreateSessionOpts, TerminalAdapter } from "./types";
 
 // ── kitten @ ls response types ──────────────────────────────────────────────
@@ -223,6 +223,7 @@ export const kittyAdapter: TerminalAdapter = {
       const child = spawn("kitty", ["sh", "-c", command], {
         detached: true,
         stdio: "ignore",
+        env: cleanEnvForTerminal(),
       });
       child.unref();
     }

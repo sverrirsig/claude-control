@@ -2,6 +2,20 @@ import { execFile } from "child_process";
 import { promisify } from "util";
 
 export const execFileAsync = promisify(execFile);
+
+/**
+ * Env vars injected by the Electron main process for the internal Next.js server
+ * (see electron/main.js). These must NOT leak into user-facing terminal sessions.
+ */
+const SERVER_INTERNAL_ENV_VARS = ["NODE_ENV", "PORT", "HOSTNAME"];
+
+export function cleanEnvForTerminal(): NodeJS.ProcessEnv {
+  const env = { ...process.env };
+  for (const key of SERVER_INTERNAL_ENV_VARS) {
+    delete env[key];
+  }
+  return env;
+}
 export const OSASCRIPT_TIMEOUT_MS = 10000;
 
 export function escapeForAppleScript(text: string): string {

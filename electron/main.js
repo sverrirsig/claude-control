@@ -126,6 +126,22 @@ if (!process.env.LANG) {
   process.env.LANG = "en_US.UTF-8";
 }
 
+// Snapshot the user's environment BEFORE Electron/Next.js add anything app-specific.
+// This is what PTY terminals get — it should match the user's normal shell, not the app's.
+const STRIP_FROM_TERMINAL_ENV = [
+  "NODE_ENV", "PORT", "HOSTNAME", "TMUX_PATH",
+  // Electron internals that shouldn't leak into user shells
+  ...Object.keys(process.env).filter((k) => k.startsWith("ELECTRON_")),
+];
+
+function cleanEnvForTerminal() {
+  const env = { ...process.env };
+  for (const key of STRIP_FROM_TERMINAL_ENV) {
+    delete env[key];
+  }
+  return env;
+}
+
 // Resolve tmux binary path once at startup for reliable execution
 let tmuxPath = "tmux";
 try {
@@ -191,6 +207,8 @@ async function startNextServer() {
     const serverPath = path.join(appDir, "server.js");
     console.log(`Starting standalone server via utilityProcess: ${serverPath}`);
 
+    // NOTE: If you add/change env vars here, also update SERVER_INTERNAL_ENV_VARS
+    // in src/lib/terminal/adapters/shared.ts so they don't leak into user terminals.
     nextProcess = utilityProcess.fork(serverPath, [], {
       env: {
         ...process.env,
@@ -336,7 +354,7 @@ ipcMain.handle("pty:spawn", (_event, { cols, rows, cwd, tmuxSession, command, wr
           "-x", String(cols || 80), "-y", String(rows || 24),
           "-c", cwd || process.env.HOME,
           innerCmd,
-        ], { timeout: 5000, encoding: "utf-8", env: { ...process.env } });
+        ], { timeout: 5000, encoding: "utf-8", env: cleanEnvForTerminal() });
         console.log(`[pty:spawn] tmux session created successfully`);
         tmuxReady = true;
       } catch (err) {
@@ -371,7 +389,7 @@ ipcMain.handle("pty:spawn", (_event, { cols, rows, cwd, tmuxSession, command, wr
     cols: cols || 80,
     rows: rows || 24,
     cwd: cwd || process.env.HOME,
-    env: { ...process.env },
+    env: cleanEnvForTerminal(),
   });
   ptyProcesses.set(id, ptyProc);
   ptyBuffers.set(id, "");
