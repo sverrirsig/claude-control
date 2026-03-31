@@ -14,8 +14,8 @@
     "format:check": "biome format",
     "typecheck": "tsc --noEmit",
     "electron:dev": "concurrently --kill-others \"next dev -p 3200\" \"wait-on http://localhost:3200 && electron .\"",
-    "electron:build": "node scripts/prepare-build.js --clean && node scripts/next-build.js && node scripts/prepare-build.js && electron-builder --mac --publish never",
-    "electron:pack": "node scripts/prepare-build.js --clean && node scripts/next-build.js && node scripts/prepare-build.js && electron-builder --mac --dir",
+    "electron:build": "node scripts/prepare-build.js --clean && next build && node scripts/prepare-build.js && electron-builder --mac --publish never",
+    "electron:pack": "node scripts/prepare-build.js --clean && next build && node scripts/prepare-build.js && electron-builder --mac --dir",
     "test": "vitest run",
     "test:watch": "vitest",
     "postinstall": "npx @electron/rebuild -f -w node-pty"
