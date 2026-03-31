@@ -97,6 +97,16 @@ export interface SessionGroup {
   sessions: ClaudeSession[];
 }
 
+export interface TerminalEntry {
+  sessionId: string;
+  workingDirectory: string;
+  ptyId: number | null;
+  spawnCommand?: string;
+  tmuxSession?: string;
+  wrapInTmux?: boolean;
+  exited: boolean;
+}
+
 // ── Kanban Pipeline ──
 
 export interface KanbanColumnInput {

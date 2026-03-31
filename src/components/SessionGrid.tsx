@@ -23,7 +23,7 @@ import { applyLayout } from "@/lib/apply-layout";
 import type { DashboardLayout } from "@/lib/dashboard-layout";
 import { groupSessions } from "@/lib/group-sessions";
 import { ClaudeSession, PrStatus, ViewMode } from "@/lib/types";
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { EnableKanbanButton } from "./EnableKanbanButton";
 import { KanbanAwareGroup } from "./KanbanAwareGroup";
 import { SessionCard } from "./SessionCard";
@@ -128,6 +128,9 @@ export function SessionGrid({
   layout,
   onReorderSections,
   onReorderCards,
+  onOpenTerminal,
+  activeTerminalSessionId,
+  inlineTerminalSessionIds,
 }: {
   sessions: ClaudeSession[];
   viewMode: ViewMode;
@@ -147,15 +150,48 @@ export function SessionGrid({
   layout?: DashboardLayout | null;
   onReorderSections?: (newOrder: string[]) => void;
   onReorderCards?: (repoPath: string, newOrder: string[]) => void;
+  onOpenTerminal?: (session: ClaudeSession) => void;
+  activeTerminalSessionId?: string | null;
+  inlineTerminalSessionIds?: Set<string>;
 }) {
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [activeDragType, setActiveDragType] = useState<"section" | "card" | null>(null);
   const isDragging = activeDragId !== null;
 
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const stored = localStorage.getItem("claude-control:collapsed-groups");
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  const toggleCollapse = useCallback((repoPath: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(repoPath)) next.delete(repoPath);
+      else next.add(repoPath);
+      localStorage.setItem("claude-control:collapsed-groups", JSON.stringify([...next]));
+      return next;
+    });
+  }, []);
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
+
+  const rawGroups = groupSessions(sessions);
+  const groups = applyLayout(rawGroups, layout ?? null);
+
+  // Freeze groups during drag to prevent SWR poll from disrupting layout
+  const stableGroupsRef = useRef(groups);
+  if (!isDragging) {
+    stableGroupsRef.current = groups;
+  }
+  const displayGroups = stableGroupsRef.current;
 
   if (sessions.length === 0) {
     return (
@@ -177,28 +213,18 @@ export function SessionGrid({
     );
   }
 
-  const rawGroups = groupSessions(sessions);
-  const groups = applyLayout(rawGroups, layout ?? null);
-
-  // Freeze groups during drag to prevent SWR poll from disrupting layout
-  const stableGroupsRef = useRef(groups);
-  if (!isDragging) {
-    stableGroupsRef.current = groups;
-  }
-  const displayGroups = stableGroupsRef.current;
-
   // Build a flat index map: session id → flat index (for keyboard shortcuts)
   const flatIndexMap = new Map<string, number>();
   let flatIdx = 0;
   for (const group of displayGroups) {
     for (const session of group.sessions) {
-      flatIndexMap.set(`${session.id}-${session.pid}`, flatIdx);
+      flatIndexMap.set(`session-${session.pid ?? session.id}`, flatIdx);
       flatIdx++;
     }
   }
 
   const getSessionProps = (session: ClaudeSession) => {
-    const key = `${session.id}-${session.pid}`;
+    const key = `session-${session.pid ?? session.id}`;
     const idx = flatIndexMap.get(key) ?? -1;
     const hasSelection = selectedIndex !== null && selectedIndex !== undefined;
     const isSelected = hasSelection && idx === selectedIndex;
@@ -245,6 +271,9 @@ export function SessionGrid({
         onStartEdit={onStartEdit ? () => onStartEdit(session.id) : undefined}
         onSaveMeta={onSaveMeta ? (updates) => onSaveMeta(session.id, updates) : undefined}
         onCancelEdit={onCancelEdit}
+        onOpenTerminal={onOpenTerminal ? () => onOpenTerminal(session) : undefined}
+        hasActiveTerminal={activeTerminalSessionId === session.id}
+        hasInlineTerminal={inlineTerminalSessionIds?.has(session.id) ?? false}
       />
     );
   };
@@ -280,15 +309,15 @@ export function SessionGrid({
         {viewMode === "list" ? (
           <div className="space-y-1">
             {items.map((session) => (
-              <SortableCard key={`${session.id}-${session.pid}`} id={session.id}>
+              <SortableCard key={`session-${session.pid ?? session.id}`} id={session.id}>
                 {renderRow(session)}
               </SortableCard>
             ))}
           </div>
         ) : (
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 items-start">
+          <div className="grid gap-5 grid-cols-[repeat(auto-fill,minmax(340px,1fr))] items-start">
             {items.map((session) => (
-              <SortableCard key={`${session.id}-${session.pid}`} id={session.id}>
+              <SortableCard key={`session-${session.pid ?? session.id}`} id={session.id}>
                 {renderCard(session)}
               </SortableCard>
             ))}
@@ -302,12 +331,25 @@ export function SessionGrid({
 
   const renderGroupHeader = (group: (typeof displayGroups)[0], showCount = true) => {
     const accent = accentMap.get(group.repoName) ?? REPO_ACCENTS[0];
+    const isCollapsed = collapsedGroups.has(group.repoPath);
     return (
       <div className={`flex items-center gap-3 ${viewMode === "list" ? "mb-2" : "mb-4"}`}>
-        <div className="flex items-center gap-2.5">
+        <button
+          onClick={() => toggleCollapse(group.repoPath)}
+          className="flex items-center gap-2.5 group/collapse"
+        >
+          <svg
+            className={`w-3 h-3 text-zinc-600 group-hover/collapse:text-zinc-400 transition-transform duration-200 ${isCollapsed ? "-rotate-90" : ""}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2.5}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+          </svg>
           <span className={`w-2 h-2 rounded-full ${accent.dot} ${accent.glow}`} />
           <h2 className={`text-sm font-semibold ${accent.text}`}>{prettifyName(group.repoName)}</h2>
-        </div>
+        </button>
         {showCount && (
           <span className="text-[11px] text-zinc-600 font-(family-name:--font-geist-mono)">
             {group.sessions.length} session{group.sessions.length !== 1 ? "s" : ""}
@@ -381,7 +423,7 @@ export function SessionGrid({
     return viewMode === "list" ? (
       <div className="space-y-1">{displayGroups[0].sessions.map(renderRow)}</div>
     ) : (
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 items-start">
+      <div className="max-w-sm">
         {displayGroups[0].sessions.map(renderCard)}
       </div>
     );
@@ -403,12 +445,14 @@ export function SessionGrid({
           <div className="space-y-8">
             {displayGroups.map((group) => (
               <SortableSection key={group.repoPath} id={group.repoPath} header={renderGroupHeader(group)}>
-                <KanbanAwareGroup
-                  repoName={group.repoName}
-                  sessions={group.sessions}
-                  renderCard={renderCard}
-                  fallback={renderSortableCards(group.sessions, group.repoPath)}
-                />
+                {!collapsedGroups.has(group.repoPath) && (
+                  <KanbanAwareGroup
+                    repoName={group.repoName}
+                    sessions={group.sessions}
+                    renderCard={renderCard}
+                    fallback={renderSortableCards(group.sessions, group.repoPath)}
+                  />
+                )}
               </SortableSection>
             ))}
           </div>
@@ -452,21 +496,23 @@ export function SessionGrid({
           {/* Multi-session groups: full-width with their own grid */}
           {multiSessionGroups.map((group) => (
             <SortableSection key={group.repoPath} id={group.repoPath} header={renderGroupHeader(group)}>
-              <KanbanAwareGroup
-                repoName={group.repoName}
-                sessions={group.sessions}
-                renderCard={renderCard}
-                fallback={renderSortableCards(group.sessions, group.repoPath)}
-              />
+              {!collapsedGroups.has(group.repoPath) && (
+                <KanbanAwareGroup
+                  repoName={group.repoName}
+                  sessions={group.sessions}
+                  renderCard={renderCard}
+                  fallback={renderSortableCards(group.sessions, group.repoPath)}
+                />
+              )}
             </SortableSection>
           ))}
 
           {/* Single-session groups: compact side-by-side layout */}
           {singleSessionGroups.length > 0 && viewMode === "grid" && (
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 items-start">
+            <div className="grid gap-5 grid-cols-[repeat(auto-fill,minmax(340px,1fr))] items-start">
               {singleSessionGroups.map((group) => (
                 <SortableSection key={group.repoPath} id={group.repoPath} header={renderGroupHeader(group, false)}>
-                  {renderCard(group.sessions[0])}
+                  {!collapsedGroups.has(group.repoPath) && renderCard(group.sessions[0])}
                 </SortableSection>
               ))}
             </div>
@@ -477,7 +523,7 @@ export function SessionGrid({
             <>
               {singleSessionGroups.map((group) => (
                 <SortableSection key={group.repoPath} id={group.repoPath} header={renderGroupHeader(group)}>
-                  <div className="space-y-1">{group.sessions.map(renderRow)}</div>
+                  {!collapsedGroups.has(group.repoPath) && <div className="space-y-1">{group.sessions.map(renderRow)}</div>}
                 </SortableSection>
               ))}
             </>

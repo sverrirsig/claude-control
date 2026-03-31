@@ -110,6 +110,14 @@ export async function POST(request: Request) {
       }
     }
 
+    const config = await loadConfig();
+
+    if (config.terminalApp === "inline") {
+      // Inline mode: skip external terminal, return info for client PTY
+      invalidateSessionCache();
+      return NextResponse.json({ ok: true, path: targetPath, inline: true, prompt });
+    }
+
     // Open terminal with claude in the target directory
     await openTerminalWithClaude(targetPath, repoPath, prompt, tmuxSession);
 

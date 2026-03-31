@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { KeyboardHints } from "@/components/KeyboardHints";
 import { NewSessionModal } from "@/components/NewSessionModal";
+import { ResizeDivider } from "@/components/ResizeDivider";
 import { SessionGrid } from "@/components/SessionGrid";
+import { TerminalContainer } from "@/components/TerminalContainer";
 import { useDashboardLayout } from "@/hooks/useDashboardLayout";
 import { useDesktopNotification } from "@/hooks/useDesktopNotification";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
@@ -14,13 +16,15 @@ import { usePrStatus } from "@/hooks/usePrStatus";
 import { useSessions } from "@/hooks/useSessions";
 import { useSettings } from "@/hooks/useSettings";
 import { flattenGroupedSessions } from "@/lib/group-sessions";
-import { SessionStatus, ViewMode } from "@/lib/types";
+import { getTerminalStore, setTerminalStore } from "@/lib/terminal-store";
+import { ClaudeSession, SessionStatus, TerminalEntry, ViewMode } from "@/lib/types";
 
 const EMPTY_SET: Set<string> = new Set();
 
 export default function Dashboard() {
   const { sessions, isLoading, error, hooksActive, refresh } = useSessions();
   const { layout, reorderSections, reorderCards } = useDashboardLayout();
+  const settings = useSettings();
   const [targetScreen, setTargetScreen] = useState<number | null>(() => {
     if (typeof window === "undefined") return null;
     const saved = localStorage.getItem("targetScreen");
@@ -41,6 +45,13 @@ export default function Dashboard() {
   // Optimistic approve/reject state: sessionId → { action, timestamp }
   const [actedSessions, setActedSessions] = useState<Record<string, { action: "approve" | "reject"; at: number }>>({});
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+  const [terminals, setTerminals] = useState<Map<string, TerminalEntry>>(() => {
+    const stored = getTerminalStore();
+    return stored.terminals.size > 0 ? new Map(stored.terminals) : new Map();
+  });
+  const [activeTerminalDir, setActiveTerminalDir] = useState<string | null>(() => getTerminalStore().activeDir);
+  const [terminalMinimized, setTerminalMinimized] = useState(() => getTerminalStore().minimized);
+  const [terminalHeight, setTerminalHeight] = useState(() => getTerminalStore().height);
 
   const handleApproveReject = useCallback((sessionId: string, action: "approve" | "reject") => {
     setActedSessions((prev) => ({ ...prev, [sessionId]: { action, at: Date.now() } }));
@@ -83,6 +94,182 @@ export default function Dashboard() {
   const handleCancelEdit = useCallback(() => {
     setEditingSessionId(null);
   }, []);
+
+  const handleOpenTerminal = useCallback((session: ClaudeSession) => {
+    const dir = session.workingDirectory;
+    setTerminals((prev) => {
+      const existing = prev.get(dir);
+      if (existing && !existing.exited) {
+        // Live terminal exists for this dir — just switch focus
+        if (existing.sessionId === session.id) return prev;
+        const next = new Map(prev);
+        next.set(dir, { ...existing, sessionId: session.id });
+        return next;
+      }
+      // No terminal or previous one exited — create a fresh entry
+      const next = new Map(prev);
+      next.set(dir, {
+        sessionId: session.id,
+        workingDirectory: dir,
+        ptyId: null,
+        tmuxSession: session.tmuxSession ?? undefined,
+        exited: false,
+      });
+      return next;
+    });
+    setActiveTerminalDir(dir);
+    setTerminalMinimized(false);
+  }, []);
+
+  const handleCloseTerminal = useCallback((dir: string) => {
+    setTerminals((prev) => {
+      const entry = prev.get(dir);
+      // Explicitly kill the PTY when the user closes the terminal
+      if (entry?.ptyId != null) {
+        const api = (window as unknown as { electronAPI?: { ptyKill: (id: number, killTmuxSession?: boolean) => Promise<void> } }).electronAPI;
+        api?.ptyKill(entry.ptyId, true).catch(() => {});
+      }
+      const next = new Map(prev);
+      next.delete(dir);
+      return next;
+    });
+    setActiveTerminalDir((prev) => (prev === dir ? null : prev));
+    // Refresh session list after process dies (second refresh catches tmux kill propagation)
+    setTimeout(() => refresh(), 1500);
+    setTimeout(() => refresh(), 4000);
+  }, [refresh]);
+
+  const handleMinimizeTerminal = useCallback(() => {
+    setTerminalMinimized(true);
+  }, []);
+
+  const handleSwitchTerminal = useCallback((dir: string) => {
+    setActiveTerminalDir(dir);
+    setTerminalMinimized(false);
+  }, []);
+
+  const handlePtySpawned = useCallback((dir: string, ptyId: number) => {
+    setTerminals((prev) => {
+      const entry = prev.get(dir);
+      if (!entry) return prev;
+      const next = new Map(prev);
+      next.set(dir, { ...entry, ptyId });
+      return next;
+    });
+  }, []);
+
+  const handlePtyExited = useCallback((dir: string) => {
+    setTerminals((prev) => {
+      const entry = prev.get(dir);
+      if (!entry) return prev;
+      const next = new Map(prev);
+      next.set(dir, { ...entry, exited: true });
+      // Auto-close inline terminals after a brief delay
+      if (entry.spawnCommand) {
+        setTimeout(() => handleCloseTerminal(dir), 1500);
+      }
+      return next;
+    });
+  }, [handleCloseTerminal]);
+
+  const handleInlineSession = useCallback((cwd: string, prompt?: string) => {
+    const cmd = prompt ? `claude '${prompt.replace(/'/g, "'\\''")}'` : "claude";
+    const dir = cwd;
+    setTerminals((prev) => {
+      const next = new Map(prev);
+      next.set(dir, {
+        sessionId: `inline-${Date.now()}`,
+        workingDirectory: dir,
+        ptyId: null,
+        spawnCommand: cmd,
+        wrapInTmux: settings.terminalUseTmux,
+        exited: false,
+      });
+      return next;
+    });
+    setActiveTerminalDir(dir);
+    setTerminalMinimized(false);
+  }, [settings.terminalUseTmux]);
+
+  // Keep inline terminal entries synced with the real session ID.
+  // The session ID evolves: "inline-..." → "pid-XXXX" → real UUID.
+  // We continuously sync so hasActiveTerminal always matches.
+  useEffect(() => {
+    setTerminals((prev) => {
+      let changed = false;
+      const next = new Map(prev);
+      for (const [dir, entry] of next) {
+        if (!entry.spawnCommand && !entry.tmuxSession) continue; // sync inline-spawned and recovered tmux terminals
+        const real = sessions.find((s) => s.workingDirectory === dir && s.pid !== null);
+        if (real && real.id !== entry.sessionId) {
+          next.set(dir, { ...entry, sessionId: real.id });
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [sessions]);
+
+  // Sync terminal state to the global store so it survives route changes
+  useEffect(() => {
+    setTerminalStore({
+      terminals,
+      activeDir: activeTerminalDir,
+      minimized: terminalMinimized,
+      height: terminalHeight,
+    });
+  }, [terminals, activeTerminalDir, terminalMinimized, terminalHeight]);
+
+  // Re-clamp terminal height on window resize (e.g. fullscreen toggle)
+  useEffect(() => {
+    const onResize = () => {
+      setTerminalHeight((prev) => Math.max(150, Math.min(prev, window.innerHeight * 0.8)));
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  // Recover surviving tmux inline sessions on mount
+  useEffect(() => {
+    const api = (window as unknown as { electronAPI?: { ptyListInlineTmux?: () => Promise<Array<{ name: string; cwd: string; dead: boolean }>> } }).electronAPI;
+    if (!api?.ptyListInlineTmux) return;
+    api.ptyListInlineTmux().then((tmuxSessions) => {
+      if (!tmuxSessions?.length) return;
+      let firstDir: string | null = null;
+      setTerminals((prev) => {
+        const next = new Map(prev);
+        let added = false;
+        for (const s of tmuxSessions) {
+          if (next.has(s.cwd)) continue; // already tracked
+          next.set(s.cwd, {
+            sessionId: `recovered-${s.name}`,
+            workingDirectory: s.cwd,
+            ptyId: null,
+            tmuxSession: s.name,
+            wrapInTmux: true,
+            exited: false,
+          });
+          if (!firstDir) firstDir = s.cwd;
+          added = true;
+        }
+        if (!added) return prev;
+        return next;
+      });
+      if (firstDir) {
+        setActiveTerminalDir(firstDir);
+        setTerminalMinimized(false);
+      }
+    });
+  }, []);
+
+  // Set of session IDs that have an inline terminal (for focus logic)
+  const inlineTerminalSessionIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const entry of terminals.values()) {
+      if (!entry.exited) ids.add(entry.sessionId);
+    }
+    return ids;
+  }, [terminals]);
 
   const { selectedIndex, setSelectedIndex, selectedSession, actionFeedback } = useKeyboardShortcuts({
     sessions,
@@ -137,7 +324,7 @@ export default function Dashboard() {
     }
   }, [sessions, actedSessions]);
   const prStatuses = usePrStatus(sessions);
-  const { notifications: notificationsEnabled, notificationSound: soundEnabled, alwaysNotify } = useSettings();
+  const { notifications: notificationsEnabled, notificationSound: soundEnabled, alwaysNotify } = settings;
 
   // Track confirmed statuses (only update after a status has been stable for 2 polls)
   const rawStatuses = useRef<Map<string, SessionStatus>>(new Map());
@@ -248,7 +435,9 @@ export default function Dashboard() {
   }, [sessions, hooksActive, playChime, sendNotification, soundEnabled, notificationsEnabled]);
 
   return (
-    <>
+    <div className="flex flex-col flex-1 min-h-0">
+      <div className="flex-1 overflow-y-auto px-6 pt-10 pb-8">
+        <div className="w-full">
       <DashboardHeader
         sessionCount={sessions.length}
         onNewSession={handleNewGlobal}
@@ -298,6 +487,9 @@ export default function Dashboard() {
           layout={layout}
           onReorderSections={reorderSections}
           onReorderCards={reorderCards}
+          onOpenTerminal={handleOpenTerminal}
+          activeTerminalSessionId={activeTerminalDir && !terminalMinimized ? terminals.get(activeTerminalDir)?.sessionId ?? null : null}
+          inlineTerminalSessionIds={inlineTerminalSessionIds}
         />
       )}
 
@@ -335,7 +527,27 @@ export default function Dashboard() {
         </div>
       )}
 
-      {modal && <NewSessionModal repoPath={modal.repoPath} repoName={modal.repoName} onClose={() => setModal(null)} onCreated={refresh} />}
-    </>
+      {modal && <NewSessionModal repoPath={modal.repoPath} repoName={modal.repoName} onClose={() => setModal(null)} onCreated={refresh} onInlineSession={handleInlineSession} />}
+        </div>
+      </div>
+
+      {terminals.size > 0 && (
+        <>
+          {!terminalMinimized && <ResizeDivider onResize={setTerminalHeight} />}
+          <TerminalContainer
+            terminals={terminals}
+            activeDir={activeTerminalDir}
+            minimized={terminalMinimized}
+            height={terminalHeight}
+            sessions={sessions}
+            onClose={handleCloseTerminal}
+            onMinimize={handleMinimizeTerminal}
+            onSwitch={handleSwitchTerminal}
+            onPtySpawned={handlePtySpawned}
+            onPtyExited={handlePtyExited}
+          />
+        </>
+      )}
+    </div>
   );
 }

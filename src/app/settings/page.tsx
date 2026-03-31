@@ -85,15 +85,17 @@ function SettingRow<T extends OptionDef>({
   value,
   options,
   onChange,
+  disabled,
 }: {
   label: string;
   description: string;
   value: string;
   options: T[];
   onChange: (val: string) => void;
+  disabled?: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between py-4 border-b border-white/4">
+    <div className={`flex items-center justify-between py-4 border-b border-white/4${disabled ? " opacity-50" : ""}`}>
       <div className="flex-1 min-w-0 mr-4">
         <h3 className="text-sm font-medium text-zinc-200">{label}</h3>
         <p className="text-xs text-zinc-500 mt-0.5">{description}</p>
@@ -101,7 +103,8 @@ function SettingRow<T extends OptionDef>({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="shrink-0 bg-zinc-900 border border-zinc-700/50 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-hidden focus:border-zinc-600 w-[200px]"
+        disabled={disabled}
+        className="shrink-0 bg-zinc-900 border border-zinc-700/50 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-hidden focus:border-zinc-600 w-[200px] disabled:cursor-not-allowed"
       >
         {options.map((opt) => {
           const installed = "installed" in opt ? (opt as AppOptionDef).installed : true;
@@ -344,10 +347,11 @@ export default function SettingsPage() {
           />
           <SettingRow
             label="Open In"
-            description="Open new sessions in a tab or window"
-            value={data.config.terminalOpenIn}
+            description={data.config.terminalApp === "inline" ? "Not applicable for inline terminal" : "Open new sessions in a tab or window"}
+            value={data.config.terminalApp === "inline" ? "tab" : data.config.terminalOpenIn}
             options={data.options.terminalOpenIn}
             onChange={(terminalOpenIn) => save({ terminalOpenIn })}
+            disabled={data.config.terminalApp === "inline"}
           />
           <Toggle
             label="Use tmux"

@@ -16,7 +16,8 @@ exports.default = async function afterPack(context) {
 
   console.log(`Copying Next.js app to: ${dest}`);
   execSync(`cp -RL "${source}" "${dest}"`, { stdio: "inherit" });
-  // Remove .DS_Store files that break codesign
+  // Remove .DS_Store files and .git directories that break codesign
   execSync(`find "${dest}" -name '.DS_Store' -delete`, { stdio: "inherit" });
+  execSync(`find "${dest}" -name '.git' -type d -exec rm -rf {} +`, { stdio: "inherit" });
   console.log("Done copying Next.js app.");
 };

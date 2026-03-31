@@ -65,6 +65,9 @@ export function SessionCard({
   onStartEdit,
   onSaveMeta,
   onCancelEdit,
+  onOpenTerminal,
+  hasActiveTerminal,
+  hasInlineTerminal,
 }: {
   session: ClaudeSession;
   targetScreen?: number | null;
@@ -80,6 +83,9 @@ export function SessionCard({
   onStartEdit?: () => void;
   onSaveMeta?: (updates: { title?: string; description?: string }) => void;
   onCancelEdit?: () => void;
+  onOpenTerminal?: () => void;
+  hasActiveTerminal?: boolean;
+  hasInlineTerminal?: boolean;
 }) {
   const isSuppressed = !!actedOn;
   const showQuickReply = session.status === "waiting" && session.pid && !isSuppressed;
@@ -203,6 +209,11 @@ export function SessionCard({
                     worktree
                   </span>
                 )}
+                {session.tmuxSession && (
+                  <span className="shrink-0 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider rounded-sm bg-sky-500/10 border border-sky-500/20 text-sky-400">
+                    tmux
+                  </span>
+                )}
               </div>
               <p className="text-[11px] text-zinc-600 truncate font-(family-name:--font-geist-mono) mt-0.5">
                 {session.workingDirectory.replace(/.*\/([^/]+\/[^/]+)$/, "$1")}
@@ -300,6 +311,9 @@ export function SessionCard({
               orphaned={session.orphaned}
               tmuxSession={session.tmuxSession}
               onCleanup={canCleanup ? handleCleanup : undefined}
+              onOpenTerminal={onOpenTerminal}
+              hasActiveTerminal={hasActiveTerminal}
+              hasInlineTerminal={hasInlineTerminal}
             />
           )}
         </div>

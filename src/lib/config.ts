@@ -59,6 +59,7 @@ export const BROWSER_OPTIONS = [
 ];
 
 export const TERMINAL_APP_OPTIONS = [
+  { id: "inline", label: "Inline", appName: "" },
   { id: "terminal-app", label: "Terminal", appName: "Terminal" },
   { id: "iterm", label: "iTerm2", appName: "iTerm" },
   { id: "ghostty", label: "Ghostty", appName: "Ghostty" },

@@ -3,7 +3,7 @@ import { promisify } from "util";
 import { PROCESS_TIMEOUT_MS } from "../constants";
 import { getAdapter } from "./adapters/registry";
 import { shellEscape, shellEscapeDouble } from "./adapters/shared";
-import { buildProcessTree, detectTmuxClients, findTerminalInTree } from "./detect";
+import { buildProcessTree, detectTmuxClients, findTerminalInTree, getTmuxPathSync } from "./detect";
 import type { TerminalApp, TerminalInfo } from "./types";
 
 const execFileAsync = promisify(execFile);
@@ -19,8 +19,8 @@ export async function focusSession(info: TerminalInfo): Promise<void> {
   // If in tmux, select the correct pane first
   if (info.inTmux && info.tmux) {
     const windowTarget = `${info.tmux.sessionName}:${info.tmux.windowIndex}`;
-    await execFileAsync("tmux", ["select-window", "-t", windowTarget], { timeout: PROCESS_TIMEOUT_MS });
-    await execFileAsync("tmux", ["select-pane", "-t", info.tmux.paneId], { timeout: PROCESS_TIMEOUT_MS });
+    await execFileAsync(getTmuxPathSync(), ["select-window", "-t", windowTarget], { timeout: PROCESS_TIMEOUT_MS });
+    await execFileAsync(getTmuxPathSync(), ["select-pane", "-t", info.tmux.paneId], { timeout: PROCESS_TIMEOUT_MS });
   }
 
   // Use tmux client TTY (terminal tab's TTY) when in tmux, otherwise the process's TTY
@@ -34,7 +34,7 @@ export async function focusSession(info: TerminalInfo): Promise<void> {
 export async function sendText(info: TerminalInfo, text: string): Promise<void> {
   // tmux: send directly to the pane — works in background without focus
   if (info.inTmux && info.tmux) {
-    await execFileAsync("tmux", ["send-keys", "-t", info.tmux.paneId, text, "Enter"], {
+    await execFileAsync(getTmuxPathSync(), ["send-keys", "-t", info.tmux.paneId, text, "Enter"], {
       timeout: PROCESS_TIMEOUT_MS,
     });
     return;
@@ -56,7 +56,7 @@ export async function sendKeystroke(info: TerminalInfo, keystroke: string): Prom
       tab: "Tab",
       space: "Space",
     };
-    await execFileAsync("tmux", ["send-keys", "-t", info.tmux.paneId, tmuxKeyMap[keystroke] ?? keystroke], {
+    await execFileAsync(getTmuxPathSync(), ["send-keys", "-t", info.tmux.paneId, tmuxKeyMap[keystroke] ?? keystroke], {
       timeout: PROCESS_TIMEOUT_MS,
     });
     return;
@@ -93,7 +93,7 @@ export async function createSession(opts: CreateSessionPublicOpts): Promise<void
   // Named tmux session: try adding a window to existing session
   if (useTmux && tmuxSession) {
     try {
-      await execFileAsync("tmux", ["new-window", "-t", tmuxSession, cmd], { timeout: 10000 });
+      await execFileAsync(getTmuxPathSync(), ["new-window", "-t", tmuxSession, cmd], { timeout: 10000 });
       // Focus the terminal tab that has the tmux client for this session
       try {
         const [clients, tree] = await Promise.all([detectTmuxClients(), buildProcessTree()]);
@@ -137,7 +137,7 @@ export async function createSession(opts: CreateSessionPublicOpts): Promise<void
 export async function listTmuxSessions(): Promise<{ name: string; windows: number; attached: boolean }[]> {
   try {
     const { stdout } = await execFileAsync(
-      "tmux",
+      getTmuxPathSync(),
       ["list-sessions", "-F", "#{session_name}\t#{session_windows}\t#{session_attached}"],
       { timeout: PROCESS_TIMEOUT_MS },
     );

@@ -1,15 +1,108 @@
 const { app, BrowserWindow, screen, shell, utilityProcess, dialog, ipcMain } = require("electron");
-const { spawn } = require("child_process");
+const { spawn, execFileSync } = require("child_process");
+const { promisify } = require("util");
+const execFileAsync = promisify(require("child_process").execFile);
+const crypto = require("crypto");
 const path = require("path");
 const net = require("net");
 const http = require("http");
 const fs = require("fs");
 
+let pty;
+try {
+  pty = require("node-pty");
+} catch (err) {
+  console.warn("node-pty not available:", err.message);
+}
+
 const PORT = 3200;
 let nextProcess = null;
+let ptyIdCounter = 0;
+const ptyProcesses = new Map();
+const ptyBuffers = new Map(); // ptyId → string (scrollback buffer for reattach)
+const ptyTmuxNames = new Map(); // ptyId → tmux session name (or null)
+const PTY_BUFFER_LIMIT = 100_000; // ~100KB per terminal
+
+function inlineTmuxName(cwd) {
+  const hash = crypto.createHash("md5").update(cwd).digest("hex").slice(0, 8);
+  return `claudio-inline-${hash}`;
+}
+
+// Manifest file for persisting tmux session → original cwd mapping
+function getInlineTmuxManifestPath() {
+  return path.join(app.getPath("userData"), "inline-tmux-sessions.json");
+}
+
+function loadInlineTmuxManifest() {
+  try {
+    return JSON.parse(fs.readFileSync(getInlineTmuxManifestPath(), "utf-8"));
+  } catch {
+    return {};
+  }
+}
+
+function saveInlineTmuxManifest(manifest) {
+  fs.writeFileSync(getInlineTmuxManifestPath(), JSON.stringify(manifest, null, 2));
+}
+
+function addToInlineTmuxManifest(sessionName, cwd) {
+  const manifest = loadInlineTmuxManifest();
+  manifest[sessionName] = cwd;
+  saveInlineTmuxManifest(manifest);
+}
+
+function removeFromInlineTmuxManifest(sessionName) {
+  const manifest = loadInlineTmuxManifest();
+  delete manifest[sessionName];
+  saveInlineTmuxManifest(manifest);
+}
+
+// Recursively kill a process and all its descendants (depth-first)
+function killProcessTree(pid) {
+  try {
+    const { execFileSync } = require("child_process");
+    const stdout = execFileSync("pgrep", ["-P", String(pid)], { timeout: 3000, encoding: "utf-8" });
+    const childPids = stdout.trim().split("\n").filter(Boolean);
+    for (const cpid of childPids) {
+      killProcessTree(Number(cpid));
+    }
+  } catch {
+    // pgrep returns exit code 1 if no children found
+  }
+  try { process.kill(pid, "SIGTERM"); } catch {}
+}
 
 // Electron apps launched from Finder/dock get a minimal PATH (/usr/bin:/bin:/usr/sbin:/sbin).
-// Augment it so child processes can find tools like `gh` installed via Homebrew or other managers.
+// Load the user's full shell environment so child processes (tmux, claude, etc.) work correctly.
+// This runs the login shell to capture all env vars from .zshrc/.zprofile/etc.
+let shellEnvLoaded = false;
+const ENV_KEY_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+try {
+  const loginShell = process.env.SHELL || "/bin/zsh";
+  // Use -ilc to load both .zprofile (PATH) and .zshrc (NVM, etc.)
+  const envOutput = execFileSync(loginShell, ["-ilc", "env"], {
+    timeout: 5000,
+    encoding: "utf-8",
+    env: { ...process.env },
+    stdio: ["ignore", "pipe", "ignore"], // suppress stderr noise from shell init
+  });
+  for (const line of envOutput.split("\n")) {
+    const eq = line.indexOf("=");
+    if (eq <= 0) continue;
+    const key = line.slice(0, eq);
+    if (!ENV_KEY_RE.test(key)) continue; // skip malformed lines (e.g. shell motd)
+    const value = line.slice(eq + 1);
+    // Don't overwrite Electron-specific vars
+    if (!key.startsWith("ELECTRON_") && key !== "_" && key !== "SHLVL" && key !== "PWD") {
+      process.env[key] = value;
+    }
+  }
+  shellEnvLoaded = true;
+  console.log("[env] Loaded full shell environment from login shell");
+} catch (err) {
+  console.warn("[env] Failed to load shell environment:", err.message);
+}
+// Fallback: ensure essential tool paths are in PATH even if login shell failed
 const EXTRA_PATHS = ["/opt/homebrew/bin", "/usr/local/bin", "/opt/homebrew/sbin"];
 if (process.env.PATH) {
   const existing = process.env.PATH.split(":");
@@ -19,6 +112,27 @@ if (process.env.PATH) {
   process.env.PATH = existing.join(":");
 } else {
   process.env.PATH = ["/usr/bin", "/bin", "/usr/sbin", "/sbin", ...EXTRA_PATHS].join(":");
+}
+
+// Ensure critical env vars are present even if shell env loading failed
+if (!process.env.HOME) {
+  process.env.HOME = require("os").homedir();
+  console.warn(`[env] HOME was missing, set to ${process.env.HOME}`);
+}
+if (!process.env.USER) {
+  try { process.env.USER = require("os").userInfo().username; } catch {}
+}
+if (!process.env.LANG) {
+  process.env.LANG = "en_US.UTF-8";
+}
+
+// Resolve tmux binary path once at startup for reliable execution
+let tmuxPath = "tmux";
+try {
+  tmuxPath = execFileSync("which", ["tmux"], { timeout: 3000, encoding: "utf-8" }).trim() || "tmux";
+  console.log(`[env] tmux found at: ${tmuxPath}`);
+} catch {
+  console.warn("[env] tmux not found in PATH — tmux features will be unavailable");
 }
 let mainWindow = null;
 let isQuitting = false;
@@ -83,6 +197,7 @@ async function startNextServer() {
         PORT: String(PORT),
         HOSTNAME: "localhost",
         NODE_ENV: "production",
+        TMUX_PATH: tmuxPath,
       },
       stdio: "pipe",
     });
@@ -167,6 +282,228 @@ ipcMain.handle("dialog:pickFolder", async () => {
   }
   return { path: result.filePaths[0] };
 });
+
+// ── PTY IPC handlers ──
+
+ipcMain.handle("pty:spawn", (_event, { cols, rows, cwd, tmuxSession, command, wrapInTmux }) => {
+  if (!pty) throw new Error("node-pty is not available");
+  const id = ++ptyIdCounter;
+  console.log(`[pty:spawn] id=${id} wrapInTmux=${wrapInTmux} tmuxSession=${tmuxSession} command=${command ? command.slice(0, 50) : "none"}`);
+  let shell, args;
+  if (tmuxSession) {
+    // Reattach to an existing named tmux session (external or recovered inline)
+    // Verify the session still exists before trying to attach
+    let sessionAlive = false;
+    try {
+      execFileSync(tmuxPath, ["has-session", "-t", tmuxSession], { timeout: 3000 });
+      sessionAlive = true;
+    } catch {
+      console.warn(`[pty:spawn] tmux session "${tmuxSession}" no longer exists`);
+    }
+    if (sessionAlive) {
+      shell = tmuxPath;
+      args = ["attach-session", "-t", tmuxSession];
+      ptyTmuxNames.set(id, tmuxSession);
+    } else {
+      // Session is gone — fall back to a plain shell so the terminal opens
+      shell = process.env.SHELL || "/bin/zsh";
+      args = [];
+    }
+  } else if (command && wrapInTmux) {
+    // Inline terminal with tmux wrapping (terminalUseTmux is ON)
+    // Step 1: Create the tmux session DETACHED so it's fully independent.
+    // tmux runs the command in its default shell, so we just pass the full string.
+    const sessionName = inlineTmuxName(cwd || process.env.HOME);
+    const nvmInit = '. ~/.nvm/nvm.sh 2>/dev/null; ';
+    const innerCmd = nvmInit + command;
+    // Check if session already exists (e.g. recovery); if not, create it detached
+    let sessionExists = false;
+    try {
+      execFileSync(tmuxPath, ["has-session", "-t", sessionName], { timeout: 3000 });
+      sessionExists = true;
+      console.log(`[pty:spawn] tmux session ${sessionName} already exists, attaching`);
+    } catch {
+      console.log(`[pty:spawn] tmux session ${sessionName} does not exist`);
+    }
+    let tmuxReady = sessionExists;
+    if (!sessionExists) {
+      try {
+        console.log(`[pty:spawn] creating detached tmux session: ${sessionName}`);
+        console.log(`[pty:spawn] cwd=${cwd} innerCmd=${innerCmd}`);
+        console.log(`[pty:spawn] tmuxPath=${tmuxPath} PATH=${process.env.PATH}`);
+        execFileSync(tmuxPath, [
+          "new-session", "-d", "-s", sessionName,
+          "-x", String(cols || 80), "-y", String(rows || 24),
+          "-c", cwd || process.env.HOME,
+          innerCmd,
+        ], { timeout: 5000, encoding: "utf-8", env: { ...process.env } });
+        console.log(`[pty:spawn] tmux session created successfully`);
+        tmuxReady = true;
+      } catch (err) {
+        console.error(`[pty:spawn] FAILED to create tmux session:`, err.message);
+        console.error(`[pty:spawn] tmux exit status:`, err.status, `stderr:`, err.stderr?.toString());
+        console.error(`[pty:spawn] PATH=${process.env.PATH} HOME=${process.env.HOME}`);
+      }
+    }
+    if (tmuxReady) {
+      // Step 2: Attach as a client via node-pty (this is the process we control)
+      shell = tmuxPath;
+      args = ["attach-session", "-t", sessionName];
+      ptyTmuxNames.set(id, sessionName);
+      addToInlineTmuxManifest(sessionName, cwd || process.env.HOME);
+    } else {
+      // Fallback: tmux failed, run command in a raw PTY so the terminal still works
+      console.warn(`[pty:spawn] tmux unavailable, falling back to raw PTY for command`);
+      shell = process.env.SHELL || "/bin/zsh";
+      args = ["-c", nvmInit + command];
+    }
+  } else if (command) {
+    // Raw PTY inline terminal (tmux setting OFF)
+    shell = process.env.SHELL || "/bin/zsh";
+    const nvmInit = '. ~/.nvm/nvm.sh 2>/dev/null; ';
+    args = ["-c", nvmInit + command];
+  } else {
+    shell = process.env.SHELL || "/bin/zsh";
+    args = [];
+  }
+  const ptyProc = pty.spawn(shell, args, {
+    name: "xterm-256color",
+    cols: cols || 80,
+    rows: rows || 24,
+    cwd: cwd || process.env.HOME,
+    env: { ...process.env },
+  });
+  ptyProcesses.set(id, ptyProc);
+  ptyBuffers.set(id, "");
+  ptyProc.onData((data) => {
+    // Append to scrollback buffer (for reattach after route changes)
+    let buf = (ptyBuffers.get(id) || "") + data;
+    if (buf.length > PTY_BUFFER_LIMIT) buf = buf.slice(buf.length - PTY_BUFFER_LIMIT);
+    ptyBuffers.set(id, buf);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("pty:data", id, data);
+    }
+  });
+  ptyProc.onExit(({ exitCode, signal }) => {
+    ptyProcesses.delete(id);
+    ptyBuffers.delete(id);
+    ptyTmuxNames.delete(id);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("pty:exit", id, { exitCode, signal });
+    }
+  });
+  return { ptyId: id };
+});
+
+ipcMain.on("pty:write", (_event, { ptyId, data }) => {
+  const proc = ptyProcesses.get(ptyId);
+  if (proc) proc.write(data);
+});
+
+ipcMain.on("pty:resize", (_event, { ptyId, cols, rows }) => {
+  const proc = ptyProcesses.get(ptyId);
+  if (proc) proc.resize(cols, rows);
+});
+
+ipcMain.handle("pty:reattach", (_event, { ptyId }) => {
+  const proc = ptyProcesses.get(ptyId);
+  if (proc) {
+    return { alive: true, buffer: ptyBuffers.get(ptyId) || "" };
+  }
+  return { alive: false, buffer: "" };
+});
+
+ipcMain.handle("pty:kill", async (_event, { ptyId, killTmuxSession }) => {
+  const proc = ptyProcesses.get(ptyId);
+  const tmuxName = ptyTmuxNames.get(ptyId);
+
+  // Only kill the tmux session when explicitly requested (user clicked X).
+  // React strict mode and other cleanup paths should only kill the client.
+  if (tmuxName && killTmuxSession) {
+    try { execFileSync(tmuxPath, ["kill-session", "-t", tmuxName], { timeout: 5000 }); } catch {}
+    removeFromInlineTmuxManifest(tmuxName);
+  }
+  ptyTmuxNames.delete(ptyId);
+
+  if (proc) {
+    const rootPid = proc.pid;
+    if (tmuxName) {
+      // Tmux client: just kill the client, don't kill the process tree
+      try { proc.kill(); } catch {}
+    } else {
+      killProcessTree(rootPid);
+      proc.kill();
+    }
+    ptyProcesses.delete(ptyId);
+    ptyBuffers.delete(ptyId);
+    if (!tmuxName) {
+      // Force-kill any survivors after a short delay (only for non-tmux)
+      setTimeout(() => {
+        try {
+          process.kill(rootPid, 0); // throws if dead
+          process.kill(rootPid, "SIGKILL");
+        } catch {
+          // Already dead — good
+        }
+      }, 1000);
+    }
+  }
+});
+
+ipcMain.handle("pty:listInlineTmux", async () => {
+  try {
+    const manifest = loadInlineTmuxManifest();
+    const { stdout } = await execFileAsync(tmuxPath, [
+      "list-sessions", "-F", "#{session_name}\t#{pane_dead}",
+    ], { timeout: 5000 });
+    const liveSessions = stdout.trim().split("\n").filter(Boolean)
+      .map((line) => {
+        const [name, dead] = line.split("\t");
+        return { name, dead: dead === "1" };
+      })
+      .filter((s) => s.name.startsWith("claudio-inline-") && !s.dead);
+
+    // Use manifest to get original cwd; skip sessions without a manifest entry
+    const result = [];
+    for (const s of liveSessions) {
+      const cwd = manifest[s.name];
+      if (cwd) result.push({ name: s.name, cwd });
+    }
+    // Clean up manifest entries for sessions that no longer exist
+    const liveNames = new Set(liveSessions.map((s) => s.name));
+    let cleaned = false;
+    for (const key of Object.keys(manifest)) {
+      if (!liveNames.has(key)) {
+        delete manifest[key];
+        cleaned = true;
+      }
+    }
+    if (cleaned) saveInlineTmuxManifest(manifest);
+
+    return result;
+  } catch {
+    return []; // tmux not running or no sessions
+  }
+});
+
+function killAllPtys() {
+  for (const [id, proc] of ptyProcesses) {
+    const tmuxName = ptyTmuxNames.get(id);
+    console.log(`[killAllPtys] id=${id} tmuxName=${tmuxName}`);
+    if (tmuxName) {
+      // Tmux-backed: detach the client cleanly so the session survives.
+      // Using `tmux detach-client` is cleaner than killing the process,
+      // which sends SIGHUP that can propagate to the session.
+      try { execFileSync(tmuxPath, ["detach-client", "-s", tmuxName], { timeout: 3000 }); } catch {}
+    } else {
+      // Raw PTY: kill the entire process tree
+      try { killProcessTree(proc.pid); } catch {}
+      try { proc.kill(); } catch {}
+    }
+    ptyProcesses.delete(id);
+  }
+  ptyTmuxNames.clear();
+}
 
 function getWindowStatePath() {
   return path.join(app.getPath("userData"), "window-state.json");
@@ -300,6 +637,7 @@ function createWindow() {
   });
 
   mainWindow.on("closed", () => {
+    killAllPtys();
     mainWindow = null;
   });
 }
@@ -329,6 +667,7 @@ app.on("window-all-closed", () => {
 
 app.on("before-quit", () => {
   isQuitting = true;
+  killAllPtys();
   if (nextProcess) {
     nextProcess.kill();
     nextProcess = null;

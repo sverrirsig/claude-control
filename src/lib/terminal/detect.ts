@@ -5,6 +5,33 @@ import type { ProcessTreeEntry, TerminalApp, TerminalInfo, TmuxClientInfo, TmuxP
 
 const execFileAsync = promisify(execFile);
 
+// Resolve the absolute path to the tmux binary.
+// Priority: TMUX_PATH env var (set by Electron main) → `which tmux` → bare "tmux" fallback.
+let _resolvedTmuxPath: string | null = null;
+
+async function getTmuxPath(): Promise<string> {
+  if (_resolvedTmuxPath) return _resolvedTmuxPath;
+  const envPath = process.env.TMUX_PATH;
+  if (envPath) {
+    _resolvedTmuxPath = envPath;
+    return envPath;
+  }
+  try {
+    const { stdout } = await execFileAsync("which", ["tmux"], { timeout: 3000 });
+    const resolved = stdout.trim();
+    if (resolved) {
+      _resolvedTmuxPath = resolved;
+      return resolved;
+    }
+  } catch { /* fall through */ }
+  _resolvedTmuxPath = "tmux";
+  return "tmux";
+}
+
+export function getTmuxPathSync(): string {
+  return _resolvedTmuxPath ?? process.env.TMUX_PATH ?? "tmux";
+}
+
 // Known terminal mappings: process name (lowercased) → app info
 const KNOWN_TERMINALS: Record<string, { app: TerminalApp; appName: string; processName: string }> = {
   iterm2: { app: "iterm", appName: "iTerm2", processName: "iTerm2" },
@@ -15,6 +42,8 @@ const KNOWN_TERMINALS: Record<string, { app: TerminalApp; appName: string; proce
   wezterm: { app: "wezterm", appName: "WezTerm", processName: "WezTerm" },
   alacritty: { app: "alacritty", appName: "Alacritty", processName: "alacritty" },
   warp: { app: "warp", appName: "Warp", processName: "Warp" },
+  electron: { app: "inline", appName: "Claudio Control", processName: "Electron" },
+  "claudio control": { app: "inline", appName: "Claudio Control", processName: "Claudio Control" },
 };
 
 const UNKNOWN_TERMINAL: Pick<TerminalInfo, "app" | "appName" | "processName"> = {
@@ -61,14 +90,35 @@ export async function buildProcessTree(): Promise<Map<number, ProcessTreeEntry>>
 
 /**
  * Extract PIDs from the process tree where comm is exactly "claude".
+ * Excludes subagent processes (a claude process whose parent is also claude).
  */
 export function findClaudePidsFromTree(processTree: Map<number, ProcessTreeEntry>): number[] {
-  const pids: number[] = [];
-  Array.from(processTree.entries()).forEach(([pid, entry]) => {
+  // First pass: collect all claude PIDs
+  const claudePids = new Set<number>();
+  for (const [pid, entry] of processTree) {
     if (entry.comm === "claude") {
+      claudePids.add(pid);
+    }
+  }
+  // Second pass: exclude claude processes whose parent (or grandparent) is also claude.
+  // These are subagents spawned by a top-level claude session.
+  const pids: number[] = [];
+  for (const pid of claudePids) {
+    let ancestor = processTree.get(pid)?.ppid;
+    let isChild = false;
+    // Walk up a few levels — subagents may be direct children or separated
+    // by an intermediate shell/node process.
+    for (let depth = 0; depth < 4 && ancestor && ancestor > 1; depth++) {
+      if (claudePids.has(ancestor)) {
+        isChild = true;
+        break;
+      }
+      ancestor = processTree.get(ancestor)?.ppid;
+    }
+    if (!isChild) {
       pids.push(pid);
     }
-  });
+  }
   return pids;
 }
 
@@ -121,8 +171,9 @@ function normalizeTty(tty: string): string {
  */
 export async function detectAllTmuxPanes(): Promise<Map<string, TmuxPaneInfo>> {
   try {
+    const tmuxBin = await getTmuxPath();
     const { stdout } = await execFileAsync(
-      "tmux",
+      tmuxBin,
       ["list-panes", "-a", "-F", "#{pane_tty}\t#{pane_id}\t#{session_name}\t#{window_index}\t#{pane_index}"],
       { timeout: 5000 },
     );
@@ -144,7 +195,8 @@ export async function detectAllTmuxPanes(): Promise<Map<string, TmuxPaneInfo>> {
       });
     }
     return panes;
-  } catch {
+  } catch (err) {
+    console.warn("[detect] detectAllTmuxPanes failed:", err instanceof Error ? err.message : err);
     return new Map();
   }
 }
@@ -154,8 +206,9 @@ export async function detectAllTmuxPanes(): Promise<Map<string, TmuxPaneInfo>> {
  */
 export async function detectTmuxClients(): Promise<TmuxClientInfo[]> {
   try {
+    const tmuxBin = await getTmuxPath();
     const { stdout } = await execFileAsync(
-      "tmux",
+      tmuxBin,
       ["list-clients", "-F", "#{client_tty}\t#{client_pid}\t#{client_session}"],
       { timeout: 5000 },
     );
@@ -169,7 +222,8 @@ export async function detectTmuxClients(): Promise<TmuxClientInfo[]> {
       }
     }
     return clients;
-  } catch {
+  } catch (err) {
+    console.warn("[detect] detectTmuxClients failed:", err instanceof Error ? err.message : err);
     return [];
   }
 }

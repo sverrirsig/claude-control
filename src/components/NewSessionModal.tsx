@@ -25,9 +25,10 @@ interface Props {
   repoName?: string;
   onClose: () => void;
   onCreated?: () => void;
+  onInlineSession?: (cwd: string, prompt?: string) => void;
 }
 
-export function NewSessionModal({ repoPath, repoName, onClose, onCreated }: Props) {
+export function NewSessionModal({ repoPath, repoName, onClose, onCreated, onInlineSession }: Props) {
   const [branchName, setBranchName] = useState("");
   const [baseBranch, setBaseBranch] = useState("");
   const [prompt, setPrompt] = useState<string | null>(null);
@@ -279,7 +280,15 @@ export function NewSessionModal({ repoPath, repoName, onClose, onCreated }: Prop
 
       onClose();
       onCreated?.();
-      refreshAfterAction();
+
+      if (data.inline && onInlineSession) {
+        onInlineSession(data.path, data.prompt ?? undefined);
+        // Burst-refresh to detect the inline process quickly once PTY spawns it.
+        refreshAfterAction();
+      } else {
+        // External terminal: burst-refresh to detect the new process quickly.
+        refreshAfterAction();
+      }
     } catch {
       setError("Failed to create session");
       setLoading(false);

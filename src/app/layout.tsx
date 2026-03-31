@@ -41,12 +41,12 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body
-        className={`${pressStart.variable} ${spaceMono.className} ${geistSans.variable} ${geistMono.variable} antialiased bg-[#050508] text-zinc-100 min-h-screen bg-grid`}
+        className={`${pressStart.variable} ${spaceMono.variable} ${geistSans.variable} ${geistMono.variable} antialiased bg-[#050508] text-zinc-100 min-h-screen bg-grid`}
       >
-        <div className="min-h-screen">
+        <div className="h-screen flex flex-col overflow-hidden">
           {/* Draggable title bar for Electron (invisible in browser) */}
           <div className="titlebar-drag h-8 fixed top-0 left-0 right-0 z-50" />
-          <main className="max-w-[1400px] mx-auto px-6 pt-10 pb-8">{children}</main>
+          <div className="flex-1 flex flex-col min-h-0">{children}</div>
         </div>
       </body>
     </html>

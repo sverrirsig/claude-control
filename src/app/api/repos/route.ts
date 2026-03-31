@@ -1,12 +1,8 @@
-import { execFile } from "child_process";
 import { readdir, stat } from "fs/promises";
 import { NextResponse } from "next/server";
 import { homedir } from "os";
 import { join } from "path";
-import { promisify } from "util";
 import { loadConfig, saveConfig } from "@/lib/config";
-
-const execFileAsync = promisify(execFile);
 
 interface RepoInfo {
   name: string;
@@ -16,7 +12,7 @@ interface RepoInfo {
 
 async function isGitRepo(dirPath: string): Promise<boolean> {
   try {
-    await execFileAsync("git", ["-C", dirPath, "rev-parse", "--git-dir"], { timeout: 3000 });
+    await stat(join(dirPath, ".git"));
     return true;
   } catch {
     return false;
@@ -27,38 +23,46 @@ async function scanForRepos(baseDir: string): Promise<RepoInfo[]> {
   const repos: RepoInfo[] = [];
   try {
     const entries = await readdir(baseDir);
-    for (const entry of entries) {
-      if (entry.startsWith(".")) continue;
-      const fullPath = join(baseDir, entry);
-      try {
-        const s = await stat(fullPath);
-        if (!s.isDirectory()) continue;
+    const visible = entries.filter((e) => !e.startsWith("."));
 
-        const gitRepo = await isGitRepo(fullPath);
-        if (gitRepo) {
-          repos.push({ name: entry, path: fullPath, isGitRepo: true });
-        } else {
-          // Not a git repo — scan one level deeper (e.g. ~/Code/org-name/repo)
-          const children = await readdir(fullPath);
-          for (const child of children) {
-            if (child.startsWith(".")) continue;
-            const childPath = join(fullPath, child);
+    await Promise.all(
+      visible.map(async (entry) => {
+        const fullPath = join(baseDir, entry);
+        try {
+          const s = await stat(fullPath);
+          if (!s.isDirectory()) return;
+
+          if (await isGitRepo(fullPath)) {
+            repos.push({ name: entry, path: fullPath, isGitRepo: true });
+          } else {
+            // Not a git repo — scan one level deeper (e.g. ~/Code/org-name/repo)
             try {
-              const cs = await stat(childPath);
-              if (!cs.isDirectory()) continue;
-              const childGit = await isGitRepo(childPath);
-              if (childGit) {
-                repos.push({ name: `${entry}/${child}`, path: childPath, isGitRepo: true });
-              }
+              const children = await readdir(fullPath);
+              await Promise.all(
+                children
+                  .filter((c) => !c.startsWith("."))
+                  .map(async (child) => {
+                    const childPath = join(fullPath, child);
+                    try {
+                      const cs = await stat(childPath);
+                      if (!cs.isDirectory()) return;
+                      if (await isGitRepo(childPath)) {
+                        repos.push({ name: `${entry}/${child}`, path: childPath, isGitRepo: true });
+                      }
+                    } catch {
+                      // skip
+                    }
+                  }),
+              );
             } catch {
-              continue;
+              // can't read subdir
             }
           }
+        } catch {
+          // skip
         }
-      } catch {
-        continue;
-      }
-    }
+      }),
+    );
   } catch {
     // can't read directory
   }
@@ -76,8 +80,8 @@ export async function GET() {
     const allRepos: RepoInfo[] = [];
     const seen = new Set<string>();
 
-    for (const dir of config.codeDirectories) {
-      const repos = await scanForRepos(dir);
+    const results = await Promise.all(config.codeDirectories.map(scanForRepos));
+    for (const repos of results) {
       for (const repo of repos) {
         if (!seen.has(repo.path)) {
           seen.add(repo.path);

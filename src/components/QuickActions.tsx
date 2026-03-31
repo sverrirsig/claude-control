@@ -43,6 +43,9 @@ export function QuickActions({
   orphaned,
   tmuxSession,
   onCleanup,
+  onOpenTerminal,
+  hasActiveTerminal,
+  hasInlineTerminal,
 }: {
   path: string;
   pid?: number | null;
@@ -52,6 +55,9 @@ export function QuickActions({
   orphaned?: boolean;
   tmuxSession?: string | null;
   onCleanup?: (e: React.MouseEvent) => void;
+  onOpenTerminal?: () => void;
+  hasActiveTerminal?: boolean;
+  hasInlineTerminal?: boolean;
 }) {
   const [prSending, setPrSending] = useState(false);
   const [killing, setKilling] = useState(false);
@@ -76,10 +82,17 @@ export function QuickActions({
 
   const [reattaching, setReattaching] = useState(false);
 
+  const { editorAvailable, gitGuiAvailable, inlineTerminal } = useSettings();
+
   const reattachSession = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (!tmuxSession) return;
+    // In inline mode, reattach via the inline terminal panel
+    if (inlineTerminal && onOpenTerminal) {
+      onOpenTerminal();
+      return;
+    }
     setReattaching(true);
     try {
       await fetch("/api/sessions/reattach", {
@@ -92,8 +105,6 @@ export function QuickActions({
     }
     setTimeout(() => setReattaching(false), 3000);
   };
-
-  const { editorAvailable, gitGuiAvailable } = useSettings();
 
   const openAction = async (e: React.MouseEvent, action: string) => {
     e.preventDefault();
@@ -220,7 +231,21 @@ export function QuickActions({
           </IconButton>
         </>
       ) : pid ? (
-        <IconButton onClick={(e) => openAction(e, "focus")} tip="Terminal" className={`flex-1 ${iconBtnClass}`}>
+        <IconButton onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (onOpenTerminal && (hasActiveTerminal || hasInlineTerminal)) {
+            // This session has an inline terminal — show/focus it
+            onOpenTerminal();
+          } else {
+            // No inline terminal for this session — focus the external terminal
+            openAction(e, "focus");
+          }
+        }} tip={hasActiveTerminal ? "Show terminal" : "Terminal"} className={`flex-1 flex items-center justify-center h-8 rounded-lg border transition-all duration-150 ${
+          hasActiveTerminal
+            ? "bg-emerald-500/10 hover:bg-emerald-500/22 border-emerald-500/20 hover:border-emerald-500/40 text-emerald-400 hover:text-emerald-300"
+            : "bg-white/4 hover:bg-white/10 border-white/7 hover:border-white/15 text-zinc-500 hover:text-zinc-200"
+        }`}>
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path
               strokeLinecap="round"
