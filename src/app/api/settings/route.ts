@@ -136,6 +136,7 @@ export async function PUT(request: Request) {
       terminalOpenIn: body.terminalOpenIn ?? current.terminalOpenIn,
       terminalUseTmux: body.terminalUseTmux ?? current.terminalUseTmux,
       terminalTmuxMode: body.terminalTmuxMode ?? current.terminalTmuxMode,
+      initialCommand: body.initialCommand !== undefined ? body.initialCommand : current.initialCommand,
       initialPrompt: body.initialPrompt !== undefined ? body.initialPrompt : current.initialPrompt,
       createPrPrompt: body.createPrPrompt !== undefined ? body.createPrPrompt : current.createPrPrompt,
       defaultBaseBranch: body.defaultBaseBranch ?? current.defaultBaseBranch,
