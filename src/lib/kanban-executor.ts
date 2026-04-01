@@ -1,4 +1,4 @@
-import { CLEAR_SETTLE_MS } from "./constants";
+import { CLEAR_INTER_KEY_MS, CLEAR_SETTLE_MS } from "./constants";
 import type { ClaudeSession } from "./types";
 import { buildProcessTree, detectAllTmuxPanes, detectTerminal, sendKeystroke, sendText, typeText } from "./terminal";
 
@@ -30,6 +30,10 @@ export async function clearMessageBar(session: ClaudeSession): Promise<void> {
   console.log(`[kanban-exec] Clearing message bar for session ${session.id} (pid ${session.pid})`);
   const [tree, panes] = await Promise.all([buildProcessTree(), detectAllTmuxPanes()]);
   const info = await detectTerminal(session.pid, tree, panes);
+  // First Escape: dismiss any dropdown/autocomplete/mode
+  await sendKeystroke(info, "escape");
+  await new Promise((r) => setTimeout(r, CLEAR_INTER_KEY_MS));
+  // Second Escape: clear the text in the input bar
   await sendKeystroke(info, "escape");
   await new Promise((r) => setTimeout(r, CLEAR_SETTLE_MS));
 }
