@@ -78,13 +78,14 @@ export interface CreateSessionPublicOpts {
   tmuxSession?: string;
   cwd: string;
   prompt?: string;
+  initialCommand?: string;
 }
 
 export async function createSession(opts: CreateSessionPublicOpts): Promise<void> {
-  const { terminalApp, openIn, useTmux, tmuxSession, cwd, prompt } = opts;
+  const { terminalApp, openIn, useTmux, tmuxSession, cwd, prompt, initialCommand } = opts;
 
   // Build the shell command with proper escaping
-  let command = "claude";
+  let command = initialCommand || "claude";
   if (prompt) {
     command += ` '${shellEscape(prompt)}'`;
   }

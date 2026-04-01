@@ -34,6 +34,7 @@ interface SettingsData {
     terminalOpenIn: string;
     terminalUseTmux: boolean;
     terminalTmuxMode: string;
+    initialCommand: string;
     initialPrompt: string;
     createPrPrompt: string;
     defaultBaseBranch: string;
@@ -122,9 +123,11 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [addingDir, setAddingDir] = useState(false);
   const [targetScreen, setTargetScreen] = useState<number | null>(null);
+  const [commandDraft, setCommandDraft] = useState<string | null>(null);
   const [promptDraft, setPromptDraft] = useState<string | null>(null);
   const [prPromptDraft, setPrPromptDraft] = useState<string | null>(null);
   const [baseBranchDraft, setBaseBranchDraft] = useState<string | null>(null);
+  const commandTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const promptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prPromptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const baseBranchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -139,6 +142,7 @@ export default function SettingsPage() {
       .then((r) => r.json())
       .then((d: SettingsData) => {
         setData(d);
+        setCommandDraft(d.config.initialCommand ?? "claude");
         setPromptDraft(d.config.initialPrompt ?? "");
         setPrPromptDraft(d.config.createPrPrompt ?? "");
         setBaseBranchDraft(d.config.defaultBaseBranch ?? "main");
@@ -164,6 +168,18 @@ export default function SettingsPage() {
       console.error("Failed to save:", err);
     }
   };
+
+  const saveCommandDebounced = useCallback(
+    (value: string) => {
+      setCommandDraft(value);
+      if (commandTimerRef.current) clearTimeout(commandTimerRef.current);
+      commandTimerRef.current = setTimeout(() => {
+        save({ initialCommand: value });
+      }, 500);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- save is intentionally excluded (unstable reference)
+    [data],
+  );
 
   const savePromptDebounced = useCallback(
     (value: string) => {
@@ -204,6 +220,7 @@ export default function SettingsPage() {
   // Flush pending saves on unmount
   useEffect(() => {
     return () => {
+      if (commandTimerRef.current) clearTimeout(commandTimerRef.current);
       if (promptTimerRef.current) clearTimeout(promptTimerRef.current);
       if (prPromptTimerRef.current) clearTimeout(prPromptTimerRef.current);
       if (baseBranchTimerRef.current) clearTimeout(baseBranchTimerRef.current);
@@ -425,6 +442,20 @@ export default function SettingsPage() {
       <section className="mb-10">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-3">Session Defaults</h2>
         <div className="rounded-xl border border-white/6 bg-[#0a0a0f]/80 px-5 py-4 space-y-5">
+          <div>
+            <h3 className="text-sm font-medium text-zinc-200">Claude Command</h3>
+            <p className="text-xs text-zinc-500 mt-0.5 mb-2">
+              Command used to launch Claude sessions. Add flags like{" "}
+              <code className="text-zinc-400">--permission-mode auto</code> to customize behavior.
+            </p>
+            <input
+              type="text"
+              value={commandDraft ?? "claude"}
+              onChange={(e) => saveCommandDebounced(e.target.value)}
+              placeholder="claude"
+              className="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-700/50 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-hidden focus:border-zinc-600 transition-colors font-(family-name:--font-geist-mono)"
+            />
+          </div>
           <div>
             <h3 className="text-sm font-medium text-zinc-200">Initial Prompt</h3>
             <p className="text-xs text-zinc-500 mt-0.5 mb-2">

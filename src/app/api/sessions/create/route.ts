@@ -78,6 +78,7 @@ async function openTerminalWithClaude(
     tmuxSession,
     cwd,
     prompt,
+    initialCommand: config.initialCommand,
   });
 }
 

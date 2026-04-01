@@ -18,6 +18,7 @@ export interface AppConfig {
   terminalOpenIn: TerminalOpenIn;
   terminalUseTmux: boolean;
   terminalTmuxMode: "per-project" | "choose";
+  initialCommand: string;
   initialPrompt: string;
   createPrPrompt: string;
   defaultBaseBranch: string;
@@ -90,6 +91,7 @@ const DEFAULT_CONFIG: AppConfig = {
   terminalOpenIn: "tab",
   terminalUseTmux: false,
   terminalTmuxMode: "per-project",
+  initialCommand: "claude",
   initialPrompt: DEFAULT_INITIAL_PROMPT,
   createPrPrompt: DEFAULT_CREATE_PR_PROMPT,
   defaultBaseBranch: "main",
