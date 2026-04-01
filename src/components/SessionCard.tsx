@@ -234,7 +234,7 @@ export function SessionCard({
           <div className="h-px bg-white/4 mb-3" />
 
           {/* Task summary or output preview */}
-          <div className="mb-4 min-h-12 flex-1">
+          <div className="mb-4 h-24 overflow-hidden">
             {editing ? (
               <TaskSummaryView
                 task={

@@ -37,6 +37,9 @@ export function useKanbanState(repoName: string | null) {
     async (sessionId: string, toColumnId: string): Promise<{ queued: boolean }> => {
       if (!repoName) return { queued: false };
 
+      // Remember original columnId for potential revert (output prompt keeps card in place)
+      const originalColumnId = state.placements.find((p) => p.sessionId === sessionId)?.columnId;
+
       // Optimistic update: move placement locally
       setLocalState((prev) => {
         const s = prev ?? { placements: [], outputHistory: {} };
@@ -62,11 +65,13 @@ export function useKanbanState(repoName: string | null) {
         const result = await res.json();
 
         if (result.queued) {
-          // Update local state to reflect the queue
+          // Revert optimistic move — card stays in current column with a queue badge
           setLocalState((prev) => {
             if (!prev) return prev;
             const placements = prev.placements.map((p) =>
-              p.sessionId === sessionId ? { ...p, columnId: p.columnId, queuedColumnId: toColumnId } : p,
+              p.sessionId === sessionId
+                ? { ...p, columnId: originalColumnId ?? p.columnId, queuedColumnId: toColumnId, pendingOutputPrompt: true }
+                : p,
             );
             return { ...prev, placements };
           });
@@ -80,7 +85,7 @@ export function useKanbanState(repoName: string | null) {
         return { queued: false };
       }
     },
-    [repoName, mutate],
+    [repoName, state.placements, mutate],
   );
 
   const assignCard = useCallback(

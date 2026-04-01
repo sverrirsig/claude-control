@@ -52,7 +52,7 @@ function UnstagedColumn({ sessions, renderCard }: { sessions: ClaudeSession[]; r
   });
 
   return (
-    <div className="flex flex-col min-w-[320px] max-w-[380px] flex-shrink-0">
+    <div className="flex flex-col w-[380px] flex-shrink-0">
       <div className="flex items-center gap-2 mb-3 px-1">
         <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Unstaged</h3>
         <span className="text-[10px] text-zinc-600 font-(family-name:--font-geist-mono)">
@@ -148,7 +148,7 @@ export function KanbanBoard({
       // Hovering over a card — find which column that card is in
       const overId = over.id as string;
       const col = getColumnForSession(overId);
-      setOverColumnId(col);
+      setOverColumnId(col ?? "__unstaged__");
     }
   };
 
@@ -171,7 +171,14 @@ export function KanbanBoard({
     if (overData?.type === "kanban-column") {
       targetColumnId = overData.columnId as string;
     } else if (overData?.type === "kanban-card") {
-      targetColumnId = getColumnForSession(over.id as string);
+      const col = getColumnForSession(over.id as string);
+      if (!col) {
+        // Card is in unstaged — treat as unstage
+        const currentColumn = getColumnForSession(sessionId);
+        if (currentColumn) onUnstageCard(sessionId);
+        return;
+      }
+      targetColumnId = col;
     }
 
     if (!targetColumnId) return;

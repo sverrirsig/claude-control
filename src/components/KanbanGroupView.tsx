@@ -20,7 +20,7 @@ export function KanbanGroupView({ repoName, sessions, renderCard }: Props) {
   const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
   const [showNewColumnEditor, setShowNewColumnEditor] = useState(false);
 
-  useKanbanTick(repoName, sessions, refreshState);
+  useKanbanTick(repoName, sessions, state.placements, refreshState);
 
   const handleMoveCard = useCallback(
     (sessionId: string, toColumnId: string) => {

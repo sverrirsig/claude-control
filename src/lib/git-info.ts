@@ -115,7 +115,7 @@ export async function getMainWorktreePath(cwd: string): Promise<string | null> {
 
   const output = await gitCommand(["worktree", "list", "--porcelain"], cwd);
   if (!output) {
-    worktreeCache.set(cwd, { result: null, ts: now });
+    // Don't cache failures — retry on next poll
     return null;
   }
   // First "worktree" line is always the main worktree

@@ -23,7 +23,7 @@ export function KanbanColumn({ column, sessions, placements, renderCard, onEditC
   const sessionIds = sessions.map((s) => s.id);
 
   return (
-    <div className="flex flex-col min-w-[320px] max-w-[380px] flex-shrink-0">
+    <div className="flex flex-col w-[380px] flex-shrink-0">
       {/* Column header */}
       <div className="flex items-center gap-2 mb-3 px-1">
         <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">{column.name}</h3>
@@ -65,11 +65,16 @@ export function KanbanColumn({ column, sessions, placements, renderCard, onEditC
           {sessions.map((session) => {
             const placement = placements.find((p) => p.sessionId === session.id);
             const isQueued = placement?.queuedColumnId != null;
+            const isPendingOutput = placement?.pendingOutputPrompt === true;
             return (
               <div key={session.id} className="relative">
                 {isQueued && (
-                  <div className="absolute -top-1 -right-1 z-10 px-1.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/30">
-                    <span className="text-[9px] font-medium text-amber-400">QUEUED</span>
+                  <div className={`absolute -top-1 -right-1 z-10 px-1.5 py-0.5 rounded-full border ${
+                    isPendingOutput ? "bg-blue-500/20 border-blue-500/30" : "bg-amber-500/20 border-amber-500/30"
+                  }`}>
+                    <span className={`text-[9px] font-medium ${isPendingOutput ? "text-blue-400" : "text-amber-400"}`}>
+                      {isPendingOutput ? "FINISHING" : "QUEUED"}
+                    </span>
                   </div>
                 )}
                 {renderCard(session)}

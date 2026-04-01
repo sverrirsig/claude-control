@@ -4,7 +4,7 @@ import { join } from "path";
 import { promisify } from "util";
 import { PROCESS_TIMEOUT_MS } from "./constants";
 import { getGitDiff } from "./git-info";
-import { sendPromptToSession } from "./kanban-executor";
+import { sendClearAndPrompt, sendPromptToSession } from "./kanban-executor";
 import { loadKanbanConfig, loadKanbanState, saveKanbanState } from "./kanban-store";
 import type { ClaudeSession, KanbanColumn, KanbanState } from "./types";
 
@@ -143,11 +143,12 @@ export async function buildFullColumnPrompt(
 // ── Tick: process idle transitions ──
 
 export interface KanbanAction {
-  type: "move" | "cascade";
+  type: "move" | "cascade" | "output-prompt";
   sessionId: string;
   fromColumnId: string;
   toColumnId: string;
   prompt: string;
+  clearFirst?: boolean;
 }
 
 // In-memory lock per repo to prevent concurrent tick execution
@@ -168,35 +169,68 @@ export async function processIdleTransitions(
 
     for (const placement of state.placements) {
       const session = sessions.find((s) => s.id === placement.sessionId);
-      if (!session || (session.status !== "idle" && session.status !== "finished")) continue;
+      if (!session || (session.status !== "idle" && session.status !== "finished" && session.status !== "waiting")) continue;
 
       const currentColumn = config.columns.find((c) => c.id === placement.columnId);
       if (!currentColumn) continue;
 
-      // CASE A: Queued move — user dragged while session was working
+      // CASE A: Queued move
       if (placement.queuedColumnId) {
         const targetColumn = config.columns.find((c) => c.id === placement.queuedColumnId);
-        if (targetColumn) {
+        if (!targetColumn) continue;
+
+        // A1: Output prompt was sent and just finished — now do the actual move
+        if (placement.pendingOutputPrompt) {
           const output = await extractColumnOutput(currentColumn, session);
           storeOutput(state, placement.sessionId, currentColumn.id, output);
 
           const previousOutput = getLastOutput(state, placement.sessionId, currentColumn.id);
-          const prompt = await buildFullColumnPrompt(targetColumn, previousOutput, session.workingDirectory, session.initialPrompt ?? undefined);
+          const prompt = await buildFullColumnPrompt(targetColumn, previousOutput, session.workingDirectory, placement.initialPrompt ?? session.initialPrompt ?? undefined);
 
+          const clearFirst = placement.clearOnMove ?? false;
           placement.columnId = targetColumn.id;
           placement.queuedColumnId = undefined;
+          placement.pendingOutputPrompt = undefined;
+          placement.clearOnMove = undefined;
           placement.lastOutput = output;
           stateChanged = true;
 
           if (prompt) {
-            actions.push({
-              type: "move",
-              sessionId: session.id,
-              fromColumnId: currentColumn.id,
-              toColumnId: targetColumn.id,
-              prompt,
-            });
+            actions.push({ type: "move", sessionId: session.id, fromColumnId: currentColumn.id, toColumnId: targetColumn.id, prompt, clearFirst });
           }
+          continue;
+        }
+
+        // A2: Source column has output prompt — send it first, don't move yet
+        if (currentColumn.outputPrompt) {
+          const outputPromptText = currentColumn.outputPrompt
+            .replace(/\{\{initialPrompt\}\}/g, placement.initialPrompt ?? session.initialPrompt ?? "");
+
+          placement.pendingOutputPrompt = true;
+          stateChanged = true;
+
+          if (outputPromptText) {
+            actions.push({ type: "output-prompt", sessionId: session.id, fromColumnId: currentColumn.id, toColumnId: targetColumn.id, prompt: outputPromptText });
+          }
+          continue;
+        }
+
+        // A3: No output prompt — extract output and move immediately (existing behavior)
+        const output = await extractColumnOutput(currentColumn, session);
+        storeOutput(state, placement.sessionId, currentColumn.id, output);
+
+        const previousOutput = getLastOutput(state, placement.sessionId, currentColumn.id);
+        const prompt = await buildFullColumnPrompt(targetColumn, previousOutput, session.workingDirectory, placement.initialPrompt ?? session.initialPrompt ?? undefined);
+
+        const clearFirst = placement.clearOnMove ?? false;
+        placement.columnId = targetColumn.id;
+        placement.queuedColumnId = undefined;
+        placement.clearOnMove = undefined;
+        placement.lastOutput = output;
+        stateChanged = true;
+
+        if (prompt) {
+          actions.push({ type: "move", sessionId: session.id, fromColumnId: currentColumn.id, toColumnId: targetColumn.id, prompt, clearFirst });
         }
         continue;
       }
@@ -205,26 +239,36 @@ export async function processIdleTransitions(
       if (currentColumn.autoCascade) {
         const currentIndex = config.columns.findIndex((c) => c.id === currentColumn.id);
         const nextColumn = config.columns[currentIndex + 1];
-        if (nextColumn) {
-          const output = await extractColumnOutput(currentColumn, session);
-          storeOutput(state, placement.sessionId, currentColumn.id, output);
+        if (!nextColumn) continue;
 
-          const previousOutput = getLastOutput(state, placement.sessionId, currentColumn.id);
-          const prompt = await buildFullColumnPrompt(nextColumn, previousOutput, session.workingDirectory, session.initialPrompt ?? undefined);
+        // B1: Source column has output prompt — send it, queue the cascade for next tick
+        if (currentColumn.outputPrompt) {
+          const outputPromptText = currentColumn.outputPrompt
+            .replace(/\{\{initialPrompt\}\}/g, placement.initialPrompt ?? session.initialPrompt ?? "");
 
-          placement.columnId = nextColumn.id;
-          placement.lastOutput = output;
+          placement.queuedColumnId = nextColumn.id;
+          placement.pendingOutputPrompt = true;
           stateChanged = true;
 
-          if (prompt) {
-            actions.push({
-              type: "cascade",
-              sessionId: session.id,
-              fromColumnId: currentColumn.id,
-              toColumnId: nextColumn.id,
-              prompt,
-            });
+          if (outputPromptText) {
+            actions.push({ type: "output-prompt", sessionId: session.id, fromColumnId: currentColumn.id, toColumnId: nextColumn.id, prompt: outputPromptText });
           }
+          continue;
+        }
+
+        // B2: No output prompt — existing cascade behavior
+        const output = await extractColumnOutput(currentColumn, session);
+        storeOutput(state, placement.sessionId, currentColumn.id, output);
+
+        const previousOutput = getLastOutput(state, placement.sessionId, currentColumn.id);
+        const prompt = await buildFullColumnPrompt(nextColumn, previousOutput, session.workingDirectory, placement.initialPrompt ?? session.initialPrompt ?? undefined);
+
+        placement.columnId = nextColumn.id;
+        placement.lastOutput = output;
+        stateChanged = true;
+
+        if (prompt) {
+          actions.push({ type: "cascade", sessionId: session.id, fromColumnId: currentColumn.id, toColumnId: nextColumn.id, prompt });
         }
       }
     }
@@ -238,7 +282,8 @@ export async function processIdleTransitions(
       const session = sessions.find((s) => s.id === action.sessionId);
       if (session) {
         try {
-          await sendPromptToSession(session, action.prompt);
+          const send = action.clearFirst ? sendClearAndPrompt : sendPromptToSession;
+          await send(session, action.prompt);
         } catch (err) {
           console.error(`Kanban: failed to send prompt to session ${action.sessionId}:`, err);
         }

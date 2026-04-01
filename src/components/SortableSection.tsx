@@ -18,7 +18,7 @@ export function SortableSection({ id, header, children }: { id: string; header: 
 
   return (
     <div ref={setNodeRef} style={style}>
-      <div ref={setActivatorNodeRef} {...attributes} {...listeners} className="sticky top-0 z-10 bg-zinc-950 cursor-grab active:cursor-grabbing">
+      <div ref={setActivatorNodeRef} {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing">
         {header}
       </div>
       {children}

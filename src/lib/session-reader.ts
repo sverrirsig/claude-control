@@ -455,6 +455,8 @@ export function isAskingForInput(lines: JsonlLine[]): boolean {
   if (lower.includes("please confirm")) return true;
   if (lower.includes("which approach") || lower.includes("which option")) return true;
   if (lower.includes("do you want me to")) return true;
+  if (lower.includes("what should claude do instead")) return true;
+  if (lower.includes("interrupted")) return true;
   if (lower.includes("before i ") && fullText.includes("?")) return true;
   if (lower.includes("is that okay") || lower.includes("does that look right")) return true;
   if (

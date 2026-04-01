@@ -1,6 +1,6 @@
 import { discoverSessions } from "@/lib/discovery";
 import { buildFullColumnPrompt, extractColumnOutput } from "@/lib/kanban-engine";
-import { sendPromptToSession } from "@/lib/kanban-executor";
+import { sendClearAndPrompt, sendPromptToSession } from "@/lib/kanban-executor";
 import { loadKanbanConfig, loadKanbanState, saveKanbanState } from "@/lib/kanban-store";
 import { NextResponse } from "next/server";
 
@@ -37,17 +37,40 @@ export async function POST(request: Request, { params }: { params: Promise<{ rep
 
     // Find or create placement
     let placement = state.placements.find((p) => p.sessionId === sessionId);
+    const fromUnstaged = !placement;
     if (!placement) {
-      placement = { sessionId, columnId: toColumnId };
+      placement = { sessionId, columnId: toColumnId, initialPrompt: session.initialPrompt ?? undefined };
       state.placements.push(placement);
     }
 
     const currentColumn = config.columns.find((c) => c.id === placement!.columnId);
     const isIdle = session.status === "idle" || session.status === "waiting" || session.status === "finished";
 
-    if (isIdle) {
-      // Extract output from current column (if moving from one)
-      if (currentColumn && currentColumn.id !== toColumnId) {
+    if (isIdle || fromUnstaged) {
+      // If source column has an output prompt, send it first (card stays until it finishes)
+      if (!fromUnstaged && currentColumn && currentColumn.id !== toColumnId && currentColumn.outputPrompt) {
+        const outputPromptText = currentColumn.outputPrompt
+          .replace(/\{\{initialPrompt\}\}/g, placement.initialPrompt ?? session.initialPrompt ?? "");
+
+        placement.queuedColumnId = toColumnId;
+        placement.pendingOutputPrompt = true;
+        await saveKanbanState(decoded, state);
+
+        try {
+          await sendPromptToSession(session, outputPromptText);
+        } catch (err) {
+          console.error("Failed to send output prompt:", err);
+          placement.queuedColumnId = undefined;
+          placement.pendingOutputPrompt = undefined;
+          await saveKanbanState(decoded, state);
+          return NextResponse.json({ ok: true, queued: false, promptSent: false, error: String(err) });
+        }
+
+        return NextResponse.json({ ok: true, queued: true });
+      }
+
+      // Extract output from current column (if moving between columns, not from unstaged)
+      if (!fromUnstaged && currentColumn && currentColumn.id !== toColumnId) {
         const output = await extractColumnOutput(currentColumn, session);
         if (!state.outputHistory[sessionId]) state.outputHistory[sessionId] = {};
         state.outputHistory[sessionId][currentColumn.id] = output;
@@ -59,13 +82,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ rep
       placement.columnId = toColumnId;
       placement.queuedColumnId = undefined;
 
-      // Build and send prompt
-      const prompt = await buildFullColumnPrompt(targetColumn, previousOutput, session.workingDirectory, session.initialPrompt ?? undefined);
+      // Build prompt BEFORE /clear so initialPrompt is still available
+      const prompt = await buildFullColumnPrompt(targetColumn, previousOutput, session.workingDirectory, placement.initialPrompt ?? session.initialPrompt ?? undefined);
       await saveKanbanState(decoded, state);
 
       if (prompt) {
         try {
-          await sendPromptToSession(session, prompt);
+          const send = fromUnstaged ? sendClearAndPrompt : sendPromptToSession;
+          await send(session, prompt);
         } catch (err) {
           console.error("Failed to send prompt to session:", err);
           return NextResponse.json({ ok: true, queued: false, promptSent: false, error: String(err) });
@@ -75,7 +99,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ rep
       return NextResponse.json({ ok: true, queued: false, promptSent: !!prompt });
     }
 
-    // Session is working — queue the move
+    // Session is working (and not from unstaged) — queue the move
     placement.queuedColumnId = toColumnId;
     await saveKanbanState(decoded, state);
     return NextResponse.json({ ok: true, queued: true });

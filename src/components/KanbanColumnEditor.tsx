@@ -25,6 +25,7 @@ export function KanbanColumnEditor({ column, onSave, onDelete, onClose }: Props)
   const [outputType, setOutputType] = useState<KanbanColumnOutput["type"]>(column?.output?.type ?? "conversation");
   const [outputValue, setOutputValue] = useState(column?.output?.value ?? "");
   const [outputRegex, setOutputRegex] = useState(column?.output?.regex ?? "");
+  const [outputPrompt, setOutputPrompt] = useState(column?.outputPrompt ?? "");
   const [autoCascade, setAutoCascade] = useState(column?.autoCascade ?? false);
   const modalRef = useRef<HTMLDivElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
@@ -61,6 +62,7 @@ export function KanbanColumnEditor({ column, onSave, onDelete, onClose }: Props)
       name: name.trim(),
       input: Object.keys(input).length > 0 ? input : undefined,
       output,
+      outputPrompt: outputPrompt.trim() || undefined,
       autoCascade,
     };
 
@@ -179,6 +181,24 @@ export function KanbanColumnEditor({ column, onSave, onDelete, onClose }: Props)
               className="w-full px-3 py-2 text-sm bg-zinc-800 border border-zinc-700 rounded-lg text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-zinc-500"
             />
           </div>
+        </div>
+
+        {/* Exit prompt */}
+        <div className="mb-4 border-t border-zinc-800 pt-4">
+          <h3 className="text-xs font-semibold text-zinc-400 mb-3">Exit Prompt (runs before leaving)</h3>
+          <label className="block text-xs text-zinc-500 mb-1">
+            Prompt Template <span className="text-zinc-700">{"{{initialPrompt}} available"}</span>
+          </label>
+          <textarea
+            value={outputPrompt}
+            onChange={(e) => setOutputPrompt(e.target.value)}
+            placeholder="Commit your changes with a descriptive message"
+            rows={2}
+            className="w-full px-3 py-2 text-sm bg-zinc-800 border border-zinc-700 rounded-lg text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-zinc-500 font-(family-name:--font-geist-mono) resize-y"
+          />
+          <p className="text-[10px] text-zinc-600 mt-1">
+            Sent to the session before it moves to the next column. The card won{"'"}t move until this finishes.
+          </p>
         </div>
 
         {/* Auto-cascade toggle */}

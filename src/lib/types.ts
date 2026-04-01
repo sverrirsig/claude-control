@@ -133,6 +133,8 @@ export interface KanbanColumn {
   name: string;
   input?: KanbanColumnInput;
   output?: KanbanColumnOutput;
+  /** Prompt sent to the session before it leaves this column. Supports {{initialPrompt}}. */
+  outputPrompt?: string;
   /** When true, cards auto-move to the next column when their session becomes idle. */
   autoCascade: boolean;
 }
@@ -146,8 +148,14 @@ export interface KanbanCardPlacement {
   columnId: string;
   /** Target column when moved while session is working. Executed when session goes idle. */
   queuedColumnId?: string;
+  /** When true, /clear is sent before the column prompt (first move from unstaged). */
+  clearOnMove?: boolean;
   /** Output extracted when the session last completed in this column. */
   lastOutput?: string;
+  /** The session's initial prompt, captured when it first enters the kanban. Persisted here because /clear wipes the JSONL source. */
+  initialPrompt?: string;
+  /** True when an output prompt has been sent and we're waiting for the session to finish before moving. */
+  pendingOutputPrompt?: boolean;
 }
 
 export interface KanbanState {
