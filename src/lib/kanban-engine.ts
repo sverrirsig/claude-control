@@ -170,7 +170,7 @@ export async function processIdleTransitions(
 
     for (const placement of state.placements) {
       const session = sessions.find((s) => s.id === placement.sessionId);
-      if (!session || (session.status !== "idle" && session.status !== "finished" && session.status !== "waiting")) continue;
+      if (!session || (session.status !== "idle" && session.status !== "finished" && session.status !== "waiting" && session.status !== "errored")) continue;
 
       const currentColumn = config.columns.find((c) => c.id === placement.columnId);
       if (!currentColumn) continue;
@@ -196,7 +196,7 @@ export async function processIdleTransitions(
         if (placement.pendingOutputPrompt) {
           // Timeout guard: if the output prompt has been pending too long, force-complete
           const pendingSince = placement.pendingOutputPrompt;
-          if (session.status === "working" || (session.status === "waiting" && now - pendingSince < OUTPUT_PROMPT_TIMEOUT_MS)) {
+          if (session.status === "waiting" && now - pendingSince < OUTPUT_PROMPT_TIMEOUT_MS) {
             continue; // Still processing or waiting within timeout
           }
 
@@ -257,15 +257,13 @@ export async function processIdleTransitions(
       // CASE B: Auto-cascade — only when truly done.
       // Guards (all must pass):
       // 1. Not "waiting" (mid-task question or permission prompt)
-      // 2. Not "errored" (task failed — needs intervention)
-      // 3. Not cut off mid-response (stop_reason: "max_tokens")
-      // 4. No JSONL activity for settle period (avoids brief idle flashes between tool calls)
+      // 2. Not cut off mid-response (stop_reason: "max_tokens")
+      // 3. No JSONL activity for settle period (avoids brief idle flashes between tool calls)
       const idleAge = session.lastActivity ? now - new Date(session.lastActivity).getTime() : Infinity;
       const settleMs = currentColumn.settleMs ?? CASCADE_SETTLE_MS;
       const cascadeReady =
         currentColumn.autoCascade &&
         session.status !== "waiting" &&
-        session.status !== "errored" &&
         session.lastStopReason !== "max_tokens" &&
         idleAge >= settleMs;
 

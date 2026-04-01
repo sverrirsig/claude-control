@@ -23,6 +23,7 @@ function makeSession(overrides: Partial<ClaudeSession> = {}): ClaudeSession {
       messageCount: 0,
     },
     hasPendingToolUse: false,
+    lastStopReason: null,
     taskSummary: null,
     initialPrompt: null,
     jsonlPath: null,

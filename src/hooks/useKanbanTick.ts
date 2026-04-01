@@ -40,6 +40,14 @@ export function useKanbanTick(
       if (placement?.queuedColumnId && session.status !== "working") {
         shouldTick = true;
       }
+
+      // Fire periodic ticks for idle sessions in columns (auto-cascade settle checking).
+      // Without this, the tick only fires on the working→idle transition when idleAge≈0,
+      // but processIdleTransitions requires idleAge >= settleMs (default 30s).
+      if (placement && !placement.queuedColumnId &&
+          (session.status === "idle" || session.status === "finished" || session.status === "errored")) {
+        shouldTick = true;
+      }
     }
 
     if (shouldTick) {
