@@ -415,17 +415,6 @@ export function SessionGrid({
     }
   };
 
-  // If there's only one group with one session, skip the grouping chrome
-  if (displayGroups.length === 1 && displayGroups[0].sessions.length === 1) {
-    return viewMode === "list" ? (
-      <div className="space-y-1">{displayGroups[0].sessions.map(renderRow)}</div>
-    ) : (
-      <div className="max-w-sm">
-        {displayGroups[0].sessions.map(renderCard)}
-      </div>
-    );
-  }
-
   const sectionIds = displayGroups.map((g) => g.repoPath);
   const hasCustomOrder = layout && layout.sectionOrder.length > 0;
 
