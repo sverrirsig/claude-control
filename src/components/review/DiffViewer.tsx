@@ -19,6 +19,8 @@ interface DiffViewerProps {
 	onResolveComment?: (id: string) => void;
 	onDeleteComment?: (id: string) => void;
 	selectedFile: string | null;
+	isViewed?: (path: string) => boolean;
+	onToggleViewed?: (path: string) => void;
 }
 
 function getFilePath(file: FileData): string {
@@ -75,6 +77,8 @@ const FileDiff = memo(function FileDiff({
 	onCancelComment,
 	onResolveComment,
 	onDeleteComment,
+	isViewed,
+	onToggleViewed,
 }: {
 	file: FileData;
 	viewType: ViewType;
@@ -85,6 +89,8 @@ const FileDiff = memo(function FileDiff({
 	onCancelComment: () => void;
 	onResolveComment?: (id: string) => void;
 	onDeleteComment?: (id: string) => void;
+	isViewed?: boolean;
+	onToggleViewed?: () => void;
 }) {
 	const filePath = getFilePath(file);
 	const fileComments = useMemo(() => comments.filter((c) => c.filePath === filePath), [comments, filePath]);
@@ -174,25 +180,40 @@ const FileDiff = memo(function FileDiff({
 	const gutterEvents = useMemo(() => ({ onClick: handleGutterClick }), [handleGutterClick]);
 
 	return (
-		<div ref={fileRef} id={`file-${filePath}`} className="mb-4">
+		<div ref={fileRef} id={`file-${filePath}`} className="mb-4 mx-4 first:mt-3">
 			{/* File header */}
 			<div className="sticky top-0 z-20 px-3 py-1.5 bg-[#0a0a0f] border border-zinc-800/50 rounded-t-lg flex items-center gap-2">
 				<span
-					className={`text-[10px] font-bold ${
+					className={`text-[10px] font-bold shrink-0 ${
 						file.type === "add" ? "text-emerald-400" : file.type === "delete" ? "text-red-400" : "text-amber-400"
 					}`}
 				>
 					{file.type === "add" ? "NEW" : file.type === "delete" ? "DEL" : "MOD"}
 				</span>
 				<span
-					className="text-xs text-zinc-300 font-mono cursor-pointer hover:text-zinc-100 transition-colors"
+					className="text-xs text-zinc-300 font-mono cursor-pointer hover:text-zinc-100 transition-colors flex-1"
 					onClick={() => navigator.clipboard.writeText(filePath)}
 					title="Click to copy path"
 				>{filePath}</span>
+				{onToggleViewed && (
+					<button
+						onClick={onToggleViewed}
+						className={`shrink-0 flex items-center gap-1 px-2 py-0.5 rounded text-[10px] border transition-colors ${
+							isViewed
+								? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10"
+								: "border-zinc-700 text-zinc-500 hover:text-zinc-300 hover:border-zinc-600"
+						}`}
+					>
+						<svg className="w-3 h-3" fill={isViewed ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+							<path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+						</svg>
+						Viewed
+					</button>
+				)}
 			</div>
 
-			{/* Diff content */}
-			<div className="border border-t-0 border-zinc-800/50 rounded-b-lg diff-viewer-container" style={{ clipPath: "inset(0 round 0 0 0.5rem 0.5rem)" }}>
+			{/* Diff content — collapse when viewed */}
+			{!isViewed && <div className="border border-t-0 border-zinc-800/50 rounded-b-lg diff-viewer-container" style={{ clipPath: "inset(0 round 0 0 0.5rem 0.5rem)" }}>
 				{file.hunks.length > 0 ? (
 					<Diff
 						viewType={viewType}
@@ -216,7 +237,7 @@ const FileDiff = memo(function FileDiff({
 				) : (
 					<div className="px-4 py-3 text-xs text-zinc-600">Binary file or empty diff</div>
 				)}
-			</div>
+			</div>}
 		</div>
 	);
 });
@@ -232,6 +253,8 @@ function LazyFileDiff(props: {
 	onCancelComment: () => void;
 	onResolveComment?: (id: string) => void;
 	onDeleteComment?: (id: string) => void;
+	isViewed?: boolean;
+	onToggleViewed?: () => void;
 }) {
 	const [visible, setVisible] = useState(false);
 	const ref = useRef<HTMLDivElement>(null);
@@ -249,7 +272,7 @@ function LazyFileDiff(props: {
 
 	if (!visible) {
 		const lineCount = props.file.hunks.reduce((n, h) => n + h.changes.length, 0);
-		return <div ref={ref} style={{ minHeight: Math.max(60, lineCount * 20) }} className="mb-4" />;
+		return <div ref={ref} style={{ minHeight: Math.max(60, lineCount * 20) }} className="mb-4 mx-4" />;
 	}
 
 	return <FileDiff {...props} />;
@@ -266,6 +289,8 @@ export const DiffViewer = memo(function DiffViewer({
 	onResolveComment,
 	onDeleteComment,
 	selectedFile,
+	isViewed,
+	onToggleViewed,
 }: DiffViewerProps) {
 	const files = useMemo(() => {
 		if (!rawDiff) return [];
@@ -290,7 +315,7 @@ export const DiffViewer = memo(function DiffViewer({
 		const file = files.find((f) => getFilePath(f) === selectedFile);
 		if (!file) return null;
 		return (
-			<div className="flex-1 overflow-y-auto px-4 py-3">
+			<div className="flex-1 overflow-y-auto">
 				<FileDiff
 					key={getFilePath(file)}
 					file={file}
@@ -302,6 +327,8 @@ export const DiffViewer = memo(function DiffViewer({
 					onCancelComment={onCancelComment}
 					onResolveComment={onResolveComment}
 					onDeleteComment={onDeleteComment}
+					isViewed={isViewed?.(selectedFile) ?? false}
+					onToggleViewed={onToggleViewed ? () => onToggleViewed(selectedFile!) : undefined}
 				/>
 			</div>
 		);
@@ -309,10 +336,12 @@ export const DiffViewer = memo(function DiffViewer({
 
 	// All files: lazy-render so only visible diffs mount
 	return (
-		<div className="flex-1 overflow-y-auto px-4 py-3">
-			{files.map((file) => (
+		<div className="flex-1 overflow-y-auto">
+			{files.map((file) => {
+				const fp = getFilePath(file);
+				return (
 				<LazyFileDiff
-					key={getFilePath(file)}
+					key={fp}
 					file={file}
 					viewType={viewType}
 					comments={comments}
@@ -322,8 +351,11 @@ export const DiffViewer = memo(function DiffViewer({
 					onCancelComment={onCancelComment}
 					onResolveComment={onResolveComment}
 					onDeleteComment={onDeleteComment}
+					isViewed={isViewed?.(fp) ?? false}
+					onToggleViewed={onToggleViewed ? () => onToggleViewed(fp) : undefined}
 				/>
-			))}
+				);
+			})}
 		</div>
 	);
 });

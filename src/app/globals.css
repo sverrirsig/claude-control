@@ -245,6 +245,11 @@ body {
   background: rgba(239, 68, 68, 0.1);
   color: #f87171;
 }
+.diff-viewer-container .diff-gutter-omit,
+.diff-viewer-container .diff-code-omit {
+  background: #0a0a0f;
+  border-right: none;
+}
 .diff-viewer-container .diff-widget {
   background: transparent;
 }

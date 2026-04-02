@@ -8,6 +8,7 @@ import { useReviewDiff } from "@/hooks/useReviewDiff";
 import { useReviewQueue } from "@/hooks/useReviewQueue";
 import { useReviewCommits } from "@/hooks/useReviewCommits";
 import { useReviewBranches } from "@/hooks/useReviewBranches";
+import { useViewedFiles } from "@/hooks/useViewedFiles";
 import { DiffViewer, parseDiff, getFilePath } from "@/components/review/DiffViewer";
 import { FileTree } from "@/components/review/FileTree";
 import { CommentQueue } from "@/components/review/CommentQueue";
@@ -22,6 +23,7 @@ export default function ReviewPage() {
 	const { diff, isLoading: diffLoading, refreshDiff } = useReviewDiff(sessionId, selectedCommit);
 	const { commits } = useReviewCommits(sessionId);
 	const { branches } = useReviewBranches(sessionId);
+	const { viewedCount, toggleViewed, isViewed } = useViewedFiles(sessionId);
 
 	const [paused, setPaused] = useState(false);
 	const [viewType, setViewType] = useState<ViewType>("split");
@@ -169,6 +171,10 @@ export default function ReviewPage() {
 							commentCounts={commentCounts}
 							onSelectFile={setSelectedFile}
 							onCollapse={() => setSidebarOpen(false)}
+							isViewed={isViewed}
+							onToggleViewed={toggleViewed}
+							viewedCount={viewedCount}
+							totalFiles={files.length}
 						/>
 					</div>
 				) : (
@@ -203,6 +209,8 @@ export default function ReviewPage() {
 						onResolveComment={handleResolveComment}
 						onDeleteComment={handleDeleteComment}
 						selectedFile={selectedFile}
+						isViewed={isViewed}
+						onToggleViewed={toggleViewed}
 					/>
 				)}
 			</div>
