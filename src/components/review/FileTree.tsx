@@ -7,7 +7,7 @@ interface FileTreeProps {
 	files: FileData[];
 	selectedFile: string | null;
 	commentCounts: Record<string, number>;
-	onSelectFile: (path: string) => void;
+	onSelectFile: (path: string | null) => void;
 	onCollapse?: () => void;
 	isViewed?: (path: string) => boolean;
 	onToggleViewed?: (path: string) => void;
@@ -99,7 +99,7 @@ export const FileTree = memo(function FileTree({ files, selectedFile, commentCou
 								</button>
 							)}
 							<button
-								onClick={() => onSelectFile(filePath)}
+								onClick={() => onSelectFile(isSelected ? null : filePath)}
 								className={`flex-1 text-left ${onToggleViewed ? "pl-0" : "pl-3"} pr-3 py-1.5 flex items-center gap-2 min-w-0`}
 							>
 								<span className={`font-mono font-bold text-[10px] w-3 shrink-0 ${color}`}>{label}</span>
