@@ -315,31 +315,48 @@ const FileDiff = memo(function FileDiff({
 								const firstChange = hunk.changes[0];
 								const firstLine = firstChange?.type === "normal" ? firstChange.oldLineNumber
 									: firstChange?.type === "delete" ? firstChange.lineNumber : 1;
-								const canExpandUp = sessionId && firstLine > 1;
+
+								// Check gap above: between previous hunk's last line and this hunk's first line
+								const prevHunk = idx > 0 ? hunks[idx - 1] : null;
+								const prevLast = prevHunk?.changes[prevHunk.changes.length - 1];
+								const prevLastLine = prevLast?.type === "normal" ? prevLast.oldLineNumber
+									: prevLast?.type === "insert" ? prevLast.lineNumber : 0;
+								const canExpandUp = sessionId && (prevHunk ? firstLine > prevLastLine + 1 : firstLine > 1);
+
 								const lastChange = hunk.changes[hunk.changes.length - 1];
 								const lastLine = lastChange?.type === "normal" ? lastChange.oldLineNumber
 									: lastChange?.type === "insert" ? lastChange.lineNumber : 0;
+
+								// Check gap below: between this hunk's last line and next hunk's first line (or EOF)
 								const nextHunk = idx < hunks.length - 1 ? hunks[idx + 1] : null;
 								const nextFirst = nextHunk?.changes[0];
 								const nextFirstLine = nextFirst?.type === "normal" ? nextFirst.oldLineNumber
 									: nextFirst?.type === "delete" ? nextFirst.lineNumber : null;
-								const canExpandDown = sessionId && (nextFirstLine ? lastLine < nextFirstLine - 1 : lastLine > 0);
+								const canExpandDown = sessionId && (
+									nextFirstLine ? lastLine < nextFirstLine - 1
+									: fileLines ? lastLine < fileLines.length : lastLine > 0
+								);
+
+								// Show hunk header only if there's a gap above it that can be expanded
+								const showHeader = canExpandUp;
 
 								return [
-									<Decoration key={`decoration-${hunk.content}`}>
-										<div className="px-3 py-0.5 bg-blue-500/5 text-[10px] text-blue-400 font-mono border-y border-blue-500/10 flex items-center justify-between">
-											<span>{hunk.content}</span>
-											{canExpandUp && (
-												<button
-													onClick={() => expandUp(hunkIdx)}
-													className="text-zinc-500 hover:text-blue-400 transition-colors px-1"
-													title={`Show ${EXPAND_STEP} more lines above`}
-												>
-													↑ Expand
-												</button>
-											)}
-										</div>
-									</Decoration>,
+									...(showHeader ? [
+										<Decoration key={`decoration-${hunk.content}`}>
+											<div className="px-3 py-0.5 bg-blue-500/5 text-[10px] text-blue-400 font-mono border-y border-blue-500/10 flex items-center justify-between">
+												<span>{hunk.content}</span>
+												{canExpandUp && (
+													<button
+														onClick={() => expandUp(hunkIdx)}
+														className="text-zinc-500 hover:text-blue-400 transition-colors px-1"
+														title={`Show ${EXPAND_STEP} more lines above`}
+													>
+														↑ Expand
+													</button>
+												)}
+											</div>
+										</Decoration>,
+									] : []),
 									<Hunk key={hunk.content} hunk={hunk} />,
 									...(canExpandDown ? [
 										<Decoration key={`expand-down-${hunk.content}`}>
