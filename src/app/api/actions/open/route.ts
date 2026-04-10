@@ -11,6 +11,7 @@ import {
   sendKeystroke,
   sendText,
 } from "@/lib/terminal";
+import { escapeForAppleScript } from "@/lib/terminal/adapters/shared";
 
 const execFileAsync = promisify(execFile);
 const execAsync = promisify(exec);
@@ -171,7 +172,7 @@ export async function POST(request: Request) {
         }
         const browserConfig = await loadConfig();
         const browserDef = BROWSER_OPTIONS.find((b) => b.id === browserConfig.browser) ?? BROWSER_OPTIONS[0];
-        const escapedUrl = url.replace(/"/g, '\\"');
+        const escapedUrl = escapeForAppleScript(url);
 
         const chromiumBrowsers = ["Google Chrome", "Arc", "Brave Browser", "Microsoft Edge"];
         if (chromiumBrowsers.includes(browserDef.appName)) {

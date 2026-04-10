@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { loadConfig } from "@/lib/config";
 import { getAdapter } from "@/lib/terminal/adapters/registry";
+import { shellEscape } from "@/lib/terminal/adapters/shared";
 import type { TerminalApp } from "@/lib/terminal/types";
 
 export async function POST(request: Request) {
@@ -20,7 +21,7 @@ export async function POST(request: Request) {
     }
 
     // Open a new terminal tab that attaches to the detached tmux session
-    await adapter.createSession(`tmux attach -t '${tmuxSession}'`, {
+    await adapter.createSession(`tmux attach -t '${shellEscape(tmuxSession)}'`, {
       openIn: config.terminalOpenIn ?? "tab",
       useTmux: false,
       cwd: cwd || "/tmp",
