@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isClaudeProcess } from "@/lib/process-utils";
 
 export async function POST(request: Request) {
   try {
@@ -6,6 +7,10 @@ export async function POST(request: Request) {
 
     if (!pid || typeof pid !== "number") {
       return NextResponse.json({ error: "Missing or invalid pid" }, { status: 400 });
+    }
+
+    if (!(await isClaudeProcess(pid))) {
+      return NextResponse.json({ error: "PID is not a claude process" }, { status: 403 });
     }
 
     try {

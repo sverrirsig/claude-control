@@ -40,6 +40,21 @@ export async function getBatchWorkingDirectories(pids: number[]): Promise<Map<nu
 }
 
 /**
+ * Check whether a PID belongs to a "claude" process.
+ * Returns true only when the process exists and its command name is "claude".
+ */
+export async function isClaudeProcess(pid: number): Promise<boolean> {
+  try {
+    const { stdout } = await execFileAsync("ps", ["-o", "comm=", "-p", String(pid)], {
+      timeout: PROCESS_TIMEOUT_MS,
+    });
+    return stdout.trim() === "claude";
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Build ProcessInfo for all given PIDs using the process tree + one lsof call.
  * The tree (from buildProcessTree) provides comm and %cpu; lsof provides cwds.
  * Since findClaudePidsFromTree already filters by `comm === "claude"`, the

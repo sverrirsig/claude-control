@@ -1,6 +1,7 @@
 import { execFile } from "child_process";
 import { NextResponse } from "next/server";
 import { promisify } from "util";
+import { isClaudeProcess } from "@/lib/process-utils";
 
 const execFileAsync = promisify(execFile);
 
@@ -10,6 +11,7 @@ interface CleanupRequest {
 }
 
 async function killProcess(pid: number): Promise<void> {
+  if (!(await isClaudeProcess(pid))) return;
   try {
     process.kill(pid, "SIGTERM");
     // Give it a moment to exit gracefully
