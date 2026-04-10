@@ -74,10 +74,13 @@ export async function getPrUrl(cwd: string, branch: string): Promise<string | nu
   if (cached) return cached.url;
 
   try {
-    const { stdout } = await execFileAsync("gh", ["pr", "view", branch, "--json", "url", "--jq", ".url"], {
-      cwd,
-      timeout: 5000,
-    });
+    // Use `gh pr list --head` instead of `gh pr view` because the latter
+    // interprets numeric branch names (e.g. "36") as PR numbers.
+    const { stdout } = await execFileAsync(
+      "gh",
+      ["pr", "list", "--head", branch, "--json", "url", "--jq", ".[0].url", "--state", "open", "--limit", "1"],
+      { cwd, timeout: 5000 },
+    );
     const url = stdout.trim() || null;
     prUrlCache.set(cacheKey, { url, ts: Date.now() });
     return url;
