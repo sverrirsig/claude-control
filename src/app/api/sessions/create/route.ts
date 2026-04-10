@@ -91,6 +91,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing repoPath" }, { status: 400 });
     }
 
+    if (branchName && !/^[a-zA-Z0-9._\/-]+$/.test(branchName)) {
+      return NextResponse.json({ error: "Invalid branch name" }, { status: 400 });
+    }
+
+    if (branchName && (branchName.includes("..") || branchName.startsWith("/") || branchName.endsWith("/"))) {
+      return NextResponse.json({ error: "Invalid branch name" }, { status: 400 });
+    }
+
     // Verify the repo exists
     try {
       await stat(repoPath);
