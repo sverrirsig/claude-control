@@ -33,48 +33,12 @@ export const DEFAULT_CREATE_PR_PROMPT =
 
 export const EDITOR_OPTIONS = [
   { id: "none", label: "None", command: "", appName: "", processName: "" },
-  {
-    id: "vscode",
-    label: "VS Code",
-    command: "code",
-    appName: "Visual Studio Code",
-    processName: "Code",
-  },
-  {
-    id: "cursor",
-    label: "Cursor",
-    command: "cursor",
-    appName: "Cursor",
-    processName: "Cursor",
-  },
-  {
-    id: "zed",
-    label: "Zed",
-    command: "zed",
-    appName: "Zed",
-    processName: "Zed",
-  },
-  {
-    id: "sublime",
-    label: "Sublime Text",
-    command: "subl",
-    appName: "Sublime Text",
-    processName: "Sublime Text",
-  },
-  {
-    id: "webstorm",
-    label: "WebStorm",
-    command: "webstorm",
-    appName: "WebStorm",
-    processName: "WebStorm",
-  },
-  {
-    id: "intellij",
-    label: "IntelliJ IDEA",
-    command: "idea",
-    appName: "IntelliJ IDEA",
-    processName: "IntelliJ IDEA",
-  },
+  { id: "vscode", label: "VS Code", command: "code", appName: "Visual Studio Code", processName: "Code" },
+  { id: "cursor", label: "Cursor", command: "cursor", appName: "Cursor", processName: "Cursor" },
+  { id: "zed", label: "Zed", command: "zed", appName: "Zed", processName: "Zed" },
+  { id: "sublime", label: "Sublime Text", command: "subl", appName: "Sublime Text", processName: "Sublime Text" },
+  { id: "webstorm", label: "WebStorm", command: "webstorm", appName: "WebStorm", processName: "WebStorm" },
+  { id: "intellij", label: "IntelliJ IDEA", command: "idea", appName: "IntelliJ IDEA", processName: "IntelliJ IDEA" },
 ];
 
 export const GIT_GUI_OPTIONS = [

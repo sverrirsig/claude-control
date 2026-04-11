@@ -75,17 +75,11 @@ export const cmuxAdapter: TerminalAdapter = {
     const terminalId = await findTerminalIdByTty(info.tty);
     if (terminalId) {
       const script = scriptForTerminal(terminalId, "focus t");
-      await execFileAsync("osascript", ["-e", script], {
+      await execFileAsync("osascript", ["-e", script], { timeout: OSASCRIPT_TIMEOUT_MS });
+    } else {
+      await execFileAsync("osascript", ["-e", 'tell application "cmux" to activate'], {
         timeout: OSASCRIPT_TIMEOUT_MS,
       });
-    } else {
-      await execFileAsync(
-        "osascript",
-        ["-e", 'tell application "cmux" to activate'],
-        {
-          timeout: OSASCRIPT_TIMEOUT_MS,
-        },
-      );
     }
   },
 
@@ -93,18 +87,11 @@ export const cmuxAdapter: TerminalAdapter = {
     const terminalId = await findTerminalIdByTty(info.tty);
     const asEscaped = escapeForAppleScript(text + "\n");
     if (terminalId) {
-      const script = scriptForTerminal(
-        terminalId,
-        `input text "${asEscaped}" to t`,
-      );
-      await execFileAsync("osascript", ["-e", script], {
-        timeout: OSASCRIPT_TIMEOUT_MS,
-      });
+      const script = scriptForTerminal(terminalId, `input text "${asEscaped}" to t`);
+      await execFileAsync("osascript", ["-e", script], { timeout: OSASCRIPT_TIMEOUT_MS });
     } else {
       const action = systemEventsScript("cmux", `keystroke "${asEscaped}"`);
-      await execFileAsync("osascript", ["-e", action], {
-        timeout: OSASCRIPT_TIMEOUT_MS,
-      });
+      await execFileAsync("osascript", ["-e", action], { timeout: OSASCRIPT_TIMEOUT_MS });
     }
   },
 
@@ -123,9 +110,7 @@ tell application "System Events"
   end tell
 end tell`,
       );
-      await execFileAsync("osascript", ["-e", script], {
-        timeout: OSASCRIPT_TIMEOUT_MS,
-      });
+      await execFileAsync("osascript", ["-e", script], { timeout: OSASCRIPT_TIMEOUT_MS });
     } else {
       const script = `tell application "cmux" to activate
 tell application "System Events"
@@ -133,16 +118,11 @@ tell application "System Events"
     ${asKeystroke}
   end tell
 end tell`;
-      await execFileAsync("osascript", ["-e", script], {
-        timeout: OSASCRIPT_TIMEOUT_MS,
-      });
+      await execFileAsync("osascript", ["-e", script], { timeout: OSASCRIPT_TIMEOUT_MS });
     }
   },
 
-  async createSession(
-    command: string,
-    _opts: CreateSessionOpts,
-  ): Promise<void> {
+  async createSession(command: string, _opts: CreateSessionOpts): Promise<void> {
     const asCmd = escapeForAppleScript(command + "\n");
     const script = `tell application "cmux"
   set newWs to new tab
@@ -152,8 +132,6 @@ end tell`;
   focus t
   input text "${asCmd}" to t
 end tell`;
-    await execFileAsync("osascript", ["-e", script], {
-      timeout: OSASCRIPT_TIMEOUT_MS,
-    });
+    await execFileAsync("osascript", ["-e", script], { timeout: OSASCRIPT_TIMEOUT_MS });
   },
 };

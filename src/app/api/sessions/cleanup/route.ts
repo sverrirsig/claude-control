@@ -32,13 +32,9 @@ async function findMainRepo(worktreeDir: string): Promise<string | null> {
   // Try running from the worktree directory itself first
   try {
     await stat(worktreeDir);
-    const { stdout } = await execFileAsync(
-      "git",
-      ["-C", worktreeDir, "worktree", "list", "--porcelain"],
-      {
-        timeout: 5000,
-      },
-    );
+    const { stdout } = await execFileAsync("git", ["-C", worktreeDir, "worktree", "list", "--porcelain"], {
+      timeout: 5000,
+    });
     const match = stdout.match(/^worktree (.+)$/m);
     if (match) return match[1];
   } catch {
@@ -53,13 +49,9 @@ async function findMainRepo(worktreeDir: string): Promise<string | null> {
     const candidateMain = dirMatch[1];
     try {
       await stat(candidateMain);
-      const { stdout } = await execFileAsync(
-        "git",
-        ["-C", candidateMain, "rev-parse", "--git-dir"],
-        {
-          timeout: 3000,
-        },
-      );
+      const { stdout } = await execFileAsync("git", ["-C", candidateMain, "rev-parse", "--git-dir"], {
+        timeout: 3000,
+      });
       if (stdout.trim()) return candidateMain;
     } catch {
       // Not a valid repo
@@ -81,13 +73,9 @@ async function removeWorktree(worktreeDir: string): Promise<void> {
   }
 
   // Remove the worktree (--force handles dirty working trees)
-  await execFileAsync(
-    "git",
-    ["-C", mainRepo, "worktree", "remove", worktreeDir, "--force"],
-    {
-      timeout: 10000,
-    },
-  );
+  await execFileAsync("git", ["-C", mainRepo, "worktree", "remove", worktreeDir, "--force"], {
+    timeout: 10000,
+  });
 
   // Prune any stale worktree references
   await execFileAsync("git", ["-C", mainRepo, "worktree", "prune"], {
@@ -95,17 +83,12 @@ async function removeWorktree(worktreeDir: string): Promise<void> {
   });
 }
 
-async function deleteBranch(
-  worktreeDir: string,
-  branch: string,
-): Promise<void> {
+async function deleteBranch(worktreeDir: string, branch: string): Promise<void> {
   const mainRepo = await findMainRepo(worktreeDir);
   if (!mainRepo) return;
 
   try {
-    await execFileAsync("git", ["-C", mainRepo, "branch", "-D", branch], {
-      timeout: 5000,
-    });
+    await execFileAsync("git", ["-C", mainRepo, "branch", "-D", branch], { timeout: 5000 });
   } catch {
     // Branch may already be deleted or not exist locally
   }
@@ -117,22 +100,15 @@ export async function POST(request: Request) {
     const { pid, workingDirectory } = body;
 
     if (!workingDirectory) {
-      return NextResponse.json(
-        { error: "Missing workingDirectory" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "Missing workingDirectory" }, { status: 400 });
     }
 
     // Get the branch name before we tear things down
     let branch: string | null = null;
     try {
-      const { stdout } = await execFileAsync(
-        "git",
-        ["-C", workingDirectory, "rev-parse", "--abbrev-ref", "HEAD"],
-        {
-          timeout: 3000,
-        },
-      );
+      const { stdout } = await execFileAsync("git", ["-C", workingDirectory, "rev-parse", "--abbrev-ref", "HEAD"], {
+        timeout: 3000,
+      });
       branch = stdout.trim() || null;
     } catch {
       // Can't determine branch
@@ -160,9 +136,6 @@ export async function POST(request: Request) {
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error("Cleanup failed:", msg);
-    return NextResponse.json(
-      { error: `Cleanup failed: ${msg}` },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: `Cleanup failed: ${msg}` }, { status: 500 });
   }
 }

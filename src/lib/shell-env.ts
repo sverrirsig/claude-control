@@ -18,13 +18,9 @@ let resolved: NodeJS.ProcessEnv | undefined;
 export async function getShellEnv(): Promise<NodeJS.ProcessEnv> {
   if (resolved) return resolved;
   try {
-    const { stdout } = await execFileAsync(
-      "/bin/sh",
-      ["-lc", "printenv PATH"],
-      {
-        timeout: 5000,
-      },
-    );
+    const { stdout } = await execFileAsync("/bin/sh", ["-lc", "printenv PATH"], {
+      timeout: 5000,
+    });
     const shellPath = stdout.trim();
     resolved = { ...process.env, PATH: shellPath };
   } catch {

@@ -11,16 +11,7 @@ describe("adapter registry", () => {
 
   it("returns an adapter for every known terminal", async () => {
     const { getAdapter } = await import("./adapters/registry");
-    const knownApps: TerminalApp[] = [
-      "iterm",
-      "terminal-app",
-      "ghostty",
-      "kitty",
-      "wezterm",
-      "alacritty",
-      "warp",
-      "cmux",
-    ];
+    const knownApps: TerminalApp[] = ["iterm", "terminal-app", "ghostty", "kitty", "wezterm", "alacritty", "warp", "cmux"];
 
     for (const app of knownApps) {
       const adapter = getAdapter(app);
@@ -155,10 +146,7 @@ describe("kitty adapter", () => {
   /** Create an exec mock that returns fakeLsOutput for `kitten @ ls` */
   function mockExecWithLs() {
     const execMock = vi.fn().mockImplementation((...args: unknown[]) => {
-      const cb = args[args.length - 1] as (
-        err: null,
-        result: { stdout: string; stderr: string },
-      ) => void;
+      const cb = args[args.length - 1] as (err: null, result: { stdout: string; stderr: string }) => void;
       const cmdArgs = args[1] as string[];
       // Return ls output when kitten @ ... ls is called
       if (args[0] === "kitten" && cmdArgs.includes("ls")) {
@@ -191,12 +179,7 @@ describe("kitty adapter", () => {
       expect.any(Function),
     );
     // Should also raise the macOS window
-    expect(execMock).toHaveBeenCalledWith(
-      "open",
-      ["-a", "kitty"],
-      expect.any(Object),
-      expect.any(Function),
-    );
+    expect(execMock).toHaveBeenCalledWith("open", ["-a", "kitty"], expect.any(Object), expect.any(Function));
   });
 
   it("sendText sends to resolved window id", async () => {
@@ -240,10 +223,7 @@ describe("kitty adapter", () => {
 
   it("focus still raises macOS window when kitten fails", async () => {
     const execMock = vi.fn().mockImplementation((...args: unknown[]) => {
-      const cb = args[args.length - 1] as (
-        err: Error | null,
-        result?: { stdout: string; stderr: string },
-      ) => void;
+      const cb = args[args.length - 1] as (err: Error | null, result?: { stdout: string; stderr: string }) => void;
       if (args[0] === "kitten") {
         cb(new Error("remote control is not enabled"));
       } else {
@@ -255,20 +235,12 @@ describe("kitty adapter", () => {
     const { kittyAdapter } = await import("./adapters/kitty");
     await kittyAdapter.focus(kittyInfo);
 
-    expect(execMock).toHaveBeenCalledWith(
-      "open",
-      ["-a", "kitty"],
-      expect.any(Object),
-      expect.any(Function),
-    );
+    expect(execMock).toHaveBeenCalledWith("open", ["-a", "kitty"], expect.any(Object), expect.any(Function));
   });
 
   it("sendKeystroke falls back to generic when kitten fails", async () => {
     const execMock = vi.fn().mockImplementation((...args: unknown[]) => {
-      const cb = args[args.length - 1] as (
-        err: Error | null,
-        result?: { stdout: string; stderr: string },
-      ) => void;
+      const cb = args[args.length - 1] as (err: Error | null, result?: { stdout: string; stderr: string }) => void;
       if (args[0] === "kitten") {
         cb(new Error("remote control is not enabled"));
       } else {
@@ -281,12 +253,7 @@ describe("kitty adapter", () => {
     await kittyAdapter.sendKeystroke(kittyInfo, "y");
 
     // Should fall back to System Events via generic adapter
-    expect(execMock).toHaveBeenCalledWith(
-      "osascript",
-      expect.any(Array),
-      expect.any(Object),
-      expect.any(Function),
-    );
+    expect(execMock).toHaveBeenCalledWith("osascript", expect.any(Array), expect.any(Object), expect.any(Function));
   });
 
   it("createSession uses kitten @ launch with tab type", async () => {
@@ -300,14 +267,7 @@ describe("kitty adapter", () => {
 
     expect(execMock).toHaveBeenCalledWith(
       "kitten",
-      expect.arrayContaining([
-        "launch",
-        "--type=tab",
-        "--cwd=/tmp",
-        "sh",
-        "-c",
-        "cd '/tmp' && claude",
-      ]),
+      expect.arrayContaining(["launch", "--type=tab", "--cwd=/tmp", "sh", "-c", "cd '/tmp' && claude"]),
       expect.any(Object),
       expect.any(Function),
     );
@@ -337,19 +297,14 @@ describe("kitty adapter", () => {
       {
         tabs: [
           {
-            windows: [
-              { id: 5, pid: 20045, foreground_processes: [{ pid: 24825 }] },
-            ],
+            windows: [{ id: 5, pid: 20045, foreground_processes: [{ pid: 24825 }] }],
           },
         ],
       },
     ]);
 
     const execMock = vi.fn().mockImplementation((...args: unknown[]) => {
-      const cb = args[args.length - 1] as (
-        err: null,
-        result: { stdout: string; stderr: string },
-      ) => void;
+      const cb = args[args.length - 1] as (err: null, result: { stdout: string; stderr: string }) => void;
       const cmdArgs = args[1] as string[];
       if (args[0] === "kitten" && cmdArgs.includes("ls")) {
         cb(null, { stdout: tmuxLsOutput, stderr: "" });
@@ -370,12 +325,7 @@ describe("kitty adapter", () => {
       expect.any(Function),
     );
     // Should also raise the macOS window
-    expect(execMock).toHaveBeenCalledWith(
-      "open",
-      ["-a", "kitty"],
-      expect.any(Object),
-      expect.any(Function),
-    );
+    expect(execMock).toHaveBeenCalledWith("open", ["-a", "kitty"], expect.any(Object), expect.any(Function));
   });
 
   it("createSession uses os-window type for window mode", async () => {
@@ -389,14 +339,7 @@ describe("kitty adapter", () => {
 
     expect(execMock).toHaveBeenCalledWith(
       "kitten",
-      expect.arrayContaining([
-        "launch",
-        "--type=os-window",
-        "--cwd=/tmp",
-        "sh",
-        "-c",
-        "cd '/tmp' && claude",
-      ]),
+      expect.arrayContaining(["launch", "--type=os-window", "--cwd=/tmp", "sh", "-c", "cd '/tmp' && claude"]),
       expect.any(Object),
       expect.any(Function),
     );
@@ -414,10 +357,7 @@ describe("public API tmux handling", () => {
     const execMock = vi.fn().mockResolvedValue({ stdout: "", stderr: "" });
     vi.doMock("child_process", () => ({
       execFile: (...args: unknown[]) => {
-        const cb = args[args.length - 1] as (
-          err: null,
-          result: { stdout: string; stderr: string },
-        ) => void;
+        const cb = args[args.length - 1] as (err: null, result: { stdout: string; stderr: string }) => void;
         execMock(...args);
         cb(null, { stdout: "", stderr: "" });
       },

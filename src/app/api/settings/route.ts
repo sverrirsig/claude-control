@@ -18,17 +18,14 @@ const execFileAsync = promisify(execFile);
 
 export const dynamic = "force-dynamic";
 
-async function checkInstalledApps<
-  T extends { appName: string; command?: string },
->(
+async function checkInstalledApps<T extends { appName: string; command?: string }>(
   options: T[],
   alwaysInstalled?: Set<string>,
 ): Promise<(T & { installed: boolean })[]> {
   const env = await getShellEnv();
   return Promise.all(
     options.map(async (opt) => {
-      if (!opt.appName || alwaysInstalled?.has(opt.appName))
-        return { ...opt, installed: true };
+      if (!opt.appName || alwaysInstalled?.has(opt.appName)) return { ...opt, installed: true };
       // Try macOS app bundle first, then CLI command as fallback
       const checks = [
         execFileAsync("open", ["-Ra", opt.appName], { timeout: 3000 }).then(
@@ -82,9 +79,7 @@ const DEPENDENCIES: DependencyDef[] = [
   },
 ];
 
-async function checkDependencies(): Promise<
-  (DependencyDef & { installed: boolean })[]
-> {
+async function checkDependencies(): Promise<(DependencyDef & { installed: boolean })[]> {
   const env = await getShellEnv();
   return Promise.all(
     DEPENDENCIES.map(async (dep) => {
@@ -100,15 +95,14 @@ async function checkDependencies(): Promise<
 
 export async function GET() {
   try {
-    const [config, terminalApps, browsers, editors, gitGuis, dependencies] =
-      await Promise.all([
-        loadConfig(),
-        checkInstalledApps(TERMINAL_APP_OPTIONS, new Set(["Terminal"])),
-        checkInstalledApps(BROWSER_OPTIONS, new Set(["Safari"])),
-        checkInstalledApps(EDITOR_OPTIONS),
-        checkInstalledApps(GIT_GUI_OPTIONS),
-        checkDependencies(),
-      ]);
+    const [config, terminalApps, browsers, editors, gitGuis, dependencies] = await Promise.all([
+      loadConfig(),
+      checkInstalledApps(TERMINAL_APP_OPTIONS, new Set(["Terminal"])),
+      checkInstalledApps(BROWSER_OPTIONS, new Set(["Safari"])),
+      checkInstalledApps(EDITOR_OPTIONS),
+      checkInstalledApps(GIT_GUI_OPTIONS),
+      checkDependencies(),
+    ]);
 
     return NextResponse.json({
       config,
@@ -124,10 +118,7 @@ export async function GET() {
     });
   } catch (error) {
     console.error("Failed to load settings:", error);
-    return NextResponse.json(
-      { error: "Failed to load settings" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Failed to load settings" }, { status: 500 });
   }
 }
 
@@ -148,32 +139,17 @@ export async function PUT(request: Request) {
       terminalOpenIn: body.terminalOpenIn ?? current.terminalOpenIn,
       terminalUseTmux: body.terminalUseTmux ?? current.terminalUseTmux,
       terminalTmuxMode: body.terminalTmuxMode ?? current.terminalTmuxMode,
-      initialCommand:
-        body.initialCommand !== undefined
-          ? body.initialCommand
-          : current.initialCommand,
-      initialPrompt:
-        body.initialPrompt !== undefined
-          ? body.initialPrompt
-          : current.initialPrompt,
-      createPrPrompt:
-        body.createPrPrompt !== undefined
-          ? body.createPrPrompt
-          : current.createPrPrompt,
+      initialCommand: body.initialCommand !== undefined ? body.initialCommand : current.initialCommand,
+      initialPrompt: body.initialPrompt !== undefined ? body.initialPrompt : current.initialPrompt,
+      createPrPrompt: body.createPrPrompt !== undefined ? body.createPrPrompt : current.createPrPrompt,
       defaultBaseBranch: body.defaultBaseBranch ?? current.defaultBaseBranch,
-      showKeyboardHints:
-        body.showKeyboardHints !== undefined
-          ? body.showKeyboardHints
-          : current.showKeyboardHints,
+      showKeyboardHints: body.showKeyboardHints !== undefined ? body.showKeyboardHints : current.showKeyboardHints,
     };
 
     await saveConfig(updated);
     return NextResponse.json({ config: updated });
   } catch (error) {
     console.error("Failed to save settings:", error);
-    return NextResponse.json(
-      { error: "Failed to save settings" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Failed to save settings" }, { status: 500 });
   }
 }
