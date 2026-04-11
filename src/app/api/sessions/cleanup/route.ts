@@ -1,4 +1,5 @@
 import { execFile } from "child_process";
+import { stat } from "fs/promises";
 import { NextResponse } from "next/server";
 import { promisify } from "util";
 import { isClaudeProcess } from "@/lib/process-utils";
@@ -27,18 +28,44 @@ async function killProcess(pid: number): Promise<void> {
   }
 }
 
-async function removeWorktree(worktreeDir: string): Promise<void> {
-  // Find the main repo that owns this worktree
-  const { stdout } = await execFileAsync("git", ["-C", worktreeDir, "worktree", "list", "--porcelain"], {
-    timeout: 5000,
-  });
+async function findMainRepo(worktreeDir: string): Promise<string | null> {
+  // Try running from the worktree directory itself first
+  try {
+    await stat(worktreeDir);
+    const { stdout } = await execFileAsync("git", ["-C", worktreeDir, "worktree", "list", "--porcelain"], {
+      timeout: 5000,
+    });
+    const match = stdout.match(/^worktree (.+)$/m);
+    if (match) return match[1];
+  } catch {
+    // Directory doesn't exist or not a git repo — try resolving from the .git file
+  }
 
-  // First "worktree" line is the main repo
-  const match = stdout.match(/^worktree (.+)$/m);
-  if (!match) {
+  // If the directory is gone, try to infer the main repo from the path.
+  // Worktrees created by claude-control are siblings: <parent>/<repo>-<branch>
+  // The main repo is <parent>/<repo>.
+  const dirMatch = worktreeDir.match(/^(.+\/([^/]+?))-[^/]+\/?$/);
+  if (dirMatch) {
+    const candidateMain = dirMatch[1];
+    try {
+      await stat(candidateMain);
+      const { stdout } = await execFileAsync("git", ["-C", candidateMain, "rev-parse", "--git-dir"], {
+        timeout: 3000,
+      });
+      if (stdout.trim()) return candidateMain;
+    } catch {
+      // Not a valid repo
+    }
+  }
+
+  return null;
+}
+
+async function removeWorktree(worktreeDir: string): Promise<void> {
+  const mainRepo = await findMainRepo(worktreeDir);
+  if (!mainRepo) {
     throw new Error("Could not determine main worktree");
   }
-  const mainRepo = match[1];
 
   // Don't delete the main repo!
   if (mainRepo === worktreeDir) {
@@ -57,13 +84,8 @@ async function removeWorktree(worktreeDir: string): Promise<void> {
 }
 
 async function deleteBranch(worktreeDir: string, branch: string): Promise<void> {
-  // Get the main repo path
-  const { stdout } = await execFileAsync("git", ["-C", worktreeDir, "worktree", "list", "--porcelain"], {
-    timeout: 5000,
-  });
-  const match = stdout.match(/^worktree (.+)$/m);
-  if (!match) return;
-  const mainRepo = match[1];
+  const mainRepo = await findMainRepo(worktreeDir);
+  if (!mainRepo) return;
 
   try {
     await execFileAsync("git", ["-C", mainRepo, "branch", "-D", branch], { timeout: 5000 });

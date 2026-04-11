@@ -12,6 +12,7 @@ import {
   TERMINAL_OPEN_IN_OPTIONS,
   TERMINAL_TMUX_MODE_OPTIONS,
 } from "@/lib/config";
+import { getShellEnv } from "@/lib/shell-env";
 
 const execFileAsync = promisify(execFile);
 
@@ -21,6 +22,7 @@ async function checkInstalledApps<T extends { appName: string; command?: string 
   options: T[],
   alwaysInstalled?: Set<string>,
 ): Promise<(T & { installed: boolean })[]> {
+  const env = await getShellEnv();
   return Promise.all(
     options.map(async (opt) => {
       if (!opt.appName || alwaysInstalled?.has(opt.appName)) return { ...opt, installed: true };
@@ -33,7 +35,7 @@ async function checkInstalledApps<T extends { appName: string; command?: string 
       ];
       if (opt.command) {
         checks.push(
-          execFileAsync("which", [opt.command], { timeout: 3000 }).then(
+          execFileAsync("which", [opt.command], { timeout: 3000, env }).then(
             () => true,
             () => false,
           ),
@@ -78,10 +80,11 @@ const DEPENDENCIES: DependencyDef[] = [
 ];
 
 async function checkDependencies(): Promise<(DependencyDef & { installed: boolean })[]> {
+  const env = await getShellEnv();
   return Promise.all(
     DEPENDENCIES.map(async (dep) => {
       try {
-        await execFileAsync("which", [dep.command], { timeout: 3000 });
+        await execFileAsync("which", [dep.command], { timeout: 3000, env });
         return { ...dep, installed: true };
       } catch {
         return { ...dep, installed: false };

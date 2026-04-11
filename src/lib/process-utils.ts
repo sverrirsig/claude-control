@@ -48,7 +48,9 @@ export async function isClaudeProcess(pid: number): Promise<boolean> {
     const { stdout } = await execFileAsync("ps", ["-o", "comm=", "-p", String(pid)], {
       timeout: PROCESS_TIMEOUT_MS,
     });
-    return stdout.trim() === "claude";
+    const comm = stdout.trim();
+    const basename = comm.includes("/") ? comm.split("/").pop() || comm : comm;
+    return basename === "claude";
   } catch {
     return false;
   }

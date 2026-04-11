@@ -1,5 +1,6 @@
 import type { TerminalApp } from "../types";
 import { alacrittyAdapter } from "./alacritty";
+import { cmuxAdapter } from "./cmux";
 import { ghosttyAdapter } from "./ghostty";
 import { itermAdapter } from "./iterm";
 import { kittyAdapter } from "./kitty";
@@ -16,6 +17,7 @@ const adapters: Partial<Record<TerminalApp, TerminalAdapter>> = {
   wezterm: weztermAdapter,
   alacritty: alacrittyAdapter,
   warp: warpAdapter,
+  cmux: cmuxAdapter,
 };
 
 export function getAdapter(app: TerminalApp): TerminalAdapter | null {

@@ -15,6 +15,7 @@ const KNOWN_TERMINALS: Record<string, { app: TerminalApp; appName: string; proce
   wezterm: { app: "wezterm", appName: "WezTerm", processName: "WezTerm" },
   alacritty: { app: "alacritty", appName: "Alacritty", processName: "alacritty" },
   warp: { app: "warp", appName: "Warp", processName: "Warp" },
+  cmux: { app: "cmux", appName: "Cmux", processName: "cmux" },
 };
 
 const UNKNOWN_TERMINAL: Pick<TerminalInfo, "app" | "appName" | "processName"> = {
@@ -65,7 +66,8 @@ export async function buildProcessTree(): Promise<Map<number, ProcessTreeEntry>>
 export function findClaudePidsFromTree(processTree: Map<number, ProcessTreeEntry>): number[] {
   const pids: number[] = [];
   Array.from(processTree.entries()).forEach(([pid, entry]) => {
-    if (entry.comm === "claude") {
+    const basename = entry.comm.includes("/") ? entry.comm.split("/").pop() || entry.comm : entry.comm;
+    if (basename === "claude") {
       pids.push(pid);
     }
   });
@@ -224,6 +226,7 @@ export function matchTerminal(comm: string): Pick<TerminalInfo, "app" | "appName
   if (lowerComm.includes("wezterm")) return KNOWN_TERMINALS["wezterm-gui"] ?? KNOWN_TERMINALS["wezterm"];
   if (lowerComm.includes("alacritty")) return KNOWN_TERMINALS["alacritty"];
   if (lowerComm.includes("warp")) return KNOWN_TERMINALS["warp"];
+  if (lowerComm.includes("cmux")) return KNOWN_TERMINALS["cmux"];
 
   return null;
 }
