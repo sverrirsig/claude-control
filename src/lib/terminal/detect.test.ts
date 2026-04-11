@@ -51,6 +51,14 @@ describe("matchTerminal", () => {
     expect(matchTerminal("alacritty")?.app).toBe("alacritty");
   });
 
+  it("matches cmux", () => {
+    expect(matchTerminal("cmux")).toEqual({
+      app: "cmux",
+      appName: "Cmux",
+      processName: "cmux",
+    });
+  });
+
   it("returns null for unknown process", () => {
     expect(matchTerminal("sshd")).toBeNull();
   });
@@ -147,6 +155,16 @@ describe("findClaudePidsFromTree", () => {
       [10, { ppid: 1, comm: "iTerm2", cpuPercent: 0 }],
     ]);
     expect(findClaudePidsFromTree(tree)).toHaveLength(0);
+  });
+
+  it("matches claude with full path (e.g. cmux terminals)", () => {
+    const tree = new Map<number, ProcessTreeEntry>([
+      [100, { ppid: 50, comm: "/Users/someone/.local/bin/claude", cpuPercent: 0 }],
+      [50, { ppid: 10, comm: "zsh", cpuPercent: 0 }],
+    ]);
+    const pids = findClaudePidsFromTree(tree);
+    expect(pids).toContain(100);
+    expect(pids).toHaveLength(1);
   });
 
   it("does not match partial names like claude-code", () => {

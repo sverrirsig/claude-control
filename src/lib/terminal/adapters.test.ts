@@ -11,7 +11,16 @@ describe("adapter registry", () => {
 
   it("returns an adapter for every known terminal", async () => {
     const { getAdapter } = await import("./adapters/registry");
-    const knownApps: TerminalApp[] = ["iterm", "terminal-app", "ghostty", "kitty", "wezterm", "alacritty", "warp"];
+    const knownApps: TerminalApp[] = [
+      "iterm",
+      "terminal-app",
+      "ghostty",
+      "kitty",
+      "wezterm",
+      "alacritty",
+      "warp",
+      "cmux",
+    ];
 
     for (const app of knownApps) {
       const adapter = getAdapter(app);

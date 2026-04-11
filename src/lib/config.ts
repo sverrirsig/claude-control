@@ -67,6 +67,7 @@ export const TERMINAL_APP_OPTIONS = [
   { id: "wezterm", label: "WezTerm", appName: "WezTerm" },
   { id: "alacritty", label: "Alacritty", appName: "Alacritty" },
   { id: "warp", label: "Warp", appName: "Warp" },
+  { id: "cmux", label: "Cmux", appName: "Cmux" },
 ];
 
 export const TERMINAL_OPEN_IN_OPTIONS = [
