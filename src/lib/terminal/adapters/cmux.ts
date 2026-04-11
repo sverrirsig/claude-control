@@ -12,13 +12,7 @@ import {
 } from "./shared";
 import type { CreateSessionOpts, TerminalAdapter } from "./types";
 
-const SESSION_PATH = join(
-  homedir(),
-  "Library",
-  "Application Support",
-  "cmux",
-  "session-com.cmuxterm.app.json",
-);
+const SESSION_PATH = join(homedir(), "Library", "Application Support", "cmux", "session-com.cmuxterm.app.json");
 
 /**
  * Find the cmux terminal panel ID for a given TTY by reading cmux's session file.
