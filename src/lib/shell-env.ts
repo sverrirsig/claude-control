@@ -18,7 +18,11 @@ let resolved: NodeJS.ProcessEnv | undefined;
 export async function getShellEnv(): Promise<NodeJS.ProcessEnv> {
   if (resolved) return resolved;
   try {
-    const { stdout } = await execFileAsync("/bin/sh", ["-lc", "printenv PATH"], {
+    // Use the user's actual login shell (zsh, bash, etc.) rather than /bin/sh,
+    // since /bin/sh -l only sources /etc/profile and ~/.profile, missing the
+    // PATH additions most users put in ~/.zshrc or ~/.bash_profile.
+    const shell = process.env.SHELL || "/bin/zsh";
+    const { stdout } = await execFileAsync(shell, ["-ilc", "printenv PATH"], {
       timeout: 5000,
     });
     const shellPath = stdout.trim();
