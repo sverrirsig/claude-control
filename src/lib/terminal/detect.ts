@@ -1,28 +1,50 @@
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { PROCESS_TIMEOUT_MS } from "../constants";
-import type { ProcessTreeEntry, TerminalApp, TerminalInfo, TmuxClientInfo, TmuxPaneInfo } from "./types";
+import type {
+  ProcessTreeEntry,
+  TerminalApp,
+  TerminalInfo,
+  TmuxClientInfo,
+  TmuxPaneInfo,
+} from "./types";
 
 const execFileAsync = promisify(execFile);
 
 // Known terminal mappings: process name (lowercased) → app info
-const KNOWN_TERMINALS: Record<string, { app: TerminalApp; appName: string; processName: string }> = {
+const KNOWN_TERMINALS: Record<
+  string,
+  { app: TerminalApp; appName: string; processName: string }
+> = {
   iterm2: { app: "iterm", appName: "iTerm2", processName: "iTerm2" },
-  terminal: { app: "terminal-app", appName: "Terminal", processName: "Terminal" },
+  terminal: {
+    app: "terminal-app",
+    appName: "Terminal",
+    processName: "Terminal",
+  },
   ghostty: { app: "ghostty", appName: "Ghostty", processName: "ghostty" },
   kitty: { app: "kitty", appName: "kitty", processName: "kitty" },
-  "wezterm-gui": { app: "wezterm", appName: "WezTerm", processName: "wezterm-gui" },
+  "wezterm-gui": {
+    app: "wezterm",
+    appName: "WezTerm",
+    processName: "wezterm-gui",
+  },
   wezterm: { app: "wezterm", appName: "WezTerm", processName: "WezTerm" },
-  alacritty: { app: "alacritty", appName: "Alacritty", processName: "alacritty" },
+  alacritty: {
+    app: "alacritty",
+    appName: "Alacritty",
+    processName: "alacritty",
+  },
   warp: { app: "warp", appName: "Warp", processName: "Warp" },
   cmux: { app: "cmux", appName: "Cmux", processName: "cmux" },
 };
 
-const UNKNOWN_TERMINAL: Pick<TerminalInfo, "app" | "appName" | "processName"> = {
-  app: "unknown",
-  appName: "Unknown",
-  processName: "unknown",
-};
+const UNKNOWN_TERMINAL: Pick<TerminalInfo, "app" | "appName" | "processName"> =
+  {
+    app: "unknown",
+    appName: "Unknown",
+    processName: "unknown",
+  };
 
 // Cache keyed by PID — only caches successful (non-unknown) detections
 const terminalCache = new Map<number, TerminalInfo>();
@@ -38,11 +60,17 @@ export function evictStaleTerminalCache(alivePids: Set<number>): void {
  * Returns a Map keyed by PID. Includes CPU% so discovery can skip
  * a second ps call for per-process details.
  */
-export async function buildProcessTree(): Promise<Map<number, ProcessTreeEntry>> {
+export async function buildProcessTree(): Promise<
+  Map<number, ProcessTreeEntry>
+> {
   try {
-    const { stdout } = await execFileAsync("ps", ["-eo", "pid,ppid,%cpu,comm"], {
-      timeout: PROCESS_TIMEOUT_MS,
-    });
+    const { stdout } = await execFileAsync(
+      "ps",
+      ["-eo", "pid,ppid,%cpu,comm"],
+      {
+        timeout: PROCESS_TIMEOUT_MS,
+      },
+    );
     const tree = new Map<number, ProcessTreeEntry>();
     for (const line of stdout.split("\n")) {
       const match = line.trim().match(/^(\d+)\s+(\d+)\s+([\d.,]+)\s+(.+)$/);
@@ -63,10 +91,14 @@ export async function buildProcessTree(): Promise<Map<number, ProcessTreeEntry>>
 /**
  * Extract PIDs from the process tree where comm is exactly "claude".
  */
-export function findClaudePidsFromTree(processTree: Map<number, ProcessTreeEntry>): number[] {
+export function findClaudePidsFromTree(
+  processTree: Map<number, ProcessTreeEntry>,
+): number[] {
   const pids: number[] = [];
   Array.from(processTree.entries()).forEach(([pid, entry]) => {
-    const basename = entry.comm.includes("/") ? entry.comm.split("/").pop() || entry.comm : entry.comm;
+    const basename = entry.comm.includes("/")
+      ? entry.comm.split("/").pop() || entry.comm
+      : entry.comm;
     if (basename === "claude") {
       pids.push(pid);
     }
@@ -78,13 +110,19 @@ export function findClaudePidsFromTree(processTree: Map<number, ProcessTreeEntry
  * Get TTYs for multiple PIDs in a single `ps` call.
  * Returns a Map of PID → normalized TTY path.
  */
-export async function getTtysForPids(pids: number[]): Promise<Map<number, string>> {
+export async function getTtysForPids(
+  pids: number[],
+): Promise<Map<number, string>> {
   const result = new Map<number, string>();
   if (pids.length === 0) return result;
   try {
-    const { stdout } = await execFileAsync("ps", ["-o", "pid=,tty=", "-p", pids.join(",")], {
-      timeout: PROCESS_TIMEOUT_MS,
-    });
+    const { stdout } = await execFileAsync(
+      "ps",
+      ["-o", "pid=,tty=", "-p", pids.join(",")],
+      {
+        timeout: PROCESS_TIMEOUT_MS,
+      },
+    );
     for (const line of stdout.trim().split("\n")) {
       const match = line.trim().match(/^(\d+)\s+(.+)$/);
       if (match) {
@@ -104,9 +142,13 @@ export async function getTtysForPids(pids: number[]): Promise<Map<number, string
  * Get the TTY for a single PID. Throws if no TTY found.
  */
 export async function getTtyForPid(pid: number): Promise<string> {
-  const { stdout } = await execFileAsync("ps", ["-o", "tty=", "-p", String(pid)], {
-    timeout: PROCESS_TIMEOUT_MS,
-  });
+  const { stdout } = await execFileAsync(
+    "ps",
+    ["-o", "tty=", "-p", String(pid)],
+    {
+      timeout: PROCESS_TIMEOUT_MS,
+    },
+  );
   const tty = stdout.trim();
   if (!tty || tty === "?" || tty === "??") {
     throw new Error(`No TTY found for PID ${pid}`);
@@ -125,7 +167,12 @@ export async function detectAllTmuxPanes(): Promise<Map<string, TmuxPaneInfo>> {
   try {
     const { stdout } = await execFileAsync(
       "tmux",
-      ["list-panes", "-a", "-F", "#{pane_tty}\t#{pane_id}\t#{session_name}\t#{window_index}\t#{pane_index}"],
+      [
+        "list-panes",
+        "-a",
+        "-F",
+        "#{pane_tty}\t#{pane_id}\t#{session_name}\t#{window_index}\t#{pane_index}",
+      ],
       { timeout: 5000 },
     );
     const panes = new Map<string, TmuxPaneInfo>();
@@ -167,7 +214,11 @@ export async function detectTmuxClients(): Promise<TmuxClientInfo[]> {
       if (parts.length < 3) continue;
       const pid = parseInt(parts[1], 10);
       if (!isNaN(pid)) {
-        clients.push({ tty: normalizeTty(parts[0]), pid, sessionName: parts[2] });
+        clients.push({
+          tty: normalizeTty(parts[0]),
+          pid,
+          sessionName: parts[2],
+        });
       }
     }
     return clients;
@@ -205,7 +256,9 @@ export function findTerminalInTree(
  * Match a process comm string against known terminals.
  * Handles full paths like /Applications/iTerm.app/Contents/MacOS/iTerm2.
  */
-export function matchTerminal(comm: string): Pick<TerminalInfo, "app" | "appName" | "processName"> | null {
+export function matchTerminal(
+  comm: string,
+): Pick<TerminalInfo, "app" | "appName" | "processName"> | null {
   const basename = comm.includes("/") ? comm.split("/").pop() || comm : comm;
   const lower = basename.toLowerCase();
 
@@ -223,7 +276,8 @@ export function matchTerminal(comm: string): Pick<TerminalInfo, "app" | "appName
   if (lowerComm.includes("iterm")) return KNOWN_TERMINALS["iterm2"];
   if (lowerComm.includes("ghostty")) return KNOWN_TERMINALS["ghostty"];
   if (lowerComm.includes("kitty")) return KNOWN_TERMINALS["kitty"];
-  if (lowerComm.includes("wezterm")) return KNOWN_TERMINALS["wezterm-gui"] ?? KNOWN_TERMINALS["wezterm"];
+  if (lowerComm.includes("wezterm"))
+    return KNOWN_TERMINALS["wezterm-gui"] ?? KNOWN_TERMINALS["wezterm"];
   if (lowerComm.includes("alacritty")) return KNOWN_TERMINALS["alacritty"];
   if (lowerComm.includes("warp")) return KNOWN_TERMINALS["warp"];
   if (lowerComm.includes("cmux")) return KNOWN_TERMINALS["cmux"];
@@ -255,7 +309,9 @@ export async function detectTerminal(
     if (inTmux && paneInfo) {
       // In tmux: trace from the tmux client PID to find the GUI terminal
       const clients = tmuxClients ?? (await detectTmuxClients());
-      const sessionClient = clients.find((c) => c.sessionName === paneInfo.sessionName);
+      const sessionClient = clients.find(
+        (c) => c.sessionName === paneInfo.sessionName,
+      );
 
       tmuxInfo = {
         paneId: paneInfo.paneId,
@@ -268,7 +324,9 @@ export async function detectTerminal(
       };
 
       termApp =
-        sessionClient && sessionClient.pid > 0 ? findTerminalInTree(sessionClient.pid, processTree) : UNKNOWN_TERMINAL;
+        sessionClient && sessionClient.pid > 0
+          ? findTerminalInTree(sessionClient.pid, processTree)
+          : UNKNOWN_TERMINAL;
     } else {
       // Not in tmux: walk up from the claude process itself
       termApp = findTerminalInTree(pid, processTree);
@@ -325,7 +383,9 @@ export function isOrphaned(
     visited.add(currentPid);
     const entry = processTree.get(currentPid);
     if (!entry) break;
-    const basename = entry.comm.includes("/") ? entry.comm.split("/").pop() || entry.comm : entry.comm;
+    const basename = entry.comm.includes("/")
+      ? entry.comm.split("/").pop() || entry.comm
+      : entry.comm;
     if (NON_ORPHAN_ANCESTORS.has(basename.toLowerCase())) return false;
     currentPid = entry.ppid;
   }

@@ -21,24 +21,44 @@ export function createGenericAdapter(
 ): TerminalAdapter {
   return {
     async focus(info: TerminalInfo): Promise<void> {
-      await execFileAsync("open", ["-a", info.appName], { timeout: OSASCRIPT_TIMEOUT_MS });
+      await execFileAsync("open", ["-a", info.appName], {
+        timeout: OSASCRIPT_TIMEOUT_MS,
+      });
     },
 
     async sendText(info: TerminalInfo, text: string): Promise<void> {
       const asEscaped = escapeForAppleScript(text);
-      const action = systemEventsScript(info.appName, `keystroke "${asEscaped}"\n    keystroke return`);
-      const script = withFocusDelay(genericActivateScript(info.appName), action, APPLESCRIPT_FOCUS_DELAY_S);
-      await execFileAsync("osascript", ["-e", script], { timeout: OSASCRIPT_TIMEOUT_MS });
+      const action = systemEventsScript(
+        info.appName,
+        `keystroke "${asEscaped}"\n    keystroke return`,
+      );
+      const script = withFocusDelay(
+        genericActivateScript(info.appName),
+        action,
+        APPLESCRIPT_FOCUS_DELAY_S,
+      );
+      await execFileAsync("osascript", ["-e", script], {
+        timeout: OSASCRIPT_TIMEOUT_MS,
+      });
     },
 
     async sendKeystroke(info: TerminalInfo, keystroke: string): Promise<void> {
       const asKeystroke = mapKeystrokeToSystemEvents(keystroke);
       const action = systemEventsScript(info.appName, asKeystroke);
-      const script = withFocusDelay(genericActivateScript(info.appName), action, APPLESCRIPT_FOCUS_DELAY_S);
-      await execFileAsync("osascript", ["-e", script], { timeout: OSASCRIPT_TIMEOUT_MS });
+      const script = withFocusDelay(
+        genericActivateScript(info.appName),
+        action,
+        APPLESCRIPT_FOCUS_DELAY_S,
+      );
+      await execFileAsync("osascript", ["-e", script], {
+        timeout: OSASCRIPT_TIMEOUT_MS,
+      });
     },
 
-    async createSession(command: string, _opts: CreateSessionOpts): Promise<void> {
+    async createSession(
+      command: string,
+      _opts: CreateSessionOpts,
+    ): Promise<void> {
       const { bin, args } = createArgs(command);
       const env = await getShellEnv();
       await execFileAsync(bin, args, { timeout: OSASCRIPT_TIMEOUT_MS, env });

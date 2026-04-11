@@ -25,6 +25,9 @@ export function getAdapter(app: TerminalApp): TerminalAdapter | null {
 }
 
 /** Register a new terminal adapter at runtime. */
-export function registerAdapter(app: TerminalApp, adapter: TerminalAdapter): void {
+export function registerAdapter(
+  app: TerminalApp,
+  adapter: TerminalAdapter,
+): void {
   adapters[app] = adapter;
 }
