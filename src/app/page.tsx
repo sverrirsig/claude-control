@@ -34,6 +34,8 @@ export default function Dashboard() {
     return localStorage.getItem("showKeyboardHints") !== "false";
   });
   const [dismissToast, setDismissToast] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState<{ latest: string; downloadUrl: string } | null>(null);
+  const [updateDismissed, setUpdateDismissed] = useState(false);
   // Optimistic approve/reject state: sessionId → { action, timestamp }
   const [actedSessions, setActedSessions] = useState<Record<string, { action: "approve" | "reject"; at: number }>>({});
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
@@ -78,6 +80,17 @@ export default function Dashboard() {
 
   const handleCancelEdit = useCallback(() => {
     setEditingSessionId(null);
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/version")
+      .then((r) => r.json())
+      .then((v: { updateAvailable: boolean; latest: string; downloadUrl?: string }) => {
+        if (v.updateAvailable && v.downloadUrl) {
+          setUpdateInfo({ latest: v.latest, downloadUrl: v.downloadUrl });
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const { selectedIndex, setSelectedIndex, selectedSession, actionFeedback } = useKeyboardShortcuts({
@@ -309,6 +322,36 @@ export default function Dashboard() {
             setTimeout(() => setDismissToast(false), 4000);
           }}
         />
+      )}
+
+      {updateInfo && !updateDismissed && (
+        <div className="fixed top-12 inset-x-0 z-40 pointer-events-none">
+          <div className="max-w-md mx-auto px-6">
+            <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[#0a0a0f]/95 backdrop-blur-md border border-amber-500/20 pointer-events-auto shadow-lg shadow-black/30">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-zinc-200">
+                  Version <span className="font-medium text-amber-400">{updateInfo.latest}</span> is available
+                </p>
+              </div>
+              <a
+                href={updateInfo.downloadUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium text-amber-300 hover:text-amber-200 bg-amber-500/10 hover:bg-amber-500/15 border border-amber-500/20 hover:border-amber-500/30 transition-colors"
+              >
+                Update
+              </a>
+              <button
+                onClick={() => setUpdateDismissed(true)}
+                className="shrink-0 text-zinc-600 hover:text-zinc-400 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {dismissToast && (

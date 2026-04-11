@@ -4,6 +4,14 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ScreenPicker } from "@/components/ScreenPicker";
 
+interface VersionInfo {
+  current: string;
+  latest: string | null;
+  updateAvailable: boolean;
+  releaseUrl?: string;
+  downloadUrl?: string;
+}
+
 interface OptionDef {
   id: string;
   label: string;
@@ -120,6 +128,7 @@ function SettingRow<T extends OptionDef>({
 
 export default function SettingsPage() {
   const [data, setData] = useState<SettingsData | null>(null);
+  const [versionInfo, setVersionInfo] = useState<VersionInfo | null>(null);
   const [saved, setSaved] = useState(false);
   const [addingDir, setAddingDir] = useState(false);
   const [targetScreen, setTargetScreen] = useState<number | null>(null);
@@ -147,6 +156,11 @@ export default function SettingsPage() {
         setPrPromptDraft(d.config.createPrPrompt ?? "");
         setBaseBranchDraft(d.config.defaultBaseBranch ?? "main");
       })
+      .catch(console.error);
+
+    fetch("/api/version")
+      .then((r) => r.json())
+      .then((v: VersionInfo) => setVersionInfo(v))
       .catch(console.error);
   }, []);
 
@@ -288,6 +302,45 @@ export default function SettingsPage() {
           </Link>
         </div>
       </div>
+
+      {/* Version section */}
+      {versionInfo && (
+        <section className="mb-10">
+          <div className="rounded-xl border border-white/6 bg-[#0a0a0f]/80 px-5 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-zinc-500">Version</span>
+                <span className="text-sm font-medium text-zinc-200">{versionInfo.current}</span>
+                {versionInfo.updateAvailable && versionInfo.latest && (
+                  <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                    {versionInfo.latest} available
+                  </span>
+                )}
+                {versionInfo.latest && !versionInfo.updateAvailable && (
+                  <span className="text-xs text-zinc-600">up to date</span>
+                )}
+              </div>
+              {versionInfo.updateAvailable && versionInfo.downloadUrl && (
+                <a
+                  href={versionInfo.downloadUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-amber-300 hover:text-amber-200 bg-amber-500/10 hover:bg-amber-500/15 border border-amber-500/20 hover:border-amber-500/30 transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
+                    />
+                  </svg>
+                  Download Update
+                </a>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Dependencies section */}
       <section className="mb-10">

@@ -1,4 +1,7 @@
 import { execFile } from "child_process";
+import { access } from "fs/promises";
+import { homedir } from "os";
+import { join } from "path";
 import { NextResponse } from "next/server";
 import { promisify } from "util";
 import {
@@ -53,7 +56,10 @@ interface DependencyDef {
   description: string;
   command: string;
   url: string;
+  knownPaths?: string[];
 }
+
+const home = homedir();
 
 const DEPENDENCIES: DependencyDef[] = [
   {
@@ -69,6 +75,12 @@ const DEPENDENCIES: DependencyDef[] = [
     description: "The whole reason this app exists",
     command: "claude",
     url: "https://docs.anthropic.com/en/docs/claude-code",
+    knownPaths: [
+      join(home, ".local", "bin", "claude"),
+      join(home, ".claude", "bin", "claude"),
+      "/usr/local/bin/claude",
+      "/opt/homebrew/bin/claude",
+    ],
   },
   {
     id: "tmux",
@@ -83,12 +95,25 @@ async function checkDependencies(): Promise<(DependencyDef & { installed: boolea
   const env = await getShellEnv();
   return Promise.all(
     DEPENDENCIES.map(async (dep) => {
+      // Try `which` first
       try {
         await execFileAsync("which", [dep.command], { timeout: 3000, env });
         return { ...dep, installed: true };
       } catch {
-        return { ...dep, installed: false };
+        // Fall through to known paths
       }
+      // Fallback: check known install locations directly
+      if (dep.knownPaths) {
+        for (const p of dep.knownPaths) {
+          try {
+            await access(p);
+            return { ...dep, installed: true };
+          } catch {
+            // Not at this path
+          }
+        }
+      }
+      return { ...dep, installed: false };
     }),
   );
 }
