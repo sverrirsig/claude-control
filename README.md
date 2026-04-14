@@ -25,7 +25,7 @@ When you're running several Claude Code instances across different repos and wor
 - **Desktop notifications** — Native macOS notifications when sessions finish working or need attention (configurable)
 - **Notification sounds** — Subtle two-tone chime on status transitions (configurable)
 - **Quick actions** — One-click buttons to focus the terminal tab, open your editor, git GUI, Finder, or PR link for any session
-- **Multiple terminal support** — Full tab-level control for iTerm2, Terminal.app, kitty, and WezTerm; basic support for Ghostty, Warp, and Alacritty (see [Terminal support](#terminal-support))
+- **Multiple terminal support** — Full tab-level control for iTerm2, Terminal.app, kitty, WezTerm, and cmux; basic support for Ghostty, Warp, and Alacritty (see [Terminal support](#terminal-support))
 - **tmux integration** — Run sessions inside tmux with per-project session grouping or manual session selection; approve/reject without terminal focus via `send-keys`
 - **Configurable tools** — Choose your preferred terminal, code editor (VS Code, Cursor, Zed, etc.), git GUI (Fork, Sublime Merge, etc.), and browser (Chrome, Arc, Safari, etc.)
 - **New session creation** — Create new Claude Code sessions with git worktree support, repo browsing, and custom initial prompts
@@ -150,6 +150,7 @@ These terminals support tab-level focus, text input, and keystroke sending — c
 | [**iTerm2**](https://iterm2.com/) | AppleScript (TTY matching) | Iterates windows/tabs/sessions, matches by TTY path. Native `write text` for keystrokes. Works out of the box. |
 | [**kitty**](https://sw.kovidgoyal.net/kitty/) | Remote control (Unix socket) | Uses `kitten @` IPC to resolve window by PID, then focus by window ID. Supports tmux-in-kitty matching. Requires configuration (see below). |
 | [**WezTerm**](https://wezfurlong.org/wezterm/) | CLI (`wezterm cli`) | Uses `wezterm cli` to list panes, focus by pane ID, and send text directly. Works out of the box. |
+| [**cmux**](https://cmux.dev/) | AppleScript (panel ID) | Reads cmux's native session JSON to resolve TTY → panel ID, then focuses via AppleScript. Works out of the box. |
 
 #### kitty configuration
 
