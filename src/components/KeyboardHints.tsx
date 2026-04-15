@@ -23,14 +23,19 @@ function Hint({ keys, label }: { keys: string; label: string }) {
 export function KeyboardHints({
   selectedSession,
   actionFeedback,
+  staleCount,
+  hideStale,
   onDismiss,
 }: {
   selectedSession: ClaudeSession | null;
   actionFeedback?: { label: string; color: string } | null;
+  staleCount?: number;
+  hideStale?: boolean;
   onDismiss?: () => void;
 }) {
   const isWaiting = selectedSession?.status === "waiting" && selectedSession?.hasPendingToolUse;
   const { editorAvailable, gitGuiAvailable } = useSettings();
+  const showStaleHint = (staleCount ?? 0) > 0;
 
   return (
     <div className="fixed bottom-0 inset-x-0 z-40 pointer-events-none">
@@ -51,6 +56,7 @@ export function KeyboardHints({
           ) : (
             <>
               <Hint keys="1-9" label="select" />
+              {showStaleHint && <Hint keys="S" label={hideStale ? "show stale" : "hide stale"} />}
               {selectedSession ? (
                 <>
                   <span className="w-px h-3 bg-zinc-800" />

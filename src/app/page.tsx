@@ -129,6 +129,9 @@ export default function Dashboard() {
     onApproveReject: handleApproveReject,
     onViewModeChange: handleViewModeChange,
     onStartEdit: handleStartEdit,
+    staleCount,
+    hideStale,
+    onToggleHideStale: handleToggleHideStale,
   });
 
   // Clear stale-session selection when toggled into hidden state
@@ -349,6 +352,8 @@ export default function Dashboard() {
         <KeyboardHints
           selectedSession={selectedSession}
           actionFeedback={actionFeedback}
+          staleCount={staleCount}
+          hideStale={hideStale}
           onDismiss={() => {
             setShowKeyboardHints(false);
             localStorage.setItem("showKeyboardHints", "false");
