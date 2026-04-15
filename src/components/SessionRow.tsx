@@ -18,6 +18,7 @@ export function SessionRow({
   prStatus,
   onSelect,
   displayStatus,
+  isStale,
   onApproveReject,
 }: {
   session: ClaudeSession;
@@ -26,6 +27,7 @@ export function SessionRow({
   prStatus?: PrStatus | null;
   onSelect?: () => void;
   displayStatus: SessionStatus;
+  isStale?: boolean;
   onApproveReject?: (action: "approve" | "reject") => void;
 }) {
   const colors = statusColors[displayStatus];
@@ -43,7 +45,7 @@ export function SessionRow({
         selected
           ? "bg-blue-500/8 border border-blue-400/30 shadow-[0_0_20px_rgba(96,165,250,0.1)]"
           : "bg-white/2 border border-transparent hover:bg-white/4 hover:border-white/6"
-      }`}
+      } ${isStale && !selected ? "opacity-55 hover:opacity-100" : ""}`}
     >
       {/* Shortcut number */}
       {shortcutNumber !== undefined && (
@@ -69,6 +71,9 @@ export function SessionRow({
         <span className={`text-xs font-medium ${colors.text}`}>{statusLabels[displayStatus]}</span>
         {session.orphaned && (
           <span className="text-[10px] font-semibold uppercase tracking-wider text-orange-400">Orphaned</span>
+        )}
+        {isStale && (
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Stale</span>
         )}
       </div>
 
