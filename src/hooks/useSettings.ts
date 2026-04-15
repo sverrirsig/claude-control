@@ -12,6 +12,7 @@ interface SettingsResponse {
     alwaysNotify: boolean;
     editor: string;
     gitGui: string;
+    staleThresholdMinutes: number;
   };
   options: {
     editors: AppOption[];
@@ -26,6 +27,8 @@ function isAppAvailable(options: AppOption[] | undefined, selectedId: string | u
   return options.find((o) => o.id === selectedId)?.installed ?? false;
 }
 
+export const DEFAULT_STALE_THRESHOLD_MINUTES = 90;
+
 export function useSettings() {
   const { data } = useSWR<SettingsResponse>("/api/settings", fetcher, {
     revalidateOnFocus: false,
@@ -36,6 +39,7 @@ export function useSettings() {
     notifications: data?.config?.notifications ?? true,
     notificationSound: data?.config?.notificationSound ?? true,
     alwaysNotify: data?.config?.alwaysNotify ?? false,
+    staleThresholdMinutes: data?.config?.staleThresholdMinutes ?? DEFAULT_STALE_THRESHOLD_MINUTES,
     editorAvailable: isAppAvailable(data?.options?.editors, data?.config?.editor),
     gitGuiAvailable: isAppAvailable(data?.options?.gitGuis, data?.config?.gitGui),
   };
