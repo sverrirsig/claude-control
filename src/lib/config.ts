@@ -23,6 +23,7 @@ export interface AppConfig {
   createPrPrompt: string;
   defaultBaseBranch: string;
   showKeyboardHints: boolean;
+  staleThresholdMinutes: number;
 }
 
 export const DEFAULT_INITIAL_PROMPT =
@@ -97,6 +98,7 @@ const DEFAULT_CONFIG: AppConfig = {
   createPrPrompt: DEFAULT_CREATE_PR_PROMPT,
   defaultBaseBranch: "main",
   showKeyboardHints: true,
+  staleThresholdMinutes: 90,
 };
 
 export async function loadConfig(): Promise<AppConfig> {
