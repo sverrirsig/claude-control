@@ -2,6 +2,7 @@
 
 import { sendKeystrokeAction } from "@/lib/actions";
 import { groupSessions } from "@/lib/group-sessions";
+import { isSessionStale } from "@/lib/stale";
 import { ClaudeSession, PrStatus, ViewMode } from "@/lib/types";
 import { SessionCard } from "./SessionCard";
 import { SessionRow } from "./SessionRow";
@@ -105,6 +106,7 @@ export function SessionGrid({
   prStatuses,
   onNewSessionInRepo,
   actedSessions,
+  staleThresholdMinutes,
   onApproveReject,
   editingSessionId,
   onStartEdit,
@@ -121,6 +123,7 @@ export function SessionGrid({
   prStatuses?: Record<string, PrStatus | null>;
   onNewSessionInRepo?: (repoPath: string, repoName: string) => void;
   actedSessions?: Record<string, { action: "approve" | "reject"; at: number }>;
+  staleThresholdMinutes: number;
   onApproveReject?: (sessionId: string, action: "approve" | "reject") => void;
   editingSessionId?: string | null;
   onStartEdit?: (sessionId: string) => void;
@@ -190,6 +193,7 @@ export function SessionGrid({
 
   const renderCard = (session: ClaudeSession) => {
     const { key, idx, isSelected } = getSessionProps(session);
+    const stale = isSessionStale(session.lastActivity, staleThresholdMinutes);
     return (
       <SessionCard
         key={key}
@@ -200,6 +204,7 @@ export function SessionGrid({
         shortcutNumber={idx < 9 ? idx + 1 : undefined}
         actionFeedback={isSelected ? actionFeedback : undefined}
         prStatus={session.prUrl ? (prStatuses?.[session.prUrl] ?? undefined) : undefined}
+        isStale={stale}
         onSelect={() => onSelectIndex?.(isSelected ? null : idx)}
         actedOn={actedSessions?.[session.id]}
         onApproveReject={onApproveReject ? (action) => onApproveReject(session.id, action) : undefined}
@@ -213,6 +218,7 @@ export function SessionGrid({
 
   const renderRow = (session: ClaudeSession) => {
     const { key, idx, isSelected, displayStatus } = getSessionProps(session);
+    const stale = isSessionStale(session.lastActivity, staleThresholdMinutes);
     return (
       <SessionRow
         key={key}
@@ -220,6 +226,7 @@ export function SessionGrid({
         selected={isSelected}
         shortcutNumber={idx < 9 ? idx + 1 : undefined}
         prStatus={session.prUrl ? (prStatuses?.[session.prUrl] ?? undefined) : undefined}
+        isStale={stale}
         onSelect={() => onSelectIndex?.(isSelected ? null : idx)}
         displayStatus={displayStatus}
         onApproveReject={
