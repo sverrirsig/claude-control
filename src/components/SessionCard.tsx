@@ -7,6 +7,7 @@ import { OutputPreview } from "./OutputPreview";
 import { PrStatusBadge } from "./PrStatusBadge";
 import { QuickActions } from "./QuickActions";
 import { QuickReply } from "./QuickReply";
+import { StalePill } from "./StalePill";
 import { StatusBadge } from "./StatusBadge";
 import { TaskSummaryView } from "./TaskSummaryView";
 
@@ -57,6 +58,7 @@ export function SessionCard({
   shortcutNumber,
   actionFeedback,
   prStatus,
+  isStale,
   onSelect,
   actedOn,
   onApproveReject,
@@ -72,6 +74,7 @@ export function SessionCard({
   shortcutNumber?: number;
   actionFeedback?: { label: string; color: string } | null;
   prStatus?: PrStatus | null;
+  isStale?: boolean;
   onSelect?: () => void;
   actedOn?: { action: "approve" | "reject"; at: number };
   onApproveReject?: (action: "approve" | "reject") => void;
@@ -155,7 +158,7 @@ export function SessionCard({
     <div className="relative">
       <div
         onClick={onSelect}
-        className={`group relative flex flex-col rounded-xl border bg-[#0a0a0f]/80 backdrop-blur-xs p-5 card-hover cursor-pointer ${selected ? "ring-2 ring-blue-400 border-blue-400/50 shadow-[0_0_30px_rgba(96,165,250,0.25),0_0_60px_rgba(96,165,250,0.10)] scale-[1.02]" : styles.border} ${!selected ? styles.glow : ""} ${pulse ? "attention-pulse" : ""} ${cleanupState === "cleaning" ? "opacity-50 pointer-events-none" : ""}`}
+        className={`group relative flex flex-col rounded-xl border bg-[#0a0a0f]/80 backdrop-blur-xs p-5 card-hover cursor-pointer transition-opacity duration-200 ${selected ? "ring-2 ring-blue-400 border-blue-400/50 shadow-[0_0_30px_rgba(96,165,250,0.25),0_0_60px_rgba(96,165,250,0.10)] scale-[1.02]" : styles.border} ${!selected && !isStale ? styles.glow : ""} ${pulse ? "attention-pulse" : ""} ${cleanupState === "cleaning" ? "opacity-50 pointer-events-none" : ""} ${isStale && !selected ? "opacity-60 hover:opacity-100" : ""}`}
       >
         {/* Gradient accent at top */}
         <div
@@ -206,7 +209,10 @@ export function SessionCard({
                 {session.workingDirectory.replace(/.*\/([^/]+\/[^/]+)$/, "$1")}
               </p>
             </div>
-            <StatusBadge status={displayStatus} orphaned={session.orphaned} />
+            <div className="flex items-center gap-1.5 shrink-0">
+              <StatusBadge status={displayStatus} orphaned={session.orphaned} />
+              {isStale && <StalePill />}
+            </div>
           </div>
 
           {/* Git info + PR status */}
