@@ -7,7 +7,6 @@ import { OutputPreview } from "./OutputPreview";
 import { PrStatusBadge } from "./PrStatusBadge";
 import { QuickActions } from "./QuickActions";
 import { QuickReply } from "./QuickReply";
-import { StalePill } from "./StalePill";
 import { StatusBadge } from "./StatusBadge";
 import { TaskSummaryView } from "./TaskSummaryView";
 
@@ -209,10 +208,7 @@ export function SessionCard({
                 {session.workingDirectory.replace(/.*\/([^/]+\/[^/]+)$/, "$1")}
               </p>
             </div>
-            <div className="flex items-center gap-1.5 shrink-0">
-              <StatusBadge status={displayStatus} orphaned={session.orphaned} />
-              {isStale && <StalePill />}
-            </div>
+            <StatusBadge status={displayStatus} orphaned={session.orphaned} stale={isStale} />
           </div>
 
           {/* Git info + PR status */}

@@ -30,7 +30,8 @@ export function SessionRow({
   isStale?: boolean;
   onApproveReject?: (action: "approve" | "reject") => void;
 }) {
-  const colors = statusColors[displayStatus];
+  const colors = isStale ? { dot: "bg-zinc-500", text: "text-zinc-400" } : statusColors[displayStatus];
+  const label = isStale ? "Stale" : statusLabels[displayStatus];
   const isWaiting = displayStatus === "waiting";
 
   const repoLabel =
@@ -63,17 +64,14 @@ export function SessionRow({
       {/* Status dot + label */}
       <div className="shrink-0 flex items-center gap-2 w-[140px]">
         <span className="relative flex h-2 w-2 shrink-0">
-          {displayStatus === "working" && (
+          {!isStale && displayStatus === "working" && (
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-50" />
           )}
           <span className={`relative inline-flex h-2 w-2 rounded-full ${colors.dot}`} />
         </span>
-        <span className={`text-xs font-medium ${colors.text}`}>{statusLabels[displayStatus]}</span>
+        <span className={`text-xs font-medium ${colors.text}`}>{label}</span>
         {session.orphaned && (
           <span className="text-[10px] font-semibold uppercase tracking-wider text-orange-400">Orphaned</span>
-        )}
-        {isStale && (
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Stale</span>
         )}
       </div>
 
