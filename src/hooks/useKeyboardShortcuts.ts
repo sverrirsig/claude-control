@@ -173,11 +173,12 @@ export function useKeyboardShortcuts({
         return;
       }
 
-      // S: toggle stale visibility (app-level, only when stale sessions exist)
+      // S: toggle stale visibility (app-level, only when stale sessions exist).
+      // No flash feedback — the header pill state change is enough, and a flash
+      // would slow down rapid toggling.
       if (e.key.toLowerCase() === "s" && !e.shiftKey && onToggleHideStale && (staleCount ?? 0) > 0) {
         e.preventDefault();
         onToggleHideStale();
-        flash(hideStale ? `${staleCount} stale shown` : `${staleCount} stale hidden`);
         return;
       }
 
