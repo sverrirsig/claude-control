@@ -47,6 +47,7 @@ interface SettingsData {
     createPrPrompt: string;
     defaultBaseBranch: string;
     showKeyboardHints: boolean;
+    staleThresholdMinutes: number;
   };
   options: {
     editors: AppOptionDef[];
@@ -136,10 +137,12 @@ export default function SettingsPage() {
   const [promptDraft, setPromptDraft] = useState<string | null>(null);
   const [prPromptDraft, setPrPromptDraft] = useState<string | null>(null);
   const [baseBranchDraft, setBaseBranchDraft] = useState<string | null>(null);
+  const [thresholdDraft, setThresholdDraft] = useState<string | null>(null);
   const commandTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const promptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prPromptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const baseBranchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const thresholdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const s = localStorage.getItem("targetScreen");
@@ -155,6 +158,7 @@ export default function SettingsPage() {
         setPromptDraft(d.config.initialPrompt ?? "");
         setPrPromptDraft(d.config.createPrPrompt ?? "");
         setBaseBranchDraft(d.config.defaultBaseBranch ?? "main");
+        setThresholdDraft(String(d.config.staleThresholdMinutes ?? 90));
       })
       .catch(console.error);
 
@@ -231,6 +235,21 @@ export default function SettingsPage() {
     [data],
   );
 
+  const saveThresholdDebounced = useCallback(
+    (value: string) => {
+      setThresholdDraft(value);
+      if (thresholdTimerRef.current) clearTimeout(thresholdTimerRef.current);
+      thresholdTimerRef.current = setTimeout(() => {
+        const n = parseInt(value, 10);
+        if (Number.isFinite(n) && n >= 5) {
+          save({ staleThresholdMinutes: n } as Partial<SettingsData["config"]>);
+        }
+      }, 500);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- save is intentionally excluded (unstable reference)
+    [data],
+  );
+
   // Flush pending saves on unmount
   useEffect(() => {
     return () => {
@@ -238,6 +257,7 @@ export default function SettingsPage() {
       if (promptTimerRef.current) clearTimeout(promptTimerRef.current);
       if (prPromptTimerRef.current) clearTimeout(prPromptTimerRef.current);
       if (baseBranchTimerRef.current) clearTimeout(baseBranchTimerRef.current);
+      if (thresholdTimerRef.current) clearTimeout(thresholdTimerRef.current);
     };
   }, []);
 
@@ -488,6 +508,25 @@ export default function SettingsPage() {
               localStorage.setItem("showKeyboardHints", String(showKeyboardHints));
             }}
           />
+          <div className="flex items-center justify-between py-4">
+            <div className="flex-1 min-w-0 mr-4">
+              <h3 className="text-sm font-medium text-zinc-200">Stale Threshold</h3>
+              <p className="text-xs text-zinc-500 mt-0.5">
+                Sessions with no activity for longer than this are marked stale (minimum 5 minutes)
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <input
+                type="number"
+                min={5}
+                step={5}
+                value={thresholdDraft ?? "90"}
+                onChange={(e) => saveThresholdDebounced(e.target.value)}
+                className="w-20 px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-700/50 text-sm text-zinc-200 focus:outline-hidden focus:border-zinc-600 transition-colors text-right font-(family-name:--font-geist-mono)"
+              />
+              <span className="text-xs text-zinc-500">minutes</span>
+            </div>
+          </div>
         </div>
       </section>
 

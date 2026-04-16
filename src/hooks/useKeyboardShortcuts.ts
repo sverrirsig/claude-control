@@ -14,6 +14,9 @@ interface UseKeyboardShortcutsOptions {
   onApproveReject?: (sessionId: string, action: "approve" | "reject") => void;
   onViewModeChange?: (mode: ViewMode) => void;
   onStartEdit?: (sessionId: string) => void;
+  staleCount?: number;
+  hideStale?: boolean;
+  onToggleHideStale?: () => void;
 }
 
 export function useKeyboardShortcuts({
@@ -24,6 +27,9 @@ export function useKeyboardShortcuts({
   onApproveReject,
   onViewModeChange,
   onStartEdit,
+  staleCount,
+  hideStale,
+  onToggleHideStale,
 }: UseKeyboardShortcutsOptions) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [actionFeedback, setActionFeedback] = useState<{ label: string; color: string } | null>(null);
@@ -167,6 +173,15 @@ export function useKeyboardShortcuts({
         return;
       }
 
+      // S: toggle stale visibility (app-level, only when stale sessions exist).
+      // No flash feedback — the header pill state change is enough, and a flash
+      // would slow down rapid toggling.
+      if (e.key.toLowerCase() === "s" && !e.shiftKey && onToggleHideStale && (staleCount ?? 0) > 0) {
+        e.preventDefault();
+        onToggleHideStale();
+        return;
+      }
+
       // Actions on selected session
       if (selectedSession === null) return;
 
@@ -245,6 +260,9 @@ export function useKeyboardShortcuts({
     onApproveReject,
     onStartEdit,
     onViewModeChange,
+    onToggleHideStale,
+    staleCount,
+    hideStale,
     editorAvailable,
     gitGuiAvailable,
   ]);

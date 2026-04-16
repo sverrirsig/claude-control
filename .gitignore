@@ -17,3 +17,4 @@ tmp/
 
 # Claude Code
 .claude/worktrees/
+docs/superpowers/

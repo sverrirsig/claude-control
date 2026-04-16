@@ -13,6 +13,7 @@ import { usePrStatus } from "@/hooks/usePrStatus";
 import { useSessions } from "@/hooks/useSessions";
 import { useSettings } from "@/hooks/useSettings";
 import { flattenGroupedSessions } from "@/lib/group-sessions";
+import { isSessionStale } from "@/lib/stale";
 import { SessionStatus, ViewMode } from "@/lib/types";
 
 export default function Dashboard() {
@@ -32,6 +33,10 @@ export default function Dashboard() {
   const [showKeyboardHints, setShowKeyboardHints] = useState(() => {
     if (typeof window === "undefined") return true;
     return localStorage.getItem("showKeyboardHints") !== "false";
+  });
+  const [hideStale, setHideStale] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("hideStale") === "true";
   });
   const [dismissToast, setDismissToast] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<{ latest: string; downloadUrl: string } | null>(null);
@@ -82,6 +87,14 @@ export default function Dashboard() {
     setEditingSessionId(null);
   }, []);
 
+  const handleToggleHideStale = useCallback(() => {
+    setHideStale((prev) => {
+      const next = !prev;
+      localStorage.setItem("hideStale", String(next));
+      return next;
+    });
+  }, []);
+
   useEffect(() => {
     fetch("/api/version")
       .then((r) => r.json())
@@ -93,15 +106,41 @@ export default function Dashboard() {
       .catch(() => {});
   }, []);
 
+  const {
+    notifications: notificationsEnabled,
+    notificationSound: soundEnabled,
+    alwaysNotify,
+    staleThresholdMinutes,
+  } = useSettings();
+
+  const staleCount = sessions.reduce(
+    (count, s) => (isSessionStale(s.lastActivity, staleThresholdMinutes) ? count + 1 : count),
+    0,
+  );
+  const visibleSessions = hideStale
+    ? sessions.filter((s) => !isSessionStale(s.lastActivity, staleThresholdMinutes))
+    : sessions;
+
   const { selectedIndex, setSelectedIndex, selectedSession, actionFeedback } = useKeyboardShortcuts({
-    sessions,
+    sessions: visibleSessions,
     targetScreen,
     onNewGlobal: handleNewGlobal,
     onNewInRepo: handleNewInRepo,
     onApproveReject: handleApproveReject,
     onViewModeChange: handleViewModeChange,
     onStartEdit: handleStartEdit,
+    staleCount,
+    hideStale,
+    onToggleHideStale: handleToggleHideStale,
   });
+
+  // Clear stale-session selection when toggled into hidden state
+  useEffect(() => {
+    if (!hideStale || selectedIndex === null || selectedIndex === undefined) return;
+    if (selectedIndex >= visibleSessions.length) {
+      setSelectedIndex(null);
+    }
+  }, [hideStale, selectedIndex, visibleSessions.length, setSelectedIndex]);
 
   // Clear optimistic state when backend catches up or after timeout
   useEffect(() => {
@@ -145,7 +184,6 @@ export default function Dashboard() {
     }
   }, [sessions, actedSessions]);
   const prStatuses = usePrStatus(sessions);
-  const { notifications: notificationsEnabled, notificationSound: soundEnabled, alwaysNotify } = useSettings();
 
   // Track confirmed statuses (only update after a status has been stable for 2 polls)
   const rawStatuses = useRef<Map<string, SessionStatus>>(new Map());
@@ -258,10 +296,13 @@ export default function Dashboard() {
   return (
     <>
       <DashboardHeader
-        sessionCount={sessions.length}
+        sessionCount={visibleSessions.length}
         onNewSession={handleNewGlobal}
         viewMode={viewMode}
         onViewModeChange={handleViewModeChange}
+        staleCount={staleCount}
+        hideStale={hideStale}
+        onToggleHideStale={handleToggleHideStale}
       />
 
       {isLoading && sessions.length === 0 && (
@@ -288,7 +329,7 @@ export default function Dashboard() {
 
       {!(isLoading && sessions.length === 0) && (
         <SessionGrid
-          sessions={sessions}
+          sessions={visibleSessions}
           viewMode={viewMode}
           targetScreen={targetScreen}
           freshlyChanged={freshlyChanged}
@@ -298,6 +339,7 @@ export default function Dashboard() {
           prStatuses={prStatuses}
           onNewSessionInRepo={handleNewInRepo}
           actedSessions={actedSessions}
+          staleThresholdMinutes={staleThresholdMinutes}
           onApproveReject={handleApproveReject}
           editingSessionId={editingSessionId}
           onStartEdit={handleStartEdit}
@@ -310,6 +352,8 @@ export default function Dashboard() {
         <KeyboardHints
           selectedSession={selectedSession}
           actionFeedback={actionFeedback}
+          staleCount={staleCount}
+          hideStale={hideStale}
           onDismiss={() => {
             setShowKeyboardHints(false);
             localStorage.setItem("showKeyboardHints", "false");
