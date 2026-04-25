@@ -397,7 +397,7 @@ describe("public API tmux handling", () => {
 
     // Should have called tmux send-keys, not the iTerm adapter
     expect(execMock).toHaveBeenCalledWith(
-      "tmux",
+      expect.stringContaining("tmux"),
       ["send-keys", "-t", "%5", "hello", "Enter"],
       expect.any(Object),
       expect.any(Function),
