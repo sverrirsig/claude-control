@@ -15,7 +15,9 @@
     "typecheck": "tsc --noEmit",
     "electron:dev": "concurrently --kill-others \"next dev -p 3200\" \"wait-on http://localhost:3200 && electron .\"",
     "electron:build": "next build && node scripts/prepare-build.js && electron-builder --mac --publish never",
+    "electron:build:arm64": "next build && node scripts/prepare-build.js && electron-builder --mac --arm64 --publish never",
     "electron:pack": "next build && node scripts/prepare-build.js && electron-builder --mac --dir",
+    "electron:pack:arm64": "next build && node scripts/prepare-build.js && electron-builder --mac --arm64 --dir",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -74,7 +76,9 @@
       ]
     },
     "files": [
-      "electron/**/*"
+      "electron/**/*",
+      "!node_modules/@next/swc-*",
+      "!node_modules/@next/swc-*/**/*"
     ],
     "afterPack": "./scripts/after-pack.js"
   }

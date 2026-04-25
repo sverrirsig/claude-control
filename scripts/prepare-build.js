@@ -18,6 +18,17 @@ console.log("Assembling standalone Next.js app...");
 // Use cp -RL to dereference symlinks and copy everything
 execSync(`cp -RL "${standaloneDir}" "${outDir}"`, { stdio: "inherit" });
 
+// Remove SWC native binaries — only needed at build time, not runtime
+const nextDir = path.join(outDir, "node_modules", "@next");
+if (fs.existsSync(nextDir)) {
+  for (const entry of fs.readdirSync(nextDir)) {
+    if (entry.startsWith("swc-")) {
+      fs.rmSync(path.join(nextDir, entry), { recursive: true });
+      console.log(`Removed @next/${entry} (build-time only).`);
+    }
+  }
+}
+
 // Copy static assets into .next/static
 const staticDest = path.join(outDir, ".next", "static");
 fs.mkdirSync(staticDest, { recursive: true });
