@@ -1,23 +1,74 @@
 const { app, BrowserWindow, shell, utilityProcess, dialog, ipcMain } = require("electron");
+const { execFileSync } = require("child_process");
 const { spawn } = require("child_process");
 const path = require("path");
 const net = require("net");
 const http = require("http");
+const os = require("os");
 
 const PORT = 3200;
 let nextProcess = null;
 
 // Electron apps launched from Finder/dock get a minimal PATH (/usr/bin:/bin:/usr/sbin:/sbin).
-// Augment it so child processes can find tools like `gh` installed via Homebrew or other managers.
-const EXTRA_PATHS = ["/opt/homebrew/bin", "/usr/local/bin", "/opt/homebrew/sbin"];
-if (process.env.PATH) {
-  const existing = process.env.PATH.split(":");
+// Resolve the user's real shell PATH once at startup so every child process inherits it.
+const EXTRA_PATHS = [
+  path.join(os.homedir(), ".local", "bin"),
+  path.join(os.homedir(), ".claude", "bin"),
+  "/opt/homebrew/bin",
+  "/usr/local/bin",
+  "/opt/homebrew/sbin",
+];
+
+function getLoginShell() {
+  // process.env.SHELL can be stale (launchd caches it from login time).
+  // Query dscl for the authoritative value, fall back to $SHELL.
+  try {
+    const out = execFileSync("dscl", [".", "-read", `/Users/${os.userInfo().username}`, "UserShell"], {
+      timeout: 2000,
+      encoding: "utf-8",
+    });
+    const match = out.match(/UserShell:\s*(.+)/);
+    if (match) return match[1].trim();
+  } catch {
+    // dscl unavailable (Linux, etc.)
+  }
+  return process.env.SHELL || "/bin/zsh";
+}
+
+function resolveShellPath() {
+  const loginShell = getLoginShell();
+  // Try non-interactive login shell first (avoids TTY-dependent plugins),
+  // then interactive as fallback for users who set PATH only in .zshrc/.bashrc.
+  for (const flags of ["-lc", "-ilc"]) {
+    try {
+      const stdout = execFileSync(loginShell, [flags, "printenv PATH"], {
+        timeout: 3000,
+        encoding: "utf-8",
+        env: { ...process.env, TERM: "dumb", HOME: os.homedir() },
+      });
+      const shellPath = stdout.trim();
+      if (shellPath && shellPath.includes("/")) return shellPath;
+    } catch {
+      // Next attempt
+    }
+  }
+  return null;
+}
+
+const shellPath = resolveShellPath();
+if (shellPath) {
+  const parts = shellPath.split(":");
+  for (const p of EXTRA_PATHS) {
+    if (!parts.includes(p)) parts.push(p);
+  }
+  process.env.PATH = parts.join(":");
+} else {
+  // Fallback: merge extras into whatever PATH we have
+  const existing = (process.env.PATH || "/usr/bin:/bin:/usr/sbin:/sbin").split(":");
   for (const p of EXTRA_PATHS) {
     if (!existing.includes(p)) existing.push(p);
   }
   process.env.PATH = existing.join(":");
-} else {
-  process.env.PATH = ["/usr/bin", "/bin", "/usr/sbin", "/sbin", ...EXTRA_PATHS].join(":");
 }
 let mainWindow = null;
 let isQuitting = false;

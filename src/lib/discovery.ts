@@ -138,6 +138,11 @@ async function buildSession(
       hasPendingToolUse: pendingToolUse,
     });
 
+  // Recent user activity overrides orphan detection — if the session had
+  // input within the last 60s it's clearly not abandoned.
+  const recentActivity =
+    mtime !== null && Date.now() - mtime.getTime() < 60_000;
+
   return {
     id: sessionId,
     pid: info.pid,
@@ -155,7 +160,7 @@ async function buildSession(
     taskSummary,
     jsonlPath,
     prUrl,
-    orphaned,
+    orphaned: recentActivity ? false : orphaned,
     tmuxSession,
   };
 }

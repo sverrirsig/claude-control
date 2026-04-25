@@ -1,6 +1,7 @@
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { PROCESS_TIMEOUT_MS } from "../constants";
+import { getTmuxBin } from "./tmux-bin";
 import type { ProcessTreeEntry, TerminalApp, TerminalInfo, TmuxClientInfo, TmuxPaneInfo } from "./types";
 
 const execFileAsync = promisify(execFile);
@@ -124,7 +125,7 @@ function normalizeTty(tty: string): string {
 export async function detectAllTmuxPanes(): Promise<Map<string, TmuxPaneInfo>> {
   try {
     const { stdout } = await execFileAsync(
-      "tmux",
+      getTmuxBin(),
       ["list-panes", "-a", "-F", "#{pane_tty}\t#{pane_id}\t#{session_name}\t#{window_index}\t#{pane_index}"],
       { timeout: 5000 },
     );
@@ -157,7 +158,7 @@ export async function detectAllTmuxPanes(): Promise<Map<string, TmuxPaneInfo>> {
 export async function detectTmuxClients(): Promise<TmuxClientInfo[]> {
   try {
     const { stdout } = await execFileAsync(
-      "tmux",
+      getTmuxBin(),
       ["list-clients", "-F", "#{client_tty}\t#{client_pid}\t#{client_session}"],
       { timeout: 5000 },
     );

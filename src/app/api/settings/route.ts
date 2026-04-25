@@ -68,6 +68,7 @@ const DEPENDENCIES: DependencyDef[] = [
     description: "Pull request detection and status checks",
     command: "gh",
     url: "https://cli.github.com",
+    knownPaths: ["/opt/homebrew/bin/gh", "/usr/local/bin/gh"],
   },
   {
     id: "claude",
@@ -88,6 +89,7 @@ const DEPENDENCIES: DependencyDef[] = [
     description: "Background terminal sessions and send-keys support",
     command: "tmux",
     url: "https://github.com/tmux/tmux",
+    knownPaths: ["/opt/homebrew/bin/tmux", "/usr/local/bin/tmux"],
   },
 ];
 
