@@ -152,6 +152,25 @@ function stripXmlTags(text: string): string | null {
   return stripped.length > 0 ? stripped : null;
 }
 
+/**
+ * Extract human-authored text from a user message. Current Claude Code stores
+ * user turns as a content-block array; older transcripts used a plain string.
+ * Returns null for turns with no text blocks (e.g. tool_result-only messages),
+ * which should not be surfaced as user input.
+ */
+function userMessageText(
+  content: string | Array<{ type: string; text?: string }> | undefined,
+): string | null {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    const texts = content
+      .filter((b) => b.type === "text" && typeof b.text === "string")
+      .map((b) => b.text as string);
+    return texts.length > 0 ? texts.join("\n") : null;
+  }
+  return null;
+}
+
 function detectCommandWarnings(name: string, input?: Record<string, unknown>): string[] {
   if (name !== "Bash" || !input || typeof input.command !== "string") return [];
   const cmd = input.command;
@@ -210,8 +229,10 @@ export function extractPreview(lines: JsonlLine[]): ConversationPreview {
     if (line.type === "progress" || line.type === "file-history-snapshot" || line.type === "system") continue;
     if (!line.message) continue;
 
-    if (line.type === "user" && typeof line.message.content === "string") {
-      const text = line.message.content.trim();
+    if (line.type === "user") {
+      const userText = userMessageText(line.message.content);
+      if (userText === null) continue;
+      const text = userText.trim();
 
       // Detect /clear command — reset preview state
       if (text === "/clear" || text.includes("<command-name>/clear</command-name>")) {
@@ -268,15 +289,16 @@ export function linesToConversation(lines: JsonlLine[]): ConversationMessage[] {
     if (line.type === "progress" || line.type === "file-history-snapshot" || line.type === "system") continue;
     if (!line.message) continue;
 
-    if (line.type === "user" && typeof line.message.content === "string") {
-      const rawText = line.message.content.trim();
+    if (line.type === "user") {
+      const userText = userMessageText(line.message.content);
+      if (userText === null) continue;
       // Skip system-injected messages (XML tags like <system-reminder>)
-      if (isSystemMessage(rawText)) continue;
+      if (isSystemMessage(userText.trim())) continue;
 
       messages.push({
         type: "user",
         timestamp: line.timestamp || "",
-        text: line.message.content,
+        text: userText,
         toolUses: [],
       });
     } else if (line.type === "assistant" && Array.isArray(line.message.content)) {
@@ -470,9 +492,9 @@ export function extractTaskSummary(headLines: JsonlLine[]): TaskSummary | null {
   // Strategy 2: Fall back to first user message (if it's not a generic prompt)
   for (const line of headLines) {
     if (line.type !== "user" || !line.message) continue;
-    const content = line.message.content;
-    if (typeof content !== "string") continue;
-    let text = content.trim();
+    const userText = userMessageText(line.message.content);
+    if (userText === null) continue;
+    let text = userText.trim();
     if (!text) continue;
 
     // Skip system-injected messages; try stripping XML tags for mixed content

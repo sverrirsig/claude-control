@@ -30,6 +30,16 @@ function toolUseBlock(name: string, input?: Record<string, unknown>) {
   return { type: "tool_use", name, input };
 }
 
+// Current Claude Code (both terminal and the VS Code extension) writes user
+// turns as a content-block array rather than a plain string.
+function userArrayLine(blocks: Array<Record<string, unknown>>, extra = {}) {
+  return { type: "user", message: { role: "user", content: blocks }, ...extra };
+}
+
+function toolResultBlock(content: unknown = "result") {
+  return { type: "tool_result", tool_use_id: "toolu_x", content };
+}
+
 describe("extractSessionId", () => {
   it("finds first sessionId", () => {
     const lines = [
@@ -219,6 +229,48 @@ describe("extractPreview", () => {
     const lines = [assistantLine([toolUseBlock("Read", { file_path: "/etc/passwd" })])];
     expect(extractPreview(lines).lastTools[0].warnings).toEqual([]);
   });
+
+  it("extracts user text from array-format content", () => {
+    const lines = [userArrayLine([textBlock("fix the bug")]), assistantLine([textBlock("Done.")])];
+    const preview = extractPreview(lines);
+    expect(preview.lastUserMessage).toBe("fix the bug");
+    expect(preview.messageCount).toBe(2);
+  });
+
+  it("joins multiple text blocks in array-format user content", () => {
+    const lines = [userArrayLine([textBlock("first line"), textBlock("second line")])];
+    expect(extractPreview(lines).lastUserMessage).toBe("first line\nsecond line");
+  });
+
+  it("skips tool_result-only user array lines", () => {
+    const lines = [
+      userArrayLine([textBlock("run the tests")]),
+      assistantLine([toolUseBlock("Bash", { command: "npm test" })]),
+      userArrayLine([toolResultBlock("All passed")]),
+    ];
+    const preview = extractPreview(lines);
+    expect(preview.lastUserMessage).toBe("run the tests");
+    expect(preview.assistantIsNewer).toBe(true);
+  });
+
+  it("filters system-injected XML in array-format user content", () => {
+    const lines = [userArrayLine([textBlock("<system-reminder>Be helpful</system-reminder>")])];
+    const preview = extractPreview(lines);
+    expect(preview.lastUserMessage).toBeNull();
+    expect(preview.messageCount).toBe(0);
+  });
+
+  it("resets state on /clear in array-format user content", () => {
+    const lines = [
+      userArrayLine([textBlock("old message")]),
+      assistantLine([textBlock("old reply")]),
+      userArrayLine([textBlock("<command-name>/clear</command-name>")]),
+      userArrayLine([textBlock("new message")]),
+    ];
+    const preview = extractPreview(lines);
+    expect(preview.lastUserMessage).toBe("new message");
+    expect(preview.lastAssistantText).toBeNull();
+  });
 });
 
 describe("lastMessageHasError", () => {
@@ -400,6 +452,18 @@ describe("linesToConversation", () => {
     expect(msgs[0].text).toBe("hello");
     expect(msgs[1].text).toBe("Hi!");
   });
+
+  it("includes array-format user text and excludes tool_result-only lines", () => {
+    const lines = [
+      { ...userArrayLine([textBlock("hello there")]), timestamp: "t1" },
+      { ...assistantLine([toolUseBlock("Read", { file_path: "/x" })]), timestamp: "t2" },
+      { ...userArrayLine([toolResultBlock("file contents")]), timestamp: "t3" },
+    ];
+    const msgs = linesToConversation(lines);
+    const userMsgs = msgs.filter((m) => m.type === "user");
+    expect(userMsgs).toHaveLength(1);
+    expect(userMsgs[0].text).toBe("hello there");
+  });
 });
 
 describe("extractTaskSummary", () => {
@@ -464,6 +528,25 @@ describe("extractTaskSummary", () => {
     const lines = [
       userLine("<system-reminder>You are Claude Code</system-reminder>"),
       userLine("Build the auth module"),
+    ];
+    const summary = extractTaskSummary(lines);
+    expect(summary).not.toBeNull();
+    expect(summary!.title).toBe("Build the auth module");
+  });
+
+  it("falls back to first user message in array-format content", () => {
+    const lines = [userArrayLine([textBlock("Add dark mode toggle\nShould respect system preferences")])];
+    const summary = extractTaskSummary(lines);
+    expect(summary).not.toBeNull();
+    expect(summary!.title).toBe("Add dark mode toggle");
+    expect(summary!.description).toBe("Should respect system preferences");
+    expect(summary!.source).toBe("prompt");
+  });
+
+  it("skips tool_result-only array lines when finding task summary", () => {
+    const lines = [
+      userArrayLine([toolResultBlock("some tool output")]),
+      userArrayLine([textBlock("Build the auth module")]),
     ];
     const summary = extractTaskSummary(lines);
     expect(summary).not.toBeNull();
