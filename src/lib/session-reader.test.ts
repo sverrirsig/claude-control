@@ -32,7 +32,7 @@ function toolUseBlock(name: string, input?: Record<string, unknown>) {
 
 // Current Claude Code (both terminal and the VS Code extension) writes user
 // turns as a content-block array rather than a plain string.
-function userArrayLine(blocks: Array<Record<string, unknown>>, extra = {}) {
+function userArrayLine(blocks: ContentBlock[], extra = {}) {
   return { type: "user", message: { role: "user", content: blocks }, ...extra };
 }
 
