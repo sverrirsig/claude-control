@@ -1,7 +1,7 @@
 import { escapeForAppleScript, execFileAsync, OSASCRIPT_TIMEOUT_MS } from "./terminal/adapters/shared";
 
 /** Browsers whose tabs can be scripted via the Chromium AppleScript dictionary. */
-export const CHROMIUM_BROWSERS = ["Google Chrome", "Arc", "Brave Browser", "Microsoft Edge"];
+export const CHROMIUM_BROWSERS = ["Google Chrome", "Arc", "Dia", "Brave Browser", "Microsoft Edge"];
 
 /**
  * Close the first browser tab whose URL starts with `url`. Chromium browsers

@@ -30,6 +30,18 @@ describe("closeBrowserTab", () => {
     expect(script).toContain("close aTab");
   });
 
+  it("treats Dia as a Chromium browser", async () => {
+    const execMock = mockExec();
+    const { closeBrowserTab } = await import("./close-tabs");
+
+    await closeBrowserTab("Dia", "https://github.com/org/repo/pull/42");
+
+    const call = execMock.mock.calls.find((c) => c[0] === "osascript");
+    expect(call).toBeDefined();
+    const script = (call![1] as string[])[1];
+    expect(script).toContain('tell application "Dia"');
+  });
+
   it("does nothing for non-Chromium browsers", async () => {
     const execMock = mockExec();
     const { closeBrowserTab } = await import("./close-tabs");
