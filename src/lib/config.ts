@@ -56,6 +56,7 @@ export const BROWSER_OPTIONS = [
   { id: "safari", label: "Safari", appName: "Safari" },
   { id: "chrome", label: "Google Chrome", appName: "Google Chrome" },
   { id: "arc", label: "Arc", appName: "Arc" },
+  { id: "dia", label: "Dia", appName: "Dia" },
   { id: "firefox", label: "Firefox", appName: "Firefox" },
   { id: "firefox-dev", label: "Firefox Developer Edition", appName: "Firefox Developer Edition" },
   { id: "brave", label: "Brave", appName: "Brave Browser" },
