@@ -175,6 +175,7 @@ export async function PUT(request: Request) {
         typeof body.staleThresholdMinutes === "number" && body.staleThresholdMinutes >= 5
           ? Math.floor(body.staleThresholdMinutes)
           : current.staleThresholdMinutes,
+      cleanupCloseTabs: body.cleanupCloseTabs ?? current.cleanupCloseTabs,
     };
 
     await saveConfig(updated);

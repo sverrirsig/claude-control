@@ -206,6 +206,13 @@ export const kittyAdapter: TerminalAdapter = {
     await genericFallback.sendKeystroke(info, keystroke);
   },
 
+  async closeSession(info: TerminalInfo): Promise<void> {
+    const windowId = await findKittyWindowId(info);
+    if (windowId !== null) {
+      await kittenRemote(["close-window", "--match", `id:${windowId}`]);
+    }
+  },
+
   async createSession(command: string, opts: CreateSessionOpts): Promise<void> {
     const launchArgs = [
       "launch",

@@ -355,6 +355,132 @@ describe("kitty adapter", () => {
   });
 });
 
+// ── closeSession tests ──────────────────────────────────────────────────────
+
+describe("closeSession", () => {
+  const baseInfo = {
+    appName: "iTerm2",
+    processName: "iTerm2",
+    pid: 12345,
+    inTmux: false,
+    tty: "/dev/ttys007",
+  };
+
+  /** Mock child_process.execFile, recording calls and succeeding. */
+  function mockExec(handler?: (bin: string, args: string[]) => string | null) {
+    const execMock = vi.fn().mockImplementation((...args: unknown[]) => {
+      const cb = args[args.length - 1] as (err: Error | null, result?: { stdout: string; stderr: string }) => void;
+      const stdout = handler?.(args[0] as string, args[1] as string[]) ?? "";
+      cb(null, { stdout, stderr: "" });
+    });
+    vi.doMock("child_process", () => ({ execFile: execMock }));
+    return execMock;
+  }
+
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  it("kills the tmux pane when the session is in tmux", async () => {
+    const execMock = mockExec();
+    const { closeSession } = await import("./adapters");
+
+    await closeSession({
+      ...baseInfo,
+      app: "iterm",
+      inTmux: true,
+      tmux: {
+        paneId: "%5",
+        sessionName: "main",
+        windowIndex: 1,
+        paneIndex: 0,
+        target: "main:1.0",
+        clientPid: 500,
+        clientTty: "/dev/ttys003",
+      },
+    });
+
+    expect(execMock).toHaveBeenCalledWith(
+      expect.stringContaining("tmux"),
+      ["kill-pane", "-t", "%5"],
+      expect.any(Object),
+      expect.any(Function),
+    );
+    // Should not touch the terminal adapter — the terminal tab hosts the tmux client
+    expect(execMock).not.toHaveBeenCalledWith("osascript", expect.any(Array), expect.any(Object), expect.any(Function));
+  });
+
+  it("closes the iTerm session matching the tty", async () => {
+    const execMock = mockExec();
+    const { closeSession } = await import("./adapters");
+
+    await closeSession({ ...baseInfo, app: "iterm" });
+
+    const call = execMock.mock.calls.find((c) => c[0] === "osascript");
+    expect(call).toBeDefined();
+    const script = (call![1] as string[])[1];
+    expect(script).toContain('tell application "iTerm"');
+    expect(script).toContain("/dev/ttys007");
+    expect(script).toContain("close aSession");
+  });
+
+  it("closes the Terminal.app tab via focus + cmd-W", async () => {
+    const execMock = mockExec();
+    const { closeSession } = await import("./adapters");
+
+    await closeSession({ ...baseInfo, app: "terminal-app", appName: "Terminal", processName: "Terminal" });
+
+    const call = execMock.mock.calls.find((c) => c[0] === "osascript");
+    expect(call).toBeDefined();
+    const script = (call![1] as string[])[1];
+    expect(script).toContain('tell application "Terminal"');
+    expect(script).toContain("/dev/ttys007");
+    expect(script).toContain('keystroke "w" using command down');
+  });
+
+  it("closes the kitty window matching the pid", async () => {
+    const fakeLs = JSON.stringify([
+      { tabs: [{ windows: [{ id: 7, pid: 300, foreground_processes: [{ pid: 12345 }] }] }] },
+    ]);
+    vi.doMock("fs", () => ({ readdirSync: () => ["kitty-12345"] }));
+    const execMock = mockExec((bin, args) => (bin === "kitten" && args.includes("ls") ? fakeLs : null));
+    const { closeSession } = await import("./adapters");
+
+    await closeSession({ ...baseInfo, app: "kitty", appName: "kitty", processName: "kitty" });
+
+    expect(execMock).toHaveBeenCalledWith(
+      "kitten",
+      expect.arrayContaining(["close-window", "--match", "id:7"]),
+      expect.any(Object),
+      expect.any(Function),
+    );
+  });
+
+  it("kills the WezTerm pane matching the tty", async () => {
+    const fakePanes = JSON.stringify([{ pane_id: 3, tab_id: 1, window_id: 1, tty_name: "/dev/ttys007" }]);
+    const execMock = mockExec((bin, args) => (bin.endsWith("wezterm") && args.includes("list") ? fakePanes : null));
+    const { closeSession } = await import("./adapters");
+
+    await closeSession({ ...baseInfo, app: "wezterm", appName: "WezTerm", processName: "wezterm-gui" });
+
+    expect(execMock).toHaveBeenCalledWith(
+      expect.stringContaining("wezterm"),
+      ["cli", "kill-pane", "--pane-id", "3"],
+      expect.any(Object),
+      expect.any(Function),
+    );
+  });
+
+  it("does nothing for terminals without closeSession support", async () => {
+    const execMock = mockExec();
+    const { closeSession } = await import("./adapters");
+
+    await closeSession({ ...baseInfo, app: "warp", appName: "Warp", processName: "Warp" });
+
+    expect(execMock).not.toHaveBeenCalled();
+  });
+});
+
 // ── Public API tmux delegation tests ────────────────────────────────────────
 
 describe("public API tmux handling", () => {

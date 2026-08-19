@@ -2,6 +2,7 @@ import { exec, execFile } from "child_process";
 import { stat } from "fs/promises";
 import { NextResponse } from "next/server";
 import { promisify } from "util";
+import { CHROMIUM_BROWSERS } from "@/lib/close-tabs";
 import { BROWSER_OPTIONS, EDITOR_OPTIONS, GIT_GUI_OPTIONS, loadConfig } from "@/lib/config";
 import {
   buildProcessTree,
@@ -174,8 +175,7 @@ export async function POST(request: Request) {
         const browserDef = BROWSER_OPTIONS.find((b) => b.id === browserConfig.browser) ?? BROWSER_OPTIONS[0];
         const escapedUrl = escapeForAppleScript(url);
 
-        const chromiumBrowsers = ["Google Chrome", "Arc", "Brave Browser", "Microsoft Edge"];
-        if (chromiumBrowsers.includes(browserDef.appName)) {
+        if (CHROMIUM_BROWSERS.includes(browserDef.appName)) {
           const script = `
 tell application "${browserDef.appName}"
   set found to false

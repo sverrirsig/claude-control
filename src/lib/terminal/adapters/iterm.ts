@@ -99,6 +99,23 @@ end tell`;
     await execFileAsync("osascript", ["-e", script], { timeout: OSASCRIPT_TIMEOUT_MS });
   },
 
+  async closeSession(info: TerminalInfo): Promise<void> {
+    const safeTty = escapeForAppleScript(info.tty);
+    const script = `tell application "iTerm"
+  repeat with aWindow in windows
+    repeat with aTab in tabs of aWindow
+      repeat with aSession in sessions of aTab
+        if tty of aSession is "${safeTty}" then
+          close aSession
+          return
+        end if
+      end repeat
+    end repeat
+  end repeat
+end tell`;
+    await execFileAsync("osascript", ["-e", script], { timeout: OSASCRIPT_TIMEOUT_MS });
+  },
+
   async createSession(command: string, opts: CreateSessionOpts): Promise<void> {
     const asCmd = escapeForAppleScript(command);
     const script =

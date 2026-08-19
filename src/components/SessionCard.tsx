@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSettings } from "@/hooks/useSettings";
 import { ClaudeSession, PrStatus, SessionStatus } from "@/lib/types";
 import { GitSummary } from "./GitSummary";
 import { OutputPreview } from "./OutputPreview";
@@ -87,6 +88,7 @@ export function SessionCard({
   const displayStatus = isSuppressed ? (actedOn!.action === "reject" ? "idle" : "working") : session.status;
   const styles = cardStyles[displayStatus];
   const [cleanupState, setCleanupState] = useState<"idle" | "confirm" | "cleaning" | "done">("idle");
+  const { cleanupCloseTabs } = useSettings();
 
   const canCleanup =
     session.isWorktree && (displayStatus === "idle" || displayStatus === "waiting" || displayStatus === "finished");
@@ -111,6 +113,7 @@ export function SessionCard({
           body: JSON.stringify({
             pid: session.pid,
             workingDirectory: session.workingDirectory,
+            prUrl: session.prUrl,
           }),
         });
         if (res.ok) {
@@ -270,7 +273,9 @@ export function SessionCard({
           {/* Confirmation bar — slides in over the actions */}
           {cleanupState === "confirm" ? (
             <div className="flex items-center gap-2 cleanup-slide-in">
-              <span className="text-xs text-zinc-400 flex-1">Remove worktree and session?</span>
+              <span className="text-xs text-zinc-400 flex-1">
+                {cleanupCloseTabs ? "Remove worktree, session, and related tabs?" : "Remove worktree and session?"}
+              </span>
               <button
                 onClick={cancelCleanup}
                 className="px-3 py-1.5 rounded-lg text-xs text-zinc-500 hover:text-zinc-300 bg-white/4 hover:bg-white/8 border border-white/7 transition-colors"

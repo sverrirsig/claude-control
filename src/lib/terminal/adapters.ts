@@ -32,6 +32,19 @@ export async function focusSession(info: TerminalInfo): Promise<void> {
   await adapter.focus(effectiveInfo);
 }
 
+export async function closeSession(info: TerminalInfo): Promise<void> {
+  // tmux: kill the pane — the terminal tab hosts the tmux client, which may
+  // still show other windows/panes, so leave it alone
+  if (info.inTmux && info.tmux) {
+    await execFileAsync(getTmuxBin(), ["kill-pane", "-t", info.tmux.paneId], { timeout: PROCESS_TIMEOUT_MS });
+    return;
+  }
+
+  const adapter = getAdapter(info.app);
+  if (!adapter?.closeSession) return; // Terminal doesn't support closing tabs
+  await adapter.closeSession(info);
+}
+
 export async function sendText(info: TerminalInfo, text: string): Promise<void> {
   // tmux: send directly to the pane — works in background without focus
   if (info.inTmux && info.tmux) {
