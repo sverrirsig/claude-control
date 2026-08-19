@@ -52,6 +52,14 @@ export const terminalAppAdapter: TerminalAdapter = {
     await execFileAsync("osascript", ["-e", script], { timeout: OSASCRIPT_TIMEOUT_MS });
   },
 
+  async closeSession(info: TerminalInfo): Promise<void> {
+    // Terminal.app's dictionary can't close individual tabs — select the tab
+    // first, then close it with cmd-W via System Events
+    const action = systemEventsScript("Terminal", `keystroke "w" using command down`);
+    const script = withFocusDelay(focusScript(info.tty), action, APPLESCRIPT_FOCUS_DELAY_S);
+    await execFileAsync("osascript", ["-e", script], { timeout: OSASCRIPT_TIMEOUT_MS });
+  },
+
   async createSession(command: string, opts: CreateSessionOpts): Promise<void> {
     const asCmd = escapeForAppleScript(command);
     // "do script in front window" opens a tab; plain "do script" opens a new window.

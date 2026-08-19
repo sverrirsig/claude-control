@@ -13,6 +13,7 @@ interface SettingsResponse {
     editor: string;
     gitGui: string;
     staleThresholdMinutes: number;
+    cleanupCloseTabs: boolean;
   };
   options: {
     editors: AppOption[];
@@ -40,6 +41,7 @@ export function useSettings() {
     notificationSound: data?.config?.notificationSound ?? true,
     alwaysNotify: data?.config?.alwaysNotify ?? false,
     staleThresholdMinutes: data?.config?.staleThresholdMinutes ?? DEFAULT_STALE_THRESHOLD_MINUTES,
+    cleanupCloseTabs: data?.config?.cleanupCloseTabs ?? false,
     editorAvailable: isAppAvailable(data?.options?.editors, data?.config?.editor),
     gitGuiAvailable: isAppAvailable(data?.options?.gitGuis, data?.config?.gitGui),
   };

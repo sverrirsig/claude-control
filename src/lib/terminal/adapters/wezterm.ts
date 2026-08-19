@@ -132,6 +132,16 @@ export const weztermAdapter: TerminalAdapter = {
     await execFileAsync("osascript", ["-e", script], { timeout: OSASCRIPT_TIMEOUT_MS });
   },
 
+  async closeSession(info: TerminalInfo): Promise<void> {
+    const pane = await findPaneByTty(info.tty);
+    if (pane) {
+      const bin = resolveWeztermBin();
+      await execFileAsync(bin, ["cli", "kill-pane", "--pane-id", String(pane.pane_id)], {
+        timeout: CLI_TIMEOUT_MS,
+      });
+    }
+  },
+
   async createSession(command: string, opts: CreateSessionOpts): Promise<void> {
     const bin = resolveWeztermBin();
     if (opts.openIn === "tab") {

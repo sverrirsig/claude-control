@@ -1,14 +1,19 @@
 import { execFile } from "child_process";
 import { stat } from "fs/promises";
+import { basename } from "path";
 import { NextResponse } from "next/server";
 import { promisify } from "util";
+import { closeBrowserTab, closeGitGuiTab } from "@/lib/close-tabs";
+import { BROWSER_OPTIONS, GIT_GUI_OPTIONS, loadConfig } from "@/lib/config";
 import { isClaudeProcess } from "@/lib/process-utils";
+import { buildProcessTree, closeSession, detectAllTmuxPanes, detectTerminal, TerminalInfo } from "@/lib/terminal";
 
 const execFileAsync = promisify(execFile);
 
 interface CleanupRequest {
   pid: number | null;
   workingDirectory: string;
+  prUrl?: string | null;
 }
 
 async function killProcess(pid: number): Promise<void> {
@@ -97,10 +102,24 @@ async function deleteBranch(worktreeDir: string, branch: string): Promise<void> 
 export async function POST(request: Request) {
   try {
     const body: CleanupRequest = await request.json();
-    const { pid, workingDirectory } = body;
+    const { pid, workingDirectory, prUrl } = body;
 
     if (!workingDirectory) {
       return NextResponse.json({ error: "Missing workingDirectory" }, { status: 400 });
+    }
+
+    const config = await loadConfig();
+
+    // Resolve the terminal tab before killing the process — detection needs
+    // the live PID to find its TTY
+    let terminalInfo: TerminalInfo | null = null;
+    if (config.cleanupCloseTabs && pid) {
+      try {
+        const [tree, panes] = await Promise.all([buildProcessTree(), detectAllTmuxPanes()]);
+        terminalInfo = await detectTerminal(pid, tree, panes);
+      } catch {
+        // Can't resolve the terminal — skip tab cleanup for it
+      }
     }
 
     // Get the branch name before we tear things down
@@ -130,6 +149,17 @@ export async function POST(request: Request) {
     // Step 3: Delete the local branch
     if (branch) {
       await deleteBranch(workingDirectory, branch);
+    }
+
+    // Step 4: Close related tabs (opt-in via settings, all best-effort)
+    if (config.cleanupCloseTabs) {
+      const gitGui = GIT_GUI_OPTIONS.find((g) => g.id === config.gitGui);
+      const browser = BROWSER_OPTIONS.find((b) => b.id === config.browser);
+      await Promise.all([
+        terminalInfo ? closeSession(terminalInfo).catch(() => {}) : Promise.resolve(),
+        gitGui?.appName ? closeGitGuiTab(gitGui.appName, basename(workingDirectory)) : Promise.resolve(),
+        prUrl && browser ? closeBrowserTab(browser.appName, prUrl) : Promise.resolve(),
+      ]);
     }
 
     return NextResponse.json({ ok: true });

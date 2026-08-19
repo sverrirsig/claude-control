@@ -48,6 +48,7 @@ interface SettingsData {
     defaultBaseBranch: string;
     showKeyboardHints: boolean;
     staleThresholdMinutes: number;
+    cleanupCloseTabs: boolean;
   };
   options: {
     editors: AppOptionDef[];
@@ -585,6 +586,19 @@ export default function SettingsPage() {
               className="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-700/50 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-hidden focus:border-zinc-600 transition-colors"
             />
           </div>
+        </div>
+      </section>
+
+      {/* Cleanup section */}
+      <section className="mb-10">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-3">Cleanup</h2>
+        <div className="rounded-xl border border-white/6 bg-[#0a0a0f]/80 px-5">
+          <Toggle
+            label="Close Related Tabs"
+            description="When cleaning up a session, also close its terminal tab, git GUI tab, and PR browser tab. Closing git GUI tabs requires accessibility permission."
+            enabled={data.config.cleanupCloseTabs ?? false}
+            onChange={(cleanupCloseTabs) => save({ cleanupCloseTabs })}
+          />
         </div>
       </section>
 

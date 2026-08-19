@@ -24,6 +24,7 @@ export interface AppConfig {
   defaultBaseBranch: string;
   showKeyboardHints: boolean;
   staleThresholdMinutes: number;
+  cleanupCloseTabs: boolean;
 }
 
 export const DEFAULT_INITIAL_PROMPT =
@@ -100,6 +101,7 @@ const DEFAULT_CONFIG: AppConfig = {
   defaultBaseBranch: "main",
   showKeyboardHints: true,
   staleThresholdMinutes: 90,
+  cleanupCloseTabs: false,
 };
 
 export async function loadConfig(): Promise<AppConfig> {
