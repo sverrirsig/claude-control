@@ -8,6 +8,7 @@ import {
   systemEventsScript,
   withFocusDelay,
 } from "./shared";
+import { tryFocusItermSession } from "./iterm-api";
 import type { CreateSessionOpts, TerminalAdapter } from "./types";
 
 function focusScript(ttyPath: string): string {
@@ -39,6 +40,8 @@ end tell`;
 
 export const itermAdapter: TerminalAdapter = {
   async focus(info: TerminalInfo): Promise<void> {
+    if (await tryFocusItermSession(info.tty)) return;
+
     await execFileAsync("osascript", ["-e", focusScript(info.tty)], { timeout: OSASCRIPT_TIMEOUT_MS });
   },
 
