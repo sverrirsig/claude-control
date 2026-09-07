@@ -147,10 +147,14 @@ These terminals support tab-level focus, text input, and keystroke sending — c
 | Terminal | Focus method | How it works |
 |---|---|---|
 | [**Terminal.app**](https://support.apple.com/guide/terminal/) | AppleScript (TTY matching) | Matches tabs by TTY, uses System Events for keystrokes. Works out of the box. |
-| [**iTerm2**](https://iterm2.com/) | AppleScript (TTY matching) | Iterates windows/tabs/sessions, matches by TTY path. Native `write text` for keystrokes. Works out of the box. |
+| [**iTerm2**](https://iterm2.com/) | iTerm API with AppleScript fallback | The API matches the exact TTY, including hotkey-window sessions. AppleScript fallback handles regular windows. Native `write text` for keystrokes. |
 | [**kitty**](https://sw.kovidgoyal.net/kitty/) | Remote control (Unix socket) | Uses `kitten @` IPC to resolve window by PID, then focus by window ID. Supports tmux-in-kitty matching. Requires configuration (see below). |
 | [**WezTerm**](https://wezfurlong.org/wezterm/) | CLI (`wezterm cli`) | Uses `wezterm cli` to list panes, focus by pane ID, and send text directly. Works out of the box. |
 | [**cmux**](https://cmux.dev/) | AppleScript (panel ID) | Reads cmux's native session JSON to resolve TTY → panel ID, then focuses via AppleScript. Works out of the box. |
+
+#### iTerm2 hotkey window configuration
+
+Hotkey-window tab focus requires **iTerm2 → Settings → General → Magic → Enable Python API**. If the API is disabled or unavailable, Claude Control silently uses the AppleScript fallback, which still handles regular iTerm windows but cannot see hotkey windows.
 
 #### kitty configuration
 

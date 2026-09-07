@@ -119,6 +119,103 @@ describe("createGenericAdapter", () => {
   });
 });
 
+// ── iTerm adapter tests ─────────────────────────────────────────────────────
+
+describe("iTerm adapter focus", () => {
+  const itermInfo = {
+    app: "iterm" as const,
+    appName: "iTerm2",
+    processName: "iTerm2",
+    pid: 42000,
+    inTmux: false,
+    tty: "/dev/ttys007",
+  };
+
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  function mockExec() {
+    const execMock = vi.fn().mockImplementation((...args: unknown[]) => {
+      const callback = args[args.length - 1] as (error: null, result: { stdout: string; stderr: string }) => void;
+      callback(null, { stdout: "", stderr: "" });
+    });
+    vi.doMock("child_process", () => ({ execFile: execMock }));
+    return execMock;
+  }
+
+  it("uses the API helper for the exact tty without running AppleScript focus", async () => {
+    const tryFocusItermSession = vi.fn().mockResolvedValue(true);
+    vi.doMock("./adapters/iterm-api", () => ({ tryFocusItermSession }));
+    const execMock = mockExec();
+    const { itermAdapter } = await import("./adapters/iterm");
+
+    await itermAdapter.focus(itermInfo);
+
+    expect(tryFocusItermSession).toHaveBeenCalledOnce();
+    expect(tryFocusItermSession).toHaveBeenCalledWith("/dev/ttys007");
+    expect(execMock).not.toHaveBeenCalled();
+  });
+
+  it("runs the existing AppleScript focus once when the API helper returns false", async () => {
+    const tryFocusItermSession = vi.fn().mockResolvedValue(false);
+    vi.doMock("./adapters/iterm-api", () => ({ tryFocusItermSession }));
+    const execMock = mockExec();
+    const { itermAdapter } = await import("./adapters/iterm");
+
+    await itermAdapter.focus(itermInfo);
+
+    expect(tryFocusItermSession).toHaveBeenCalledWith("/dev/ttys007");
+    expect(execMock).toHaveBeenCalledOnce();
+    expect(execMock).toHaveBeenCalledWith(
+      "osascript",
+      ["-e", expect.stringContaining('if tty of aSession is "/dev/ttys007" then')],
+      expect.any(Object),
+      expect.any(Function),
+    );
+    const script = execMock.mock.calls[0][1][1] as string;
+    expect(script).toContain("select aWindow");
+    expect(script).toContain("select aTab");
+    expect(script).toContain("select aSession");
+  });
+
+  it("passes the tmux client tty from focusSession to the API helper", async () => {
+    const tryFocusItermSession = vi.fn().mockResolvedValue(true);
+    vi.doMock("./adapters/iterm-api", () => ({ tryFocusItermSession }));
+    const execMock = mockExec();
+    const { focusSession } = await import("./adapters");
+
+    await focusSession({
+      ...itermInfo,
+      inTmux: true,
+      tty: "/dev/ttys005",
+      tmux: {
+        paneId: "%5",
+        sessionName: "main",
+        windowIndex: 1,
+        paneIndex: 0,
+        target: "main:1.0",
+        clientPid: 500,
+        clientTty: "/dev/ttys003",
+      },
+    });
+
+    expect(execMock).toHaveBeenCalledWith(
+      expect.stringContaining("tmux"),
+      ["select-window", "-t", "main:1"],
+      expect.any(Object),
+      expect.any(Function),
+    );
+    expect(execMock).toHaveBeenCalledWith(
+      expect.stringContaining("tmux"),
+      ["select-pane", "-t", "%5"],
+      expect.any(Object),
+      expect.any(Function),
+    );
+    expect(tryFocusItermSession).toHaveBeenCalledWith("/dev/ttys003");
+  });
+});
+
 // ── Kitty adapter tests ────────────────────────────────────────────────────
 
 describe("kitty adapter", () => {
